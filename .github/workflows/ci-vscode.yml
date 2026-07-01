@@ -2,12 +2,12 @@ name: VS Code Extension CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'extensions/vscode/**'
       - '.github/workflows/ci-vscode.yml'
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'extensions/vscode/**'
 
