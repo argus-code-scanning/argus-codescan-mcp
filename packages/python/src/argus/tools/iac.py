@@ -3,6 +3,7 @@
 Integrates: Checkov (Terraform, CloudFormation, Kubernetes, Dockerfile, Helm),
             Trivy (container image scanning), Terrascan, kube-linter.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,15 +44,14 @@ async def run_checkov(
 
     if not is_tool_available("checkov"):
         result.tool_available = False
-        result.errors.append(
-            "checkov is not installed. Install with: pip install checkov"
-        )
+        result.errors.append("checkov is not installed. Install with: pip install checkov")
         return result
 
     target_path = Path(target)
     cmd = [
         "checkov",
-        "--output", "json",
+        "--output",
+        "json",
         "--compact",
         "--quiet",
     ]
@@ -83,14 +83,11 @@ async def run_checkov(
     results_list = data if isinstance(data, list) else [data]
 
     for res in results_list:
-        fw = res.get("check_type", framework or "unknown")
         failed_checks = res.get("results", {}).get("failed_checks", [])
 
         for check in failed_checks:
             sev_str = (
-                check.get("severity")
-                or check.get("check_result", {}).get("result", "")
-                or "MEDIUM"
+                check.get("severity") or check.get("check_result", {}).get("result", "") or "MEDIUM"
             )
             if not isinstance(sev_str, str):
                 sev_str = "MEDIUM"
@@ -132,9 +129,12 @@ async def run_trivy_image(
         return result
 
     cmd = [
-        "trivy", "image",
-        "--format", "json",
-        "--exit-code", "0",
+        "trivy",
+        "image",
+        "--format",
+        "json",
+        "--exit-code",
+        "0",
         image,
     ]
     if extra_args:
@@ -187,9 +187,12 @@ async def run_trivy_config(
         return result
 
     cmd = [
-        "trivy", "config",
-        "--format", "json",
-        "--exit-code", "0",
+        "trivy",
+        "config",
+        "--format",
+        "json",
+        "--exit-code",
+        "0",
         target,
     ]
     if extra_args:
@@ -242,9 +245,12 @@ async def run_terrascan(
         return result
 
     cmd = [
-        "terrascan", "scan",
-        "--output", "json",
-        "--iac-dir", target,
+        "terrascan",
+        "scan",
+        "--output",
+        "json",
+        "--iac-dir",
+        target,
     ]
     if iac_type != "all":
         cmd.extend(["--iac-type", iac_type])
@@ -312,21 +318,33 @@ async def run_all_iac(
     ]
 
     # Add Terraform-specific scanners when .tf files are present
-    has_tf = bool(list(target_path.rglob("*.tf"))[:1]) if target_path.is_dir() else target_path.suffix == ".tf"
+    has_tf = (
+        bool(list(target_path.rglob("*.tf"))[:1])
+        if target_path.is_dir()
+        else target_path.suffix == ".tf"
+    )
     if has_tf:
-        from argus.tools.terraform import run_tfsec, run_tflint
+        from argus.tools.terraform import run_tflint, run_tfsec
+
         tasks.append(run_tfsec(target, timeout=timeout))
         tasks.append(run_tflint(target, timeout=min(timeout, 120)))
 
     # Add Ansible-specific scanners when playbook YAML files are detected
     has_ansible = (
-        any(
-            (target_path / d).is_dir()
-            for d in ("tasks", "roles", "playbooks", "handlers", "vars", "defaults")
-        ) or bool(list(target_path.glob("*.yml"))[:1]) or bool(list(target_path.glob("*.yaml"))[:1])
-    ) if target_path.is_dir() else target_path.suffix in (".yml", ".yaml")
+        (
+            any(
+                (target_path / d).is_dir()
+                for d in ("tasks", "roles", "playbooks", "handlers", "vars", "defaults")
+            )
+            or bool(list(target_path.glob("*.yml"))[:1])
+            or bool(list(target_path.glob("*.yaml"))[:1])
+        )
+        if target_path.is_dir()
+        else target_path.suffix in (".yml", ".yaml")
+    )
     if has_ansible:
         from argus.tools.ansible import run_ansible_lint
+
         tasks.append(run_ansible_lint(target, timeout=timeout))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)

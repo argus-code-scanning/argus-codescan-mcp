@@ -3,12 +3,11 @@
 Integrates: Semgrep, Bandit (Python), ESLint security plugin (JS/TS),
             SpotBugs/FindSecBugs (Java, via CLI), PMD (multi-language).
 """
+
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from argus.models import Finding, ScanResult, ScanType, Severity
 from argus.utils import (
@@ -47,16 +46,16 @@ async def run_semgrep(
 
     if not is_tool_available("semgrep"):
         result.tool_available = False
-        result.errors.append(
-            "semgrep is not installed. Install with: pip install semgrep"
-        )
+        result.errors.append("semgrep is not installed. Install with: pip install semgrep")
         return result
 
     cmd = [
         "semgrep",
         "--json",
-        "--config", config,
-        "--timeout", str(timeout),
+        "--config",
+        config,
+        "--timeout",
+        str(timeout),
         "--no-git-ignore",
         target,
     ]
@@ -121,15 +120,14 @@ async def run_bandit(
 
     if not is_tool_available("bandit"):
         result.tool_available = False
-        result.errors.append(
-            "bandit is not installed. Install with: pip install bandit"
-        )
+        result.errors.append("bandit is not installed. Install with: pip install bandit")
         return result
 
     target_path = Path(target)
     cmd = [
         "bandit",
-        "--format", "json",
+        "--format",
+        "json",
         f"-{severity_level}",
         f"-i{'i' * (len(confidence_level) - 1)}",
     ]
@@ -164,7 +162,9 @@ async def run_bandit(
             line=item.get("line_number", 0),
             description=item.get("issue_text", ""),
             rule_id=item.get("test_id", ""),
-            cwe=item.get("issue_cwe", {}).get("id", "") if isinstance(item.get("issue_cwe"), dict) else str(item.get("issue_cwe", "")),
+            cwe=item.get("issue_cwe", {}).get("id", "")
+            if isinstance(item.get("issue_cwe"), dict)
+            else str(item.get("issue_cwe", "")),
             references=item.get("more_info", "").split(",") if item.get("more_info") else [],
             raw=item,
         )
@@ -197,15 +197,20 @@ async def run_eslint_security(
 
     cmd = [
         eslint_cmd,
-        "--format", "json",
-        "--plugin", "security",
-        "--rule", '{"security/detect-object-injection": "warn", "security/detect-non-literal-regexp": "warn", "security/detect-non-literal-require": "warn", "security/detect-possible-timing-attacks": "warn", "security/detect-eval-with-expression": "error", "security/detect-no-csrf-before-method-override": "error", "security/detect-buffer-noassert": "error", "security/detect-child-process": "warn", "security/detect-disable-mustache-escape": "error", "security/detect-new-buffer": "error", "security/detect-pseudoRandomBytes": "warn", "security/detect-unsafe-regex": "warn"}',
+        "--format",
+        "json",
+        "--plugin",
+        "security",
+        "--rule",
+        '{"security/detect-object-injection": "warn", "security/detect-non-literal-regexp": "warn", "security/detect-non-literal-require": "warn", "security/detect-possible-timing-attacks": "warn", "security/detect-eval-with-expression": "error", "security/detect-no-csrf-before-method-override": "error", "security/detect-buffer-noassert": "error", "security/detect-child-process": "warn", "security/detect-disable-mustache-escape": "error", "security/detect-new-buffer": "error", "security/detect-pseudoRandomBytes": "warn", "security/detect-unsafe-regex": "warn"}',
         glob_pattern,
     ]
     if extra_args:
         cmd.extend(extra_args)
 
-    code, stdout, stderr = await run_command(cmd, cwd=target if target_path.is_dir() else None, timeout=timeout)
+    code, stdout, stderr = await run_command(
+        cmd, cwd=target if target_path.is_dir() else None, timeout=timeout
+    )
     result.raw_output = stdout
     result.metadata["exit_code"] = code
 
@@ -307,20 +312,24 @@ async def run_all_sast(
     tasks.append(run_semgrep(target, config=semgrep_config, timeout=timeout))
 
     # Language-specific tools
-    py_files = list(target_path.rglob("*.py")) if target_path.is_dir() else (
-        [target_path] if target_path.suffix == ".py" else []
+    py_files = (
+        list(target_path.rglob("*.py"))
+        if target_path.is_dir()
+        else ([target_path] if target_path.suffix == ".py" else [])
     )
     if py_files:
         tasks.append(run_bandit(target, timeout=timeout))
         tasks.append(run_flake8_security(target, timeout=timeout))
 
     js_files = (
-        list(target_path.rglob("*.js"))
-        + list(target_path.rglob("*.ts"))
-        + list(target_path.rglob("*.jsx"))
-        + list(target_path.rglob("*.tsx"))
-    ) if target_path.is_dir() else (
-        [target_path] if target_path.suffix in (".js", ".ts", ".jsx", ".tsx") else []
+        (
+            list(target_path.rglob("*.js"))
+            + list(target_path.rglob("*.ts"))
+            + list(target_path.rglob("*.jsx"))
+            + list(target_path.rglob("*.tsx"))
+        )
+        if target_path.is_dir()
+        else ([target_path] if target_path.suffix in (".js", ".ts", ".jsx", ".tsx") else [])
     )
     if js_files:
         tasks.append(run_eslint_security(target, timeout=timeout))

@@ -2,12 +2,12 @@ name: Go CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'packages/go/**'
       - '.github/workflows/ci-go.yml'
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'packages/go/**'
 
@@ -30,7 +30,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-          cache-dependency-path: packages/go/go.sum
+
+      - name: Tidy dependencies
+        run: go mod tidy
 
       - name: Build
         run: go build ./...
@@ -39,7 +41,11 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test -race -coverprofile=coverage.out ./...
+        run: go test -race ./...
+
+      - name: Test with coverage (Linux only)
+        if: matrix.go-version == '1.22' && matrix.os == 'ubuntu-latest'
+        run: go test -coverprofile=coverage.out ./...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -74,12 +80,12 @@ jobs:
 
       - name: Build binary
         run: |
-          BINARY=argus-scan
+          BINARY=argus
           [ "${{ matrix.goos }}" = "windows" ] && BINARY="${BINARY}.exe"
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
             go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
             -o "dist/${BINARY}-${{ matrix.goos }}-${{ matrix.goarch }}" \
-            ./cmd/argus-scan
+            ./cmd/argus
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v1

@@ -3,9 +3,9 @@
 Integrates: Trivy (filesystem mode), Safety (Python), pip-audit (Python),
             npm audit (Node.js), OWASP Dependency-Check.
 """
+
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
@@ -43,10 +43,14 @@ async def run_trivy_fs(
         return result
 
     cmd = [
-        "trivy", "fs",
-        "--format", "json",
-        "--exit-code", "0",
-        "--scanners", "vuln,secret",
+        "trivy",
+        "fs",
+        "--format",
+        "json",
+        "--exit-code",
+        "0",
+        "--scanners",
+        "vuln,secret",
         target,
     ]
     if extra_args:
@@ -84,9 +88,7 @@ async def run_trivy_fs(
             pkg_name = vuln.get("PkgName", "")
             installed = vuln.get("InstalledVersion", "")
             if pkg_name:
-                finding.description = (
-                    f"{pkg_name}@{installed}: {finding.description}"
-                )
+                finding.description = f"{pkg_name}@{installed}: {finding.description}"
             result.findings.append(finding)
 
         # Secret findings from Trivy
@@ -118,25 +120,29 @@ async def run_safety(
 
     if not is_tool_available("safety"):
         result.tool_available = False
-        result.errors.append(
-            "safety is not installed. Install with: pip install safety"
-        )
+        result.errors.append("safety is not installed. Install with: pip install safety")
         return result
 
     target_path = Path(target)
     req_files = (
-        list(target_path.rglob("requirements*.txt"))
-        + list(target_path.rglob("Pipfile.lock"))
-        + list(target_path.rglob("poetry.lock"))
-    ) if target_path.is_dir() else [target_path]
+        (
+            list(target_path.rglob("requirements*.txt"))
+            + list(target_path.rglob("Pipfile.lock"))
+            + list(target_path.rglob("poetry.lock"))
+        )
+        if target_path.is_dir()
+        else [target_path]
+    )
 
     all_findings: list[Finding] = []
 
     for req_file in req_files[:5]:  # Limit to 5 files
         cmd = [
-            "safety", "check",
+            "safety",
+            "check",
             "--json",
-            "--file", str(req_file),
+            "--file",
+            str(req_file),
         ]
         code, stdout, stderr = await run_command(cmd, timeout=timeout)
 
@@ -144,7 +150,11 @@ async def run_safety(
         if not data:
             continue
 
-        vulns = data if isinstance(data, list) else data.get("vulnerabilities", data.get("affected_packages", []))
+        vulns = (
+            data
+            if isinstance(data, list)
+            else data.get("vulnerabilities", data.get("affected_packages", []))
+        )
         if not isinstance(vulns, list):
             continue
 
@@ -163,7 +173,11 @@ async def run_safety(
                 )
             elif isinstance(vuln, dict):
                 sev = vuln.get("severity", {})
-                sev_str = (sev.get("cvssv3", {}).get("base_severity") or "HIGH").upper() if isinstance(sev, dict) else "HIGH"
+                sev_str = (
+                    (sev.get("cvssv3", {}).get("base_severity") or "HIGH").upper()
+                    if isinstance(sev, dict)
+                    else "HIGH"
+                )
                 severity = TRIVY_SEVERITY_MAP.get(sev_str, Severity.HIGH)
                 finding = Finding(
                     title=vuln.get("vulnerability_id", vuln.get("id", "safety-vuln")),
@@ -194,14 +208,14 @@ async def run_pip_audit(
 
     if not is_tool_available("pip-audit"):
         result.tool_available = False
-        result.errors.append(
-            "pip-audit is not installed. Install with: pip install pip-audit"
-        )
+        result.errors.append("pip-audit is not installed. Install with: pip install pip-audit")
         return result
 
     target_path = Path(target)
-    req_files = list(target_path.rglob("requirements*.txt")) if target_path.is_dir() else (
-        [target_path] if target_path.suffix in (".txt", ".lock") else []
+    req_files = (
+        list(target_path.rglob("requirements*.txt"))
+        if target_path.is_dir()
+        else ([target_path] if target_path.suffix in (".txt", ".lock") else [])
     )
 
     if not req_files:
@@ -258,8 +272,10 @@ async def run_npm_audit(
         return result
 
     target_path = Path(target)
-    pkg_json_files = list(target_path.rglob("package.json")) if target_path.is_dir() else (
-        [target_path] if target_path.name == "package.json" else []
+    pkg_json_files = (
+        list(target_path.rglob("package.json"))
+        if target_path.is_dir()
+        else ([target_path] if target_path.name == "package.json" else [])
     )
 
     if not pkg_json_files:

@@ -1,46 +1,55 @@
 """Tests for SAST tool runners."""
+
 import json
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from argus.models import ScanType, Severity
 from argus.tools.sast import run_bandit, run_semgrep
 
 
-BANDIT_SAMPLE_OUTPUT = json.dumps({
-    "results": [
-        {
-            "test_name": "hardcoded_password_string",
-            "test_id": "B105",
-            "issue_severity": "HIGH",
-            "issue_confidence": "MEDIUM",
-            "issue_text": "Possible hardcoded password: 'secret123'",
-            "filename": "app/config.py",
-            "line_number": 15,
-            "issue_cwe": {"id": "259", "link": "https://cwe.mitre.org/data/definitions/259.html"},
-        }
-    ],
-    "metrics": {"_totals": {"nosec": 0, "skipped_tests": 0}},
-})
-
-SEMGREP_SAMPLE_OUTPUT = json.dumps({
-    "results": [
-        {
-            "check_id": "python.flask.security.audit.hardcoded-config.hardcoded-config",
-            "path": "app/app.py",
-            "start": {"line": 20, "col": 5},
-            "extra": {
-                "severity": "WARNING",
-                "message": "Hardcoded secret key detected",
-                "metadata": {
-                    "cwe": ["CWE-798"],
-                    "references": ["https://owasp.org"],
+BANDIT_SAMPLE_OUTPUT = json.dumps(
+    {
+        "results": [
+            {
+                "test_name": "hardcoded_password_string",
+                "test_id": "B105",
+                "issue_severity": "HIGH",
+                "issue_confidence": "MEDIUM",
+                "issue_text": "Possible hardcoded password: 'secret123'",
+                "filename": "app/config.py",
+                "line_number": 15,
+                "issue_cwe": {
+                    "id": "259",
+                    "link": "https://cwe.mitre.org/data/definitions/259.html",
                 },
-            },
-        }
-    ],
-    "errors": [],
-})
+            }
+        ],
+        "metrics": {"_totals": {"nosec": 0, "skipped_tests": 0}},
+    }
+)
+
+SEMGREP_SAMPLE_OUTPUT = json.dumps(
+    {
+        "results": [
+            {
+                "check_id": "python.flask.security.audit.hardcoded-config.hardcoded-config",
+                "path": "app/app.py",
+                "start": {"line": 20, "col": 5},
+                "extra": {
+                    "severity": "WARNING",
+                    "message": "Hardcoded secret key detected",
+                    "metadata": {
+                        "cwe": ["CWE-798"],
+                        "references": ["https://owasp.org"],
+                    },
+                },
+            }
+        ],
+        "errors": [],
+    }
+)
 
 
 @pytest.mark.asyncio

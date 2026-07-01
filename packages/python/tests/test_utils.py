@@ -1,5 +1,5 @@
 """Tests for utility functions."""
-import pytest
+
 from argus.utils import format_markdown_report, is_tool_available, parse_json_output
 
 
@@ -27,7 +27,12 @@ def test_parse_json_output_invalid():
 def test_is_tool_available_python():
     # Python should always be available in tests
     import sys
-    assert is_tool_available(sys.executable) or is_tool_available("python3") or is_tool_available("python")
+
+    assert (
+        is_tool_available(sys.executable)
+        or is_tool_available("python3")
+        or is_tool_available("python")
+    )
 
 
 def test_format_markdown_report():
@@ -35,7 +40,14 @@ def test_format_markdown_report():
         "target": "/myapp",
         "summary": {
             "total_findings": 2,
-            "by_severity": {"critical": 0, "high": 1, "medium": 1, "low": 0, "info": 0, "unknown": 0},
+            "by_severity": {
+                "critical": 0,
+                "high": 1,
+                "medium": 1,
+                "low": 0,
+                "info": 0,
+                "unknown": 0,
+            },
             "by_scan_type": {"sast": 2},
             "by_tool": {"semgrep": 2},
             "tools_run": ["semgrep"],
@@ -57,7 +69,11 @@ def test_format_markdown_report():
                         "scan_type": "sast",
                         "tool": "semgrep",
                         "description": "Raw SQL",
-                        "cwe": "", "cve": "", "fix_guidance": "", "rule_id": "", "references": [],
+                        "cwe": "",
+                        "cve": "",
+                        "fix_guidance": "",
+                        "rule_id": "",
+                        "references": [],
                         "column": 0,
                     }
                 ],

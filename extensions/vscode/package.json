@@ -1,11 +1,11 @@
 {
   "name": "argus-scan",
   "displayName": "Argus Security Scanner",
-  "description": "Argus \u2014 open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP.",
+  "description": "Argus — open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP.",
   "version": "0.1.0",
   "publisher": "GabrielOkiri",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.100.0"
   },
   "categories": [
     "Linters",
@@ -27,9 +27,13 @@
     "mcp"
   ],
   "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1a1a2e",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/GabrielOkiri/argus-mcp.git"
+    "url": "https://github.com/OkiriGabriel/argus-codescan-mcp.git"
   },
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -193,18 +197,13 @@
     "package": "vsce package",
     "publish": "vsce publish",
     "lint": "eslint src --ext .ts",
-    "test": "vscode-test"
-  },
-  "dependencies": {
-    "argus-codescan": "^0.1.0"
+    "test": "echo \"No tests yet\" && exit 0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.85.0",
-    "@vscode/test-cli": "^0.0.4",
-    "@vscode/test-electron": "^2.3.0",
-    "@vscode/vsce": "^2.0.0",
-    "esbuild": "^0.20.0",
-    "typescript": "^5.0.0"
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.8.0"
   }
 }

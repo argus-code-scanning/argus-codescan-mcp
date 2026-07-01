@@ -8,12 +8,12 @@ Integrates:
   - KICS       — Keeping Infrastructure as Code Secure (multi-framework)
   - Checkov    — re-exported with terraform framework locked
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from pathlib import Path
 from typing import Any
 
 from argus.models import Finding, ScanResult, ScanType, Severity
@@ -34,6 +34,7 @@ _SEVERITY_MAP: dict[str, Severity] = {
 
 
 # ── tfsec ────────────────────────────────────────────────────────────────────
+
 
 async def run_tfsec(
     target: str,
@@ -65,9 +66,10 @@ async def run_tfsec(
 
     cmd = [
         "tfsec",
-        "--format", "json",
+        "--format",
+        "json",
         "--no-colour",
-        "--soft-fail",   # exit 0 even with findings
+        "--soft-fail",  # exit 0 even with findings
         target,
     ]
     if extra_args:
@@ -111,6 +113,7 @@ async def run_tfsec(
 
 # ── tflint ───────────────────────────────────────────────────────────────────
 
+
 async def run_tflint(
     target: str,
     timeout: int = 120,
@@ -138,8 +141,10 @@ async def run_tflint(
 
     cmd = [
         "tflint",
-        "--format", "json",
-        "--chdir", target,
+        "--format",
+        "json",
+        "--chdir",
+        target,
     ]
     if extra_args:
         cmd.extend(extra_args)
@@ -180,6 +185,7 @@ async def run_tflint(
 
 
 # ── terraform validate ────────────────────────────────────────────────────────
+
 
 async def run_terraform_validate(
     target: str,
@@ -255,6 +261,7 @@ async def run_terraform_validate(
 
 # ── KICS ─────────────────────────────────────────────────────────────────────
 
+
 async def run_kics_terraform(
     target: str,
     timeout: int = 300,
@@ -283,16 +290,24 @@ async def run_kics_terraform(
         )
         return result
 
-    import tempfile, os
+    import os
+    import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdir:
         report_file = os.path.join(tmpdir, "kics-report.json")
         cmd = [
-            "kics", "scan",
-            "--path", target,
-            "--type", "Terraform",
-            "--output-path", tmpdir,
-            "--output-name", "kics-report",
-            "--report-formats", "json",
+            "kics",
+            "scan",
+            "--path",
+            target,
+            "--type",
+            "Terraform",
+            "--output-path",
+            tmpdir,
+            "--output-name",
+            "kics-report",
+            "--report-formats",
+            "json",
             "--no-progress",
             "--silent",
         ]
@@ -350,6 +365,7 @@ def _parse_kics_report(data: dict[str, Any], result: ScanResult) -> None:
 
 # ── Checkov (Terraform-focused) ───────────────────────────────────────────────
 
+
 async def run_checkov_terraform(
     target: str,
     timeout: int = 180,
@@ -357,12 +373,16 @@ async def run_checkov_terraform(
 ) -> ScanResult:
     """Run Checkov scoped to Terraform framework only."""
     from argus.tools.iac import run_checkov
-    result = await run_checkov(target, framework="terraform", timeout=timeout, extra_args=extra_args)
+
+    result = await run_checkov(
+        target, framework="terraform", timeout=timeout, extra_args=extra_args
+    )
     result.tool = "checkov-terraform"
     return result
 
 
 # ── Aggregate ────────────────────────────────────────────────────────────────
+
 
 async def run_all_terraform(
     target: str,

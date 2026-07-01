@@ -4,13 +4,12 @@ This server implements the Model Context Protocol (MCP) and exposes
 security scanning capabilities (SAST, DAST, SCA, Secrets, IaC) as
 MCP tools that AI assistants can call.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-import os
-from pathlib import Path
 from typing import Any
 
 import mcp.server.stdio
@@ -18,7 +17,13 @@ import mcp.types as types
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 
-from argus.models import AggregatedReport, ScanType
+from argus.models import AggregatedReport
+from argus.tools.ansible import (
+    run_all_ansible,
+    run_ansible_lint,
+    run_checkov_ansible,
+    run_kics_ansible,
+)
 from argus.tools.dast import run_all_dast, run_nikto, run_zap_baseline
 from argus.tools.iac import (
     run_all_iac,
@@ -26,20 +31,6 @@ from argus.tools.iac import (
     run_terrascan,
     run_trivy_config,
     run_trivy_image,
-)
-from argus.tools.terraform import (
-    run_all_terraform,
-    run_checkov_terraform,
-    run_kics_terraform,
-    run_terraform_validate,
-    run_tfsec,
-    run_tflint,
-)
-from argus.tools.ansible import (
-    run_all_ansible,
-    run_ansible_lint,
-    run_checkov_ansible,
-    run_kics_ansible,
 )
 from argus.tools.sast import (
     run_all_sast,
@@ -60,6 +51,14 @@ from argus.tools.secrets import (
     run_gitleaks,
     run_trufflehog,
 )
+from argus.tools.terraform import (
+    run_all_terraform,
+    run_checkov_terraform,
+    run_kics_terraform,
+    run_terraform_validate,
+    run_tflint,
+    run_tfsec,
+)
 from argus.utils import format_markdown_report, is_tool_available
 
 logging.basicConfig(level=logging.INFO)
@@ -71,6 +70,7 @@ server = Server("argus-scan")
 # ---------------------------------------------------------------------------
 # Tool definitions
 # ---------------------------------------------------------------------------
+
 
 @server.list_tools()
 async def list_tools() -> list[types.Tool]:
@@ -154,7 +154,10 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "tools": {
                         "type": "array",
-                        "items": {"type": "string", "enum": ["trivy", "safety", "pip-audit", "npm-audit"]},
+                        "items": {
+                            "type": "string",
+                            "enum": ["trivy", "safety", "pip-audit", "npm-audit"],
+                        },
                         "description": "Specific tools to run (default: all applicable)",
                     },
                     "timeout": {
@@ -181,7 +184,10 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "tools": {
                         "type": "array",
-                        "items": {"type": "string", "enum": ["gitleaks", "detect-secrets", "trufflehog"]},
+                        "items": {
+                            "type": "string",
+                            "enum": ["gitleaks", "detect-secrets", "trufflehog"],
+                        },
                         "description": "Specific tools to run (default: all available)",
                     },
                     "timeout": {
@@ -213,7 +219,10 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "tools": {
                         "type": "array",
-                        "items": {"type": "string", "enum": ["checkov", "trivy-config", "terrascan"]},
+                        "items": {
+                            "type": "string",
+                            "enum": ["checkov", "trivy-config", "terrascan"],
+                        },
                         "description": "Specific tools to run (default: all available)",
                     },
                     "timeout": {
@@ -395,6 +404,7 @@ async def list_tools() -> list[types.Tool]:
 # Tool call handler
 # ---------------------------------------------------------------------------
 
+
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
     """Dispatch tool calls to the appropriate scanner."""
@@ -432,6 +442,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
 # Individual handlers
 # ---------------------------------------------------------------------------
 
+
 async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
     target = args["target"]
     tools = args.get("tools")
@@ -456,7 +467,10 @@ async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
     md = format_markdown_report(report_dict)
     return [
         types.TextContent(type="text", text=md),
-        types.TextContent(type="text", text=f"\n\n<details><summary>Raw JSON</summary>\n\n```json\n{json.dumps(report_dict, indent=2)}\n```\n\n</details>"),
+        types.TextContent(
+            type="text",
+            text=f"\n\n<details><summary>Raw JSON</summary>\n\n```json\n{json.dumps(report_dict, indent=2)}\n```\n\n</details>",
+        ),
     ]
 
 
@@ -780,9 +794,7 @@ async def _handle_check_tools() -> list[types.TextContent]:
         install = info["install"] if not available else "—"
         lines.append(f"| `{tool}` | {info['category']} | {status} | `{install}` |")
 
-    lines.append(
-        f"\n**{available_count}/{len(TOOLS_REGISTRY)} tools installed.**\n"
-    )
+    lines.append(f"\n**{available_count}/{len(TOOLS_REGISTRY)} tools installed.**\n")
 
     if available_count < len(TOOLS_REGISTRY):
         lines.append("\n## Quick Install (missing tools)\n")
@@ -813,6 +825,7 @@ async def _handle_get_scan_report(args: dict[str, Any]) -> list[types.TextConten
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 async def main() -> None:
     """Run the MCP server over stdio."""

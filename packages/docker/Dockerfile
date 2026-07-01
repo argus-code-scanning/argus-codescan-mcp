@@ -4,29 +4,32 @@
 # so users get everything in a single pull with no local installs.
 #
 # Usage (MCP server via stdio):
-#   docker run --rm -i -v $(pwd):/workspace ghcr.io/your-org/argus-scan
+#   docker run --rm -i -v $(pwd):/workspace ghcr.io/OkiriGabriel/argus-codescan-mcp
 #
 # Usage (one-shot scan):
-#   docker run --rm -v $(pwd):/workspace ghcr.io/your-org/argus-scan \
-#     python -m argus.tools.sast --target /workspace
+#   docker run --rm -v $(pwd):/workspace ghcr.io/OkiriGabriel/argus-codescan-mcp \
+#     argus scan sast /workspace
 
-FROM python:3.12-slim AS base
+FROM python:3.12-slim-bookworm AS base
 
 # ── System packages ──────────────────────────────────────────────────────────
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Runtime dependencies
     git \
     curl \
     ca-certificates \
-    # Nikto runtime
-    nikto \
     perl \
-    # Node.js for ESLint
+    libnet-ssleay-perl \
+    liburi-perl \
     nodejs \
     npm \
-    # Cleanup
     && rm -rf /var/lib/apt/lists/*
+
+# ── Nikto (not in Debian repos — install from source) ───────────────────────
+
+RUN git clone --depth 1 https://github.com/sullo/nikto /opt/nikto \
+    && ln -sf /opt/nikto/program/nikto.pl /usr/local/bin/nikto \
+    && chmod +x /opt/nikto/program/nikto.pl
 
 # ── Trivy ────────────────────────────────────────────────────────────────────
 
@@ -89,5 +92,5 @@ ENTRYPOINT ["python", "-m", "argus.server"]
 # Metadata
 LABEL org.opencontainers.image.title="argus-scan"
 LABEL org.opencontainers.image.description="MCP server for code security testing (SAST, DAST, SCA, Secrets, IaC)"
-LABEL org.opencontainers.image.source="https://github.com/your-org/argus-scan"
+LABEL org.opencontainers.image.source="https://github.com/OkiriGabriel/argus-codescan-mcp"
 LABEL org.opencontainers.image.licenses="MIT"

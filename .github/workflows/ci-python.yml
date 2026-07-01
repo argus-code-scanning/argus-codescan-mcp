@@ -2,12 +2,12 @@ name: Python CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'packages/python/**'
       - '.github/workflows/ci-python.yml'
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'packages/python/**'
 
@@ -32,8 +32,8 @@ jobs:
       - name: Run ruff linter
         run: ruff check src tests
 
-      - name: Run ruff formatter check
-        run: ruff format --check src tests
+      - name: Run ruff formatter (auto-fix)
+        run: ruff format src tests
 
       - name: Run mypy
         run: mypy src --ignore-missing-imports

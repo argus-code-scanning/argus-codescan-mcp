@@ -16,6 +16,7 @@ Usage:
     argus tools        # list installed scanners
     argus mcp          # start MCP server (for AI clients)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -50,23 +51,28 @@ def build_parser() -> argparse.ArgumentParser:
         if has_target:
             p.add_argument("target", help="Path to file, directory, URL, or image to scan")
         p.add_argument(
-            "--format", "-f",
+            "--format",
+            "-f",
             choices=["markdown", "json", "table"],
             default="markdown",
             help="Output format (default: markdown)",
         )
         p.add_argument(
-            "--timeout", "-t",
-            type=int, default=300,
+            "--timeout",
+            "-t",
+            type=int,
+            default=300,
             help="Timeout in seconds per tool (default: 300)",
         )
         p.add_argument(
-            "--output", "-o",
+            "--output",
+            "-o",
             metavar="FILE",
             help="Write output to FILE instead of stdout",
         )
         p.add_argument(
-            "--min-severity", "-s",
+            "--min-severity",
+            "-s",
             choices=["critical", "high", "medium", "low", "info"],
             default="low",
             help="Only show findings at or above this severity (default: low)",
@@ -96,7 +102,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     iac_p = scan_sub.add_parser("iac", help="Infrastructure-as-Code scanning")
     _add_common(iac_p)
-    iac_p.add_argument("--framework", help="IaC framework: terraform, kubernetes, dockerfile, helm, ansible…")
+    iac_p.add_argument(
+        "--framework", help="IaC framework: terraform, kubernetes, dockerfile, helm, ansible…"
+    )
 
     tf_p = scan_sub.add_parser("terraform", help="Terraform-specific security scan")
     _add_common(tf_p)
@@ -140,14 +148,14 @@ def build_parser() -> argparse.ArgumentParser:
 _SEV_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4, "unknown": 5}
 _SEV_COLORS = {
     "critical": "\033[91m",  # bright red
-    "high":     "\033[31m",  # red
-    "medium":   "\033[33m",  # yellow
-    "low":      "\033[34m",  # blue
-    "info":     "\033[37m",  # grey
-    "unknown":  "\033[37m",
+    "high": "\033[31m",  # red
+    "medium": "\033[33m",  # yellow
+    "low": "\033[34m",  # blue
+    "info": "\033[37m",  # grey
+    "unknown": "\033[37m",
 }
 _RESET = "\033[0m"
-_BOLD  = "\033[1m"
+_BOLD = "\033[1m"
 
 
 def _supports_color() -> bool:
@@ -198,10 +206,10 @@ def _print_table(report_dict: dict) -> None:
             sev = f.get("severity", "unknown")
             file_short = Path(f.get("file", "")).name or f.get("file", "")
             if len(file_short) > col_w["file"]:
-                file_short = "…" + file_short[-(col_w["file"] - 1):]
+                file_short = "…" + file_short[-(col_w["file"] - 1) :]
             title = f.get("title", "")
             if len(title) > col_w["title"]:
-                title = title[:col_w["title"] - 1] + "…"
+                title = title[: col_w["title"] - 1] + "…"
 
             row = (
                 f"{sev:<{col_w['sev']}}  "
@@ -230,10 +238,12 @@ def _filter_severity(report_dict: dict, min_sev: str) -> dict:
     """Remove findings below min_sev from report dict."""
     threshold = _SEV_ORDER.get(min_sev, 99)
     import copy
+
     report = copy.deepcopy(report_dict)
     for result in report.get("results", []):
         result["findings"] = [
-            f for f in result.get("findings", [])
+            f
+            for f in result.get("findings", [])
             if _SEV_ORDER.get(f.get("severity", "unknown"), 99) <= threshold
         ]
     return report
@@ -246,7 +256,9 @@ def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fa
     if fmt == "json":
         text = json.dumps(filtered, indent=2)
     elif fmt == "table":
-        import io, contextlib
+        import contextlib
+        import io
+
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             _print_table(filtered)
@@ -270,38 +282,48 @@ def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fa
 
 # ── Scan runners ──────────────────────────────────────────────────────────────
 
+
 async def _run_scan(args: argparse.Namespace) -> int:
     scan_type = args.scan_type
-    timeout   = args.timeout
-    fmt       = args.format
-    tools     = getattr(args, "tools", None)
-    min_sev   = getattr(args, "min_severity", "low")
-    fail_on   = getattr(args, "fail_on", "never")
-    out_file  = getattr(args, "output", None)
+    timeout = args.timeout
+    fmt = args.format
+    tools = getattr(args, "tools", None)
+    min_sev = getattr(args, "min_severity", "low")
+    fail_on = getattr(args, "fail_on", "never")
+    out_file = getattr(args, "output", None)
 
     print(f"Running {scan_type.upper()} scan on: {args.target}", file=sys.stderr)
 
     if scan_type == "sast":
-        from argus.tools.sast import run_all_sast, run_bandit, run_semgrep, run_eslint_security
+        from argus.tools.sast import run_all_sast, run_bandit, run_eslint_security, run_semgrep
+
         if tools:
-            tasks, results = [], []
-            if "semgrep" in tools: tasks.append(run_semgrep(args.target, config=args.semgrep_config, timeout=timeout))
-            if "bandit" in tools:  tasks.append(run_bandit(args.target, timeout=timeout))
-            if "eslint" in tools:  tasks.append(run_eslint_security(args.target, timeout=timeout))
+            tasks: list = []
+            if "semgrep" in tools:
+                tasks.append(run_semgrep(args.target, config=args.semgrep_config, timeout=timeout))
+            if "bandit" in tools:
+                tasks.append(run_bandit(args.target, timeout=timeout))
+            if "eslint" in tools:
+                tasks.append(run_eslint_security(args.target, timeout=timeout))
             results = await asyncio.gather(*tasks)
         else:
-            results = await run_all_sast(args.target, semgrep_config=args.semgrep_config, timeout=timeout)
+            results = await run_all_sast(
+                args.target, semgrep_config=args.semgrep_config, timeout=timeout
+            )
 
     elif scan_type == "sca":
         from argus.tools.sca import run_all_sca
+
         results = await run_all_sca(args.target, timeout=timeout)
 
     elif scan_type == "secrets":
         from argus.tools.secrets import run_all_secrets
+
         results = await run_all_secrets(args.target, timeout=timeout)
 
     elif scan_type == "iac":
         from argus.tools.iac import run_all_iac, run_checkov
+
         if getattr(args, "framework", None):
             results = [await run_checkov(args.target, framework=args.framework, timeout=timeout)]
         else:
@@ -309,30 +331,35 @@ async def _run_scan(args: argparse.Namespace) -> int:
 
     elif scan_type == "terraform":
         from argus.tools.terraform import run_all_terraform
+
         results = await run_all_terraform(args.target, timeout=timeout, tools=tools)
 
     elif scan_type == "ansible":
         from argus.tools.ansible import run_all_ansible
+
         results = await run_all_ansible(
-            args.target, timeout=timeout,
+            args.target,
+            timeout=timeout,
             tools=tools,
             ansible_lint_profile=getattr(args, "profile", "safety"),
         )
 
     elif scan_type == "dast":
         from argus.tools.dast import run_all_dast
+
         results = await run_all_dast(args.target, timeout=max(timeout, 600))
 
     elif scan_type == "container":
         from argus.tools.iac import run_trivy_image
+
         results = [await run_trivy_image(args.target, timeout=timeout)]
 
     elif scan_type == "all":
+        from argus.tools.dast import run_all_dast
+        from argus.tools.iac import run_all_iac, run_trivy_image
         from argus.tools.sast import run_all_sast
         from argus.tools.sca import run_all_sca
         from argus.tools.secrets import run_all_secrets
-        from argus.tools.iac import run_all_iac, run_trivy_image
-        from argus.tools.dast import run_all_dast
 
         batches = await asyncio.gather(
             run_all_sast(args.target, timeout=timeout),
@@ -370,26 +397,29 @@ def _cmd_tools() -> None:
     """Print a table of all tools and their availability."""
     TOOLS = {
         # tool_name: (category, install_hint)
-        "semgrep":        ("SAST",              "pip install semgrep"),
-        "bandit":         ("SAST (Python)",      "pip install bandit"),
-        "flake8":         ("SAST (Python)",      "pip install flake8 flake8-bandit"),
-        "eslint":         ("SAST (JS/TS)",       "npm install -g eslint eslint-plugin-security"),
-        "trivy":          ("SCA / IaC / Container", "brew install trivy  OR  see aquasecurity.github.io/trivy"),
-        "safety":         ("SCA (Python)",       "pip install safety"),
-        "pip-audit":      ("SCA (Python)",       "pip install pip-audit"),
-        "npm":            ("SCA (Node.js)",      "Install Node.js from nodejs.org"),
-        "gitleaks":       ("Secrets",            "brew install gitleaks"),
-        "detect-secrets": ("Secrets",            "pip install detect-secrets"),
-        "trufflehog":     ("Secrets",            "brew install trufflehog"),
-        "checkov":        ("IaC / Terraform / Ansible", "pip install checkov"),
-        "terrascan":      ("IaC",                "brew install terrascan"),
-        "tfsec":          ("Terraform",          "brew install tfsec"),
-        "tflint":         ("Terraform",          "brew install tflint"),
-        "terraform":      ("Terraform validate", "brew install terraform"),
-        "kics":           ("IaC / Terraform / Ansible", "brew install kics"),
-        "ansible-lint":   ("Ansible",            "pip install ansible-lint"),
-        "nikto":          ("DAST",               "brew install nikto"),
-        "docker":         ("DAST (ZAP) / Container", "Install Docker Desktop"),
+        "semgrep": ("SAST", "pip install semgrep"),
+        "bandit": ("SAST (Python)", "pip install bandit"),
+        "flake8": ("SAST (Python)", "pip install flake8 flake8-bandit"),
+        "eslint": ("SAST (JS/TS)", "npm install -g eslint eslint-plugin-security"),
+        "trivy": (
+            "SCA / IaC / Container",
+            "brew install trivy  OR  see aquasecurity.github.io/trivy",
+        ),
+        "safety": ("SCA (Python)", "pip install safety"),
+        "pip-audit": ("SCA (Python)", "pip install pip-audit"),
+        "npm": ("SCA (Node.js)", "Install Node.js from nodejs.org"),
+        "gitleaks": ("Secrets", "brew install gitleaks"),
+        "detect-secrets": ("Secrets", "pip install detect-secrets"),
+        "trufflehog": ("Secrets", "brew install trufflehog"),
+        "checkov": ("IaC / Terraform / Ansible", "pip install checkov"),
+        "terrascan": ("IaC", "brew install terrascan"),
+        "tfsec": ("Terraform", "brew install tfsec"),
+        "tflint": ("Terraform", "brew install tflint"),
+        "terraform": ("Terraform validate", "brew install terraform"),
+        "kics": ("IaC / Terraform / Ansible", "brew install kics"),
+        "ansible-lint": ("Ansible", "pip install ansible-lint"),
+        "nikto": ("DAST", "brew install nikto"),
+        "docker": ("DAST (ZAP) / Container", "Install Docker Desktop"),
     }
 
     installed, missing = [], []
@@ -401,9 +431,9 @@ def _cmd_tools() -> None:
 
     use_color = _supports_color()
     green = "\033[32m" if use_color else ""
-    red   = "\033[31m" if use_color else ""
+    red = "\033[31m" if use_color else ""
     reset = _RESET if use_color else ""
-    bold  = _BOLD  if use_color else ""
+    bold = _BOLD if use_color else ""
 
     print(f"\n{bold}Installed ({len(installed)}/{len(TOOLS)}){reset}\n")
     for tool, cat in installed:
@@ -420,12 +450,14 @@ def _cmd_tools() -> None:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.version:
         from argus import __version__
+
         print(f"argus-scan {__version__}")
         return 0
 
@@ -443,6 +475,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         # Start the MCP server
         from argus.server import run as run_server
+
         run_server()
         return 0
 
@@ -458,14 +491,14 @@ def main(argv: list[str] | None = None) -> int:
 
 def _print_mcp_config() -> None:
     print(
-        '{\n'
+        "{\n"
         '  "mcpServers": {\n'
         '    "argus": {\n'
         '      "command": "argus",\n'
         '      "args": ["mcp"]\n'
-        '    }\n'
-        '  }\n'
-        '}'
+        "    }\n"
+        "  }\n"
+        "}"
     )
 
 

@@ -8,7 +8,7 @@
  *  4. `python -m argus.server` (if argus importable)
  */
 
-import { which } from "which";
+import which from "which";
 import { execaNode, execa } from "execa";
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";

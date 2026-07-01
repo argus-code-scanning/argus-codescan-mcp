@@ -15,6 +15,7 @@ Detects:
   - Unvaulted sensitive variables
   - Deprecated / removed module usage
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -58,6 +59,7 @@ _PROFILE_SEVERITY: dict[str, Severity] = {
 
 # ── ansible-lint ──────────────────────────────────────────────────────────────
 
+
 async def run_ansible_lint(
     target: str,
     profile: str = "safety",
@@ -100,20 +102,23 @@ async def run_ansible_lint(
     # Discover playbooks and roles
     scan_targets = _discover_ansible_targets(target_path)
     if not scan_targets:
-        result.errors.append(
-            f"No Ansible playbooks, roles, or collections found in: {target}"
-        )
+        result.errors.append(f"No Ansible playbooks, roles, or collections found in: {target}")
         return result
 
     cmd = [
         "ansible-lint",
-        "--format", "json",
-        "--profile", profile,
+        "--format",
+        "json",
+        "--profile",
+        profile,
         "--nocolor",
-        "--offline",       # don't pull galaxy collections during scan
-        "--exclude", ".git",
-        "--exclude", ".venv",
-        "--exclude", "venv",
+        "--offline",  # don't pull galaxy collections during scan
+        "--exclude",
+        ".git",
+        "--exclude",
+        ".venv",
+        "--exclude",
+        "venv",
         *scan_targets[:20],  # limit to 20 targets to avoid arg list overflow
     ]
     if extra_args:
@@ -144,7 +149,6 @@ async def run_ansible_lint(
             if severity == Severity.MEDIUM:
                 severity = Severity.HIGH
 
-        task_info = v.get("task", {})
         finding = Finding(
             title=rule_id,
             severity=severity,
@@ -200,6 +204,7 @@ def _discover_ansible_targets(root: Path) -> list[str]:
 
 # ── KICS (Ansible) ────────────────────────────────────────────────────────────
 
+
 async def run_kics_ansible(
     target: str,
     timeout: int = 300,
@@ -229,12 +234,18 @@ async def run_kics_ansible(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cmd = [
-            "kics", "scan",
-            "--path", target,
-            "--type", "Ansible",
-            "--output-path", tmpdir,
-            "--output-name", "kics-ansible-report",
-            "--report-formats", "json",
+            "kics",
+            "scan",
+            "--path",
+            target,
+            "--type",
+            "Ansible",
+            "--output-path",
+            tmpdir,
+            "--output-name",
+            "kics-ansible-report",
+            "--report-formats",
+            "json",
             "--no-progress",
             "--silent",
         ]
@@ -289,6 +300,7 @@ def _parse_kics_ansible_report(data: dict[str, Any], result: ScanResult) -> None
 
 # ── Checkov (Ansible-focused) ────────────────────────────────────────────────
 
+
 async def run_checkov_ansible(
     target: str,
     timeout: int = 180,
@@ -304,12 +316,14 @@ async def run_checkov_ansible(
       - CKV2_ANSIBLE_5  Use encrypted secrets (ansible-vault)
     """
     from argus.tools.iac import run_checkov
+
     result = await run_checkov(target, framework="ansible", timeout=timeout, extra_args=extra_args)
     result.tool = "checkov-ansible"
     return result
 
 
 # ── Aggregate ─────────────────────────────────────────────────────────────────
+
 
 async def run_all_ansible(
     target: str,

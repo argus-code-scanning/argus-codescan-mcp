@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/your-org/argus-scan/internal/bridge"
+	"github.com/OkiriGabriel/argus-codescan-mcp/internal/bridge"
 )
 
 func TestResolveEnvOverride(t *testing.T) {

@@ -2,13 +2,12 @@
 
 Integrates: Gitleaks, detect-secrets, TruffleHog.
 """
+
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from argus.models import Finding, ScanResult, ScanType, Severity
 from argus.utils import is_tool_available, parse_json_output, run_command
@@ -39,10 +38,14 @@ async def run_gitleaks(
     cmd = [
         "gitleaks",
         subcommand,
-        "--source", target,
-        "--report-format", "json",
-        "--report-path", "/dev/stdout",
-        "--exit-code", "0",  # Don't fail the process
+        "--source",
+        target,
+        "--report-format",
+        "json",
+        "--report-path",
+        "/dev/stdout",
+        "--exit-code",
+        "0",  # Don't fail the process
         "--no-banner",
     ]
     if not is_git:
@@ -68,12 +71,17 @@ async def run_gitleaks(
             tool="gitleaks",
             file=leak.get("File", leak.get("file", "")),
             line=leak.get("StartLine", leak.get("line", 0)),
-            description=leak.get("Description", leak.get("description", f"Secret detected: {leak.get('Match', '')[:50]}")),
+            description=leak.get(
+                "Description",
+                leak.get("description", f"Secret detected: {leak.get('Match', '')[:50]}"),
+            ),
             rule_id=leak.get("RuleID", ""),
             raw=leak,
         )
         # Redact the actual secret value
-        finding.description = finding.description or f"Potential secret matched rule: {finding.rule_id}"
+        finding.description = (
+            finding.description or f"Potential secret matched rule: {finding.rule_id}"
+        )
         result.findings.append(finding)
 
     return result
@@ -190,11 +198,7 @@ async def run_trufflehog(
             continue
 
         source_meta = item.get("SourceMetadata", {}).get("Data", {})
-        file_info = (
-            source_meta.get("Filesystem", {})
-            or source_meta.get("Git", {})
-            or {}
-        )
+        file_info = source_meta.get("Filesystem", {}) or source_meta.get("Git", {}) or {}
         finding = Finding(
             title=item.get("DetectorName", "trufflehog-secret"),
             severity=Severity.CRITICAL,

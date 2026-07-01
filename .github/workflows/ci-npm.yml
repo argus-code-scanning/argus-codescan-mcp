@@ -2,12 +2,12 @@ name: npm CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'packages/npm/**'
       - '.github/workflows/ci-npm.yml'
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'packages/npm/**'
 
