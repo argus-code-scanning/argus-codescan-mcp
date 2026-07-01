@@ -6,9 +6,9 @@
 
 It brings together 20+ industry-standard scanning tools — Semgrep, Trivy, OWASP ZAP, Bandit, Gitleaks, tfsec, ansible-lint, KICS, Checkov, TruffleHog, and more — behind a single CLI and MCP server. Run SAST, DAST, SCA, secret scanning, IaC, Terraform, and Ansible security audits with one command. No AI subscription required.
 
-[![Python CI](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-python.yml/badge.svg)](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-python.yml)
-[![npm CI](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-npm.yml)
-[![Go CI](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-go.yml/badge.svg)](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-go.yml)
+[![Python CI](https://github.com/GabrielOkiri/argus-codescan-mcp/actions/workflows/ci-python.yml/badge.svg)](https://github.com/GabrielOkiri/argus-codescan-mcp/actions/workflows/ci-python.yml)
+[![npm CI](https://github.com/GabrielOkiri/argus-codescan-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/GabrielOkiri/argus-codescan-mcp/actions/workflows/ci-npm.yml)
+[![Go CI](https://github.com/GabrielOkiri/argus-codescan-mcp/actions/workflows/ci-go.yml/badge.svg)](https://github.com/GabrielOkiri/argus-codescan-mcp/actions/workflows/ci-go.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
