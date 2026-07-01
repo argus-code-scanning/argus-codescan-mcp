@@ -10,7 +10,7 @@
 #   docker run --rm -v $(pwd):/workspace ghcr.io/your-org/argus-scan \
 #     python -m argus.tools.sast --target /workspace
 
-FROM python:3.12-slim AS base
+FROM python:3.12-slim-bookworm AS base
 
 # ── System packages ──────────────────────────────────────────────────────────
 
@@ -89,5 +89,5 @@ ENTRYPOINT ["python", "-m", "argus.server"]
 # Metadata
 LABEL org.opencontainers.image.title="argus-scan"
 LABEL org.opencontainers.image.description="MCP server for code security testing (SAST, DAST, SCA, Secrets, IaC)"
-LABEL org.opencontainers.image.source="https://github.com/your-org/argus-scan"
+LABEL org.opencontainers.image.source="https://github.com/GabrielOkiri/argus-mcp"
 LABEL org.opencontainers.image.licenses="MIT"

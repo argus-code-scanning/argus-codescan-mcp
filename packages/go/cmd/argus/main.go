@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/your-org/argus-scan/internal/bridge"
+	"github.com/GabrielOkiri/argus-mcp/internal/bridge"
 )
 
 var version = "0.1.0" // overridden by -ldflags at build time

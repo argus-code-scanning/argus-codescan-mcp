@@ -1,4 +1,4 @@
-module github.com/your-org/argus-scan
+module github.com/GabrielOkiri/argus-mcp
 
 go 1.21
 

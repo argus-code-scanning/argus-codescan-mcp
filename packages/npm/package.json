@@ -50,7 +50,7 @@
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

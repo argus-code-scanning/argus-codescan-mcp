@@ -74,12 +74,12 @@ jobs:
 
       - name: Build binary
         run: |
-          BINARY=argus-scan
+          BINARY=argus
           [ "${{ matrix.goos }}" = "windows" ] && BINARY="${BINARY}.exe"
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
             go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
             -o "dist/${BINARY}-${{ matrix.goos }}-${{ matrix.goarch }}" \
-            ./cmd/argus-scan
+            ./cmd/argus
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v1
