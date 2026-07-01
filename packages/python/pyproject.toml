@@ -1,0 +1,92 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "argus-scan"
+version = "0.1.0"
+description = "Argus — open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+keywords = [
+    "argus", "mcp", "security", "sast", "dast", "sca", "devsecops",
+    "semgrep", "bandit", "trivy", "owasp-zap", "gitleaks", "tfsec",
+    "ansible-lint", "code-scanning", "vulnerability", "ai",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "anyio>=4.0.0",
+]
+
+[project.optional-dependencies]
+# Install all Python-native security tools
+all-tools = [
+    "semgrep>=1.0.0",
+    "bandit>=1.7.0",
+    "flake8>=6.0.0",
+    "flake8-bandit>=4.0.0",
+    "safety>=3.0.0",
+    "pip-audit>=2.0.0",
+    "detect-secrets>=1.4.0",
+    "checkov>=3.0.0",
+    "ansible-lint>=6.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+# Primary CLI — works with no AI subscription
+argus         = "argus.cli:run"
+# Alias for MCP clients that reference the full package name
+argus-scan     = "argus.cli:run"
+
+[project.urls]
+Homepage      = "https://github.com/GabrielOkiri/argus-mcp"
+Repository    = "https://github.com/GabrielOkiri/argus-mcp"
+Issues        = "https://github.com/GabrielOkiri/argus-mcp/issues"
+Documentation = "https://github.com/GabrielOkiri/argus-mcp/blob/main/README.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/argus"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]

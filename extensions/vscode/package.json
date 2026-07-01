@@ -1,0 +1,210 @@
+{
+  "name": "argus-scan",
+  "displayName": "Argus Security Scanner",
+  "description": "Argus \u2014 open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP.",
+  "version": "0.1.0",
+  "publisher": "GabrielOkiri",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Testing",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "sast",
+    "dast",
+    "sca",
+    "devsecops",
+    "semgrep",
+    "trivy",
+    "owasp",
+    "bandit",
+    "gitleaks",
+    "vulnerability",
+    "mcp"
+  ],
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GabrielOkiri/argus-mcp.git"
+  },
+  "license": "MIT",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "argus-scan.scanSast",
+        "title": "Security: Run SAST Scan",
+        "icon": "$(search)"
+      },
+      {
+        "command": "argus-scan.scanSca",
+        "title": "Security: Run SCA Scan (Dependencies)",
+        "icon": "$(package)"
+      },
+      {
+        "command": "argus-scan.scanSecrets",
+        "title": "Security: Scan for Secrets",
+        "icon": "$(key)"
+      },
+      {
+        "command": "argus-scan.scanIac",
+        "title": "Security: Run IaC Scan",
+        "icon": "$(server)"
+      },
+      {
+        "command": "argus-scan.scanDast",
+        "title": "Security: Run DAST Scan",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "argus-scan.scanContainer",
+        "title": "Security: Scan Container Image",
+        "icon": "$(vm)"
+      },
+      {
+        "command": "argus-scan.scanAll",
+        "title": "Security: Run Full Security Scan",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "argus-scan.checkTools",
+        "title": "Security: Check Installed Tools",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "argus-scan.openDashboard",
+        "title": "Security: Open Scan Dashboard",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "argus-scan.clearDiagnostics",
+        "title": "Security: Clear Diagnostics",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "argus-scan.scanSast",
+          "group": "security@1"
+        },
+        {
+          "command": "argus-scan.scanSca",
+          "group": "security@2"
+        },
+        {
+          "command": "argus-scan.scanSecrets",
+          "group": "security@3"
+        },
+        {
+          "command": "argus-scan.scanAll",
+          "group": "security@4"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "argus-scan.scanSast",
+          "group": "navigation",
+          "when": "resourceExtname =~ /\\.(py|js|ts|jsx|tsx|go|java|rb|php|cs)$/"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "argus-scan",
+          "title": "Security Scanner",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+    "views": {
+      "argus-scan": [
+        {
+          "id": "argus-scan.findings",
+          "name": "Findings",
+          "icon": "$(warning)"
+        },
+        {
+          "id": "argus-scan.tools",
+          "name": "Tools",
+          "icon": "$(tools)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Argus Security Scanner",
+      "properties": {
+        "argus-scan.mcpServerCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Custom command to start the argus-scan server (leave empty for auto-detect)"
+        },
+        "argus-scan.semgrepConfig": {
+          "type": "string",
+          "default": "auto",
+          "description": "Semgrep ruleset config (e.g. 'auto', 'p/owasp-top-ten', 'p/python')"
+        },
+        "argus-scan.scanOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically run SAST scan when a file is saved"
+        },
+        "argus-scan.showInlineDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline decorations for security findings"
+        },
+        "argus-scan.autoInstallTools": {
+          "type": "boolean",
+          "default": false,
+          "description": "Attempt to auto-install missing security tools"
+        },
+        "argus-scan.scanTimeout": {
+          "type": "number",
+          "default": 300,
+          "description": "Timeout in seconds for scan operations"
+        },
+        "argus-scan.minSeverity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "info"
+          ],
+          "default": "low",
+          "description": "Minimum severity to show in diagnostics"
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "npm run build -- --watch",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "lint": "eslint src --ext .ts",
+    "test": "vscode-test"
+  },
+  "dependencies": {
+    "argus-codescan": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.0",
+    "@vscode/vsce": "^2.0.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.0.0"
+  }
+}

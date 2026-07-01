@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.cover
+
+# Node.js / npm
+node_modules/
+dist/
+*.js.map
+*.d.ts
+*.d.ts.map
+
+# VS Code
+.vscode/
+*.vsix
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.env
+
+# Temporary scan output
+*.sarif
+zap-report.json
+trivy-report.json

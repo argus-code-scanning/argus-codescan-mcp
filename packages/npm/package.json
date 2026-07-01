@@ -1,0 +1,69 @@
+{
+  "name": "argus-codescan",
+  "version": "0.1.0",
+  "description": "MCP server for comprehensive code security testing (SAST, DAST, SCA, Secrets, IaC)",
+  "keywords": [
+    "mcp",
+    "security",
+    "sast",
+    "dast",
+    "sca",
+    "devsecops",
+    "semgrep",
+    "bandit",
+    "trivy",
+    "owasp-zap",
+    "gitleaks",
+    "code-scanning",
+    "vulnerability",
+    "ai",
+    "cursor",
+    "claude"
+  ],
+  "homepage": "https://github.com/GabrielOkiri/argus-mcp",
+  "bugs": {
+    "url": "https://github.com/GabrielOkiri/argus-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GabrielOkiri/argus-mcp.git",
+    "directory": "packages/npm"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "argus-codescan": "./dist/cli.js",
+    "argus": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "execa": "^9.0.0",
+    "which": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/which": "^3.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
