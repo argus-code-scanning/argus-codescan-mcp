@@ -4,10 +4,10 @@
 # so users get everything in a single pull with no local installs.
 #
 # Usage (MCP server via stdio):
-#   docker run --rm -i -v $(pwd):/workspace ghcr.io/gabrielokiri/argus-mcp
+#   docker run --rm -i -v $(pwd):/workspace ghcr.io/OkiriGabriel/argus-codescan-mcp
 #
 # Usage (one-shot scan):
-#   docker run --rm -v $(pwd):/workspace ghcr.io/gabrielokiri/argus-mcp \
+#   docker run --rm -v $(pwd):/workspace ghcr.io/OkiriGabriel/argus-codescan-mcp \
 #     argus scan sast /workspace
 
 FROM python:3.12-slim-bookworm AS base
@@ -92,5 +92,5 @@ ENTRYPOINT ["python", "-m", "argus.server"]
 # Metadata
 LABEL org.opencontainers.image.title="argus-scan"
 LABEL org.opencontainers.image.description="MCP server for code security testing (SAST, DAST, SCA, Secrets, IaC)"
-LABEL org.opencontainers.image.source="https://github.com/GabrielOkiri/argus-mcp"
+LABEL org.opencontainers.image.source="https://github.com/OkiriGabriel/argus-codescan-mcp"
 LABEL org.opencontainers.image.licenses="MIT"

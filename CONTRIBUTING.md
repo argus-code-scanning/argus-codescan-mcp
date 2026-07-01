@@ -22,7 +22,7 @@ Thank you for helping make security tooling more accessible! Contributions of al
 ### Python core
 
 ```bash
-git clone https://github.com/GabrielOkiri/argus-mcp
+git clone https://github.com/OkiriGabriel/argus-codescan-mcp
 cd argus-scan/packages/python
 
 python3 -m venv .venv

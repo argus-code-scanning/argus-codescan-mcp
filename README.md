@@ -6,9 +6,9 @@
 
 It brings together 20+ industry-standard scanning tools — Semgrep, Trivy, OWASP ZAP, Bandit, Gitleaks, tfsec, ansible-lint, KICS, Checkov, TruffleHog, and more — behind a single CLI and MCP server. Run SAST, DAST, SCA, secret scanning, IaC, Terraform, and Ansible security audits with one command. No AI subscription required.
 
-[![Python CI](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-python.yml/badge.svg)](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-python.yml)
-[![npm CI](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-npm.yml)
-[![Go CI](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-go.yml/badge.svg)](https://github.com/GabrielOkiri/argus-mcp/actions/workflows/ci-go.yml)
+[![Python CI](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-python.yml/badge.svg)](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-python.yml)
+[![npm CI](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-npm.yml)
+[![Go CI](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-go.yml/badge.svg)](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-go.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -80,25 +80,25 @@ pip install "argus-scan[all-tools]"
 
 ```bash
 uvx argus-scan       # via uv
-npx argus-scan       # via npm
+npx argus-codescan   # via npm
 ```
 
 ### Go (single binary)
 
 ```bash
-go install github.com/GabrielOkiri/argus-mcp/packages/go/cmd/argus-scan@latest
+go install github.com/OkiriGabriel/argus-codescan-mcp/packages/go/cmd/argus@latest
 ```
 
 ### Shell script
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/GabrielOkiri/argus-mcp/main/packages/shell/install.sh | sh
+curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh
 ```
 
 ### Docker (all scanners bundled)
 
 ```bash
-docker pull ghcr.io/GabrielOkiri/argus-mcp:latest
+docker pull ghcr.io/okiriGabriel/argus-codescan-mcp:latest
 ```
 
 ### VS Code Extension
@@ -196,7 +196,7 @@ The AI subscription is for the **AI client**, not for Argus.
 ## Repository Structure
 
 ```
-argus-scan/
+argus-codescan-mcp/
 ├── packages/
 │   ├── python/          pip install argus-scan
 │   │   └── src/argus/
@@ -212,10 +212,10 @@ argus-scan/
 │   │           ├── iac.py         Checkov, Trivy config, Terrascan
 │   │           ├── terraform.py   tfsec, tflint, terraform validate, KICS
 │   │           └── ansible.py     ansible-lint, KICS, Checkov
-│   ├── npm/             npm install argus-scan
-│   ├── go/              go install .../argus-scan@latest
+│   ├── npm/             npx argus-codescan
+│   ├── go/              go install .../argus@latest
 │   ├── shell/           curl | sh installer
-│   └── docker/          ghcr.io/GabrielOkiri/argus-mcp
+│   └── docker/          ghcr.io/okiriGabriel/argus-codescan-mcp
 ├── extensions/
 │   └── vscode/          Argus Security Scanner VS Code extension
 ├── docs/

@@ -1,4 +1,4 @@
-module github.com/GabrielOkiri/argus-mcp
+module github.com/OkiriGabriel/argus-codescan-mcp
 
 go 1.21
 

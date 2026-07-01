@@ -58,10 +58,10 @@ argus         = "argus.cli:run"
 argus-scan     = "argus.cli:run"
 
 [project.urls]
-Homepage      = "https://github.com/GabrielOkiri/argus-mcp"
-Repository    = "https://github.com/GabrielOkiri/argus-mcp"
-Issues        = "https://github.com/GabrielOkiri/argus-mcp/issues"
-Documentation = "https://github.com/GabrielOkiri/argus-mcp/blob/main/README.md"
+Homepage      = "https://github.com/OkiriGabriel/argus-codescan-mcp"
+Repository    = "https://github.com/OkiriGabriel/argus-codescan-mcp"
+Issues        = "https://github.com/OkiriGabriel/argus-codescan-mcp/issues"
+Documentation = "https://github.com/OkiriGabriel/argus-codescan-mcp/blob/main/README.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/argus"]
@@ -94,3 +94,6 @@ ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["argus"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["I001"]

@@ -20,13 +20,13 @@
     "cursor",
     "claude"
   ],
-  "homepage": "https://github.com/GabrielOkiri/argus-mcp",
+  "homepage": "https://github.com/OkiriGabriel/argus-codescan-mcp",
   "bugs": {
-    "url": "https://github.com/GabrielOkiri/argus-mcp/issues"
+    "url": "https://github.com/OkiriGabriel/argus-codescan-mcp/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/GabrielOkiri/argus-mcp.git",
+    "url": "https://github.com/OkiriGabriel/argus-codescan-mcp.git",
     "directory": "packages/npm"
   },
   "license": "MIT",
