@@ -55,8 +55,8 @@ from argus.tools.terraform import (
     run_checkov_terraform,
     run_kics_terraform,
     run_terraform_validate,
-    run_tfsec,
     run_tflint,
+    run_tfsec,
 )
 from argus.utils import format_markdown_report, is_tool_available
 

@@ -15,8 +15,8 @@ from argus.tools.terraform import (
     run_checkov_terraform,
     run_kics_terraform,
     run_terraform_validate,
-    run_tfsec,
     run_tflint,
+    run_tfsec,
 )
 
 __all__ = [
