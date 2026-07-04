@@ -1,75 +1,51 @@
-# argus-scan (npm)
+# argus-codescan (npm)
 
-Node.js wrapper for the [argus-scan](https://pypi.org/project/argus-scan/) Python MCP server.
-
-## Installation
+Security scanner that **ships with everything built in** — works on **Windows, macOS, and Linux**. No Homebrew, no Python, no manual tool installs.
 
 ```bash
-npm install -g argus-scan
+npm install -D argus-codescan
+npx argus-codescan scan all .
 ```
 
-Or use without installation via `npx`:
+## What runs automatically (bundled)
+
+| Scanner | What it checks |
+|---------|----------------|
+| **argus-native** | Source code in Python, Java, PHP, JS, TS, Go — SQLi, XSS, injection, weak crypto |
+| **eslint-security** | JavaScript / JSX security rules + unused variables |
+| **argus-secrets** | Hardcoded API keys, passwords, private keys |
+| **npm audit** | Dependency vulnerabilities |
+
+## Commands
 
 ```bash
-npx argus-scan
+argus-codescan scan sca .      # dependencies only
+argus-codescan scan sast .     # source code (all languages above)
+argus-codescan scan secrets .  # credentials
+argus-codescan scan all .      # everything
+argus-codescan tools           # show what's included
 ```
 
-## Usage as MCP Server
-
-Add to your MCP client config (e.g. `~/.cursor/mcp.json` or Claude Desktop):
+## React / Node project setup
 
 ```json
 {
-  "mcpServers": {
-    "argus-scan": {
-      "command": "npx",
-      "args": ["-y", "argus-scan"]
-    }
+  "scripts": {
+    "security:all": "argus-codescan scan all . --fail-on high"
   }
 }
 ```
 
-With `uvx` (recommended — no npm/pip install needed):
+## Optional (not required)
 
-```json
-{
-  "mcpServers": {
-    "argus-scan": {
-      "command": "uvx",
-      "args": ["argus-scan"]
-    }
-  }
-}
-```
+- **Semgrep** — deeper rules if `pip install semgrep` (optional, any OS)
+- **Gitleaks** — deeper secrets if installed from GitHub releases
 
-## CLI Commands
+The package works fully without these.
 
-```bash
-argus-scan              # Start MCP server (default)
-argus-scan --check      # Check Python server availability
-argus-scan --config uvx # Print MCP config JSON for uvx
-argus-scan --help       # Show help
-```
-
-## Programmatic Use
-
-```typescript
-import { spawnPythonMcpServer, checkPythonServerAvailable } from "argus-scan";
-
-// Check availability
-const { available, command } = await checkPythonServerAvailable();
-
-// Spawn and communicate
-const proc = await spawnPythonMcpServer();
-// proc.stdin/stdout/stderr are available for MCP communication
-```
-
-## Requirements
-
-This package requires the Python `argus-scan` package to be installed:
+## Full Python suite (Terraform, DAST, Ansible…)
 
 ```bash
 pip install argus-scan
+argus scan all /path/to/project
 ```
-
-Or use `uvx` which handles this automatically.

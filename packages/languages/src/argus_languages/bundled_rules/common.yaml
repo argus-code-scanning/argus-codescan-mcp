@@ -1,0 +1,65 @@
+- id: injection-eval
+  title: Dynamic code execution (eval/exec) — injection risk
+  severity: high
+  pattern: '\beval\s*\(|\bexec\s*\(|\bFunction\s*\(|Runtime\.getRuntime\(\)\.exec'
+  languages: [javascript, typescript, python, java, php, ruby, perl, lua, vue]
+
+- id: sql-concat
+  title: Possible SQL injection — string concatenation in query
+  severity: high
+  pattern: '(SELECT|INSERT|UPDATE|DELETE|query\s*\+|f["''].*SELECT|Statement\.execute\s*\([^)]*\+)'
+  flags: [i]
+  languages: [javascript, typescript, python, java, php, ruby, csharp, go, kotlin, scala]
+
+- id: command-injection
+  title: Possible command injection — shell execution
+  severity: high
+  pattern: '(os\.system|subprocess\.(call|Popen|run)|shell_exec|exec\s*\(|passthru|system\s*\(|ProcessBuilder|child_process\.exec|Runtime\.getRuntime|os/exec\.Command)'
+  languages: [javascript, typescript, python, java, php, ruby, go, csharp, kotlin, scala, perl, shell]
+
+- id: weak-crypto
+  title: Weak cryptography (MD5/SHA1/DES/ECB)
+  severity: moderate
+  pattern: '(MD5|SHA1|DES|ECB|createHash\s*\(\s*["'']md5|MessageDigest\.getInstance\s*\(\s*["'']MD5|hash\.md5)'
+  flags: [i]
+
+- id: hardcoded-password
+  title: Hardcoded password or secret assignment
+  severity: high
+  pattern: '(password\s*=\s*["''][^"'']{4,}["'']|passwd\s*=\s*["'']|api_key\s*=\s*["''][^"'']+["'']|secret_key\s*=\s*["''][^"'']+["''])'
+  flags: [i]
+
+- id: deserialization
+  title: Unsafe deserialization
+  severity: high
+  pattern: '(pickle\.loads|yaml\.load\s*\(|unserialize\s*\(|ObjectInputStream|readObject\s*\()'
+  languages: [python, java, php, ruby, csharp, kotlin, scala, rust]
+
+- id: ssrf-fetch
+  title: Possible SSRF — URL fetch may use user-controlled input
+  severity: moderate
+  pattern: '(fetch\s*\([^)]*\+|requests\.(get|post)\s*\([^)]*\+|HttpClient.*\+|file_get_contents\s*\(\s*\$|urllib\.request\.urlopen\s*\([^)]*\+)'
+  languages: [javascript, typescript, python, php, ruby, java, go]
+
+- id: xss-innerhtml
+  title: Possible XSS — unsafe HTML insertion
+  severity: high
+  pattern: '(innerHTML\s*=|dangerouslySetInnerHTML|document\.write\s*\()'
+  languages: [javascript, typescript, vue, php]
+
+- id: nosql-injection
+  title: Possible NoSQL injection
+  severity: high
+  pattern: '(\$where|\$regex.*\+|find\s*\(\s*\{[^}]*\$)'
+  languages: [javascript, typescript, python]
+
+- id: cors-wildcard
+  title: CORS allows all origins (*)
+  severity: moderate
+  pattern: '(Access-Control-Allow-Origin[''"]\s*,\s*[''"]\*|cors\s*\(\s*\{[^}]*origin\s*:\s*[''"]\*)'
+  languages: [javascript, typescript]
+
+- id: path-traversal
+  title: Possible path traversal — user input in file path
+  severity: moderate
+  pattern: '(open\s*\([^)]*\+|readFile\s*\([^)]*\+|include\s*\(\s*\$|require\s*\(\s*\$|new File\s*\([^)]*\+)'

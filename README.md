@@ -202,17 +202,11 @@ argus-codescan-mcp/
 │   │   └── src/argus/
 │   │       ├── cli.py             Standalone CLI
 │   │       ├── server.py          MCP server
-│   │       ├── models.py          Shared data models
-│   │       ├── utils.py           Subprocess helpers
-│   │       └── tools/
-│   │           ├── sast.py        Semgrep, Bandit, ESLint
-│   │           ├── dast.py        OWASP ZAP, Nikto
-│   │           ├── sca.py         Trivy, Safety, pip-audit, npm audit
-│   │           ├── secrets.py     Gitleaks, detect-secrets, TruffleHog
-│   │           ├── iac.py         Checkov, Trivy config, Terrascan
-│   │           ├── terraform.py   tfsec, tflint, terraform validate, KICS
-│   │           └── ansible.py     ansible-lint, KICS, Checkov
-│   ├── npm/             npx argus-codescan
+│   │       └── tools/             SAST, DAST, SCA, secrets, IaC, …
+│   ├── languages/       pip install argus-languages  ← Java, PHP, Terraform, Ansible, all code
+│   │   └── src/argus_languages/
+│   │       └── bundled_rules/     YAML rules shared across Python (and future Go client)
+│   ├── npm/             npx argus-codescan  (Node.js / JS-TS only)
 │   ├── go/              go install .../argus@latest
 │   ├── shell/           curl | sh installer
 │   └── docker/          ghcr.io/okiriGabriel/argus-codescan-mcp

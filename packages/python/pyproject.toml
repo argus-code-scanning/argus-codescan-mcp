@@ -28,6 +28,8 @@ classifiers = [
 dependencies = [
     "mcp>=1.0.0",
     "anyio>=4.0.0",
+    "argus-languages>=0.1.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -54,8 +56,8 @@ dev = [
 [project.scripts]
 # Primary CLI — works with no AI subscription
 argus         = "argus.cli:run"
-# Alias for MCP clients that reference the full package name
-argus-scan     = "argus.cli:run"
+argus-mcp     = "argus.cli:run_mcp"
+argus-scan    = "argus.cli:run"
 
 [project.urls]
 Homepage      = "https://github.com/OkiriGabriel/argus-codescan-mcp"

@@ -15,4 +15,8 @@ export {
 export { getMcpServerConfig, type McpServerConfig } from "./config.js";
 
 /** Package version */
-export const VERSION = "0.1.0";
+export const VERSION = "0.4.0";
+
+export { runScanCli } from "./scan-cli.js";
+export { runNpmAuditSca } from "./scanners/sca.js";
+export type { Finding, ScanReport, ScanResult } from "./scanners/types.js";

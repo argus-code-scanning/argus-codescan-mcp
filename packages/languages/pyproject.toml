@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "argus-languages"
+version = "0.1.0"
+description = "Built-in multi-language security pattern scanner — Java, PHP, Terraform, Ansible, and 15+ languages. No external tools required."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = [
+    "argus", "security", "sast", "terraform", "ansible", "java", "php",
+    "devsecops", "code-scanning", "iac",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+argus-languages = "argus_languages.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/OkiriGabriel/argus-codescan-mcp"
+Repository = "https://github.com/OkiriGabriel/argus-codescan-mcp"
+Documentation = "https://github.com/OkiriGabriel/argus-codescan-mcp/tree/main/packages/languages"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/argus_languages"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/argus_languages/bundled_rules" = "argus_languages/bundled_rules"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/README.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["argus_languages"]

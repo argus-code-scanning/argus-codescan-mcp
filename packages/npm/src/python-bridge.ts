@@ -1,62 +1,72 @@
 /**
- * Bridge to locate and invoke the Python argus-scan server.
+ * Bridge to locate and invoke the Python Argus MCP server.
  *
  * Resolution order:
- *  1. CODETESTING_MCP_PYTHON env var (explicit override)
- *  2. `argus-scan` CLI on PATH (pip-installed)
- *  3. `uvx argus-scan` (uv tool runner — no install needed)
- *  4. `python -m argus.server` (if argus importable)
+ *  1. ARGUS_MCP_PYTHON env var (explicit override)
+ *  2. `argus-mcp` on PATH
+ *  3. `argus mcp` on PATH
+ *  4. `uvx --from argus-scan argus-mcp` (or `argus mcp`)
+ *  5. `python -m argus.server`
  */
 
 import which from "which";
-import { execaNode, execa } from "execa";
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 
 export interface PythonServerOptions {
-  /** Override the Python executable */
   pythonPath?: string;
-  /** Override the argus-scan CLI path */
   mcpCommandPath?: string;
-  /** Extra environment variables */
   env?: Record<string, string>;
+}
+
+async function findOnPath(candidates: string[]): Promise<string | null> {
+  for (const name of candidates) {
+    try {
+      return await which(name);
+    } catch {
+      // try next
+    }
+  }
+  return null;
+}
+
+async function findPython(): Promise<string | null> {
+  return findOnPath(["python3", "python"]);
 }
 
 /**
  * Resolve the command to launch the Python MCP server.
- * Returns [command, args] or throws if no viable option is found.
  */
 export async function resolvePythonMcpCommand(
-  opts: PythonServerOptions = {}
+  opts: PythonServerOptions = {},
 ): Promise<{ command: string; args: string[] }> {
-  // 1. Explicit env override
-  const envCommand = process.env.CODETESTING_MCP_PYTHON;
+  const envCommand = process.env.ARGUS_MCP_PYTHON ?? process.env.CODETESTING_MCP_PYTHON;
   if (envCommand) {
     return { command: envCommand, args: [] };
   }
 
-  // 2. Explicit option override
   if (opts.mcpCommandPath) {
     return { command: opts.mcpCommandPath, args: [] };
   }
 
-  // 3. argus-scan CLI on PATH
-  try {
-    const cliPath = await which("argus-scan");
-    return { command: cliPath, args: [] };
-  } catch {
-    // not found
+  const argusMcp = await findOnPath(["argus-mcp"]);
+  if (argusMcp) {
+    return { command: argusMcp, args: [] };
   }
 
-  // 4. uvx (no install needed)
+  const argusCli = await findOnPath(["argus", "argus-scan"]);
+  if (argusCli) {
+    return { command: argusCli, args: ["mcp"] };
+  }
+
   try {
     await which("uvx");
-    return { command: "uvx", args: ["argus-scan"] };
+    // PyPI package exposes `argus` and `argus-mcp`, not `argus-scan` as uvx executable name
+    return { command: "uvx", args: ["--from", "argus-scan", "argus-mcp"] };
   } catch {
     // not found
   }
 
-  // 5. python -m argus.server
   const pythonExecutable = opts.pythonPath || (await findPython());
   if (pythonExecutable) {
     return {
@@ -66,30 +76,15 @@ export async function resolvePythonMcpCommand(
   }
 
   throw new Error(
-    "Could not find argus-scan. Install with:\n" +
+    "Could not find Argus MCP server. Install with:\n" +
       "  pip install argus-scan\n" +
-      "  OR\n" +
-      "  Set CODETESTING_MCP_PYTHON environment variable"
+      "  OR for npm-only SCA scans (no Python):\n" +
+      "  argus-codescan scan sca .",
   );
 }
 
-async function findPython(): Promise<string | null> {
-  for (const candidate of ["python3", "python"]) {
-    try {
-      return await which(candidate);
-    } catch {
-      // try next
-    }
-  }
-  return null;
-}
-
-/**
- * Spawn the Python MCP server process and return it.
- * The process communicates via stdio (MCP protocol).
- */
 export async function spawnPythonMcpServer(
-  opts: PythonServerOptions = {}
+  opts: PythonServerOptions = {},
 ): Promise<ChildProcess> {
   const { command, args } = await resolvePythonMcpCommand(opts);
 
@@ -99,17 +94,14 @@ export async function spawnPythonMcpServer(
   });
 
   proc.on("error", (err) => {
-    console.error(`[argus-scan] Server process error: ${err.message}`);
+    console.error(`[argus-codescan] MCP server error: ${err.message}`);
   });
 
   return proc;
 }
 
-/**
- * Check if the Python MCP server is available without starting it.
- */
 export async function checkPythonServerAvailable(
-  opts: PythonServerOptions = {}
+  opts: PythonServerOptions = {},
 ): Promise<{ available: boolean; command?: string; error?: string }> {
   try {
     const { command, args } = await resolvePythonMcpCommand(opts);

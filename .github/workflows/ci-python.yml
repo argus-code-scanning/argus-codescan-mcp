@@ -5,11 +5,13 @@ on:
     branches: [main, dev]
     paths:
       - 'packages/python/**'
+      - 'packages/languages/**'
       - '.github/workflows/ci-python.yml'
   pull_request:
     branches: [main, dev]
     paths:
       - 'packages/python/**'
+      - 'packages/languages/**'
 
 defaults:
   run:
@@ -27,7 +29,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install dev dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -e ../languages
+          pip install -e ".[dev]"
 
       - name: Run ruff linter
         run: ruff check src tests
@@ -55,7 +59,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install package and dev dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -e ../languages
+          pip install -e ".[dev]"
 
       - name: Run tests
         run: pytest --cov=argus --cov-report=xml -v
