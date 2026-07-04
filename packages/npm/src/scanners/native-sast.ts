@@ -37,8 +37,15 @@ const RULES: Rule[] = [
     id: "sql-concat",
     title: "Possible SQL injection — string concatenation in query",
     severity: "high",
-    pattern: /(SELECT|INSERT|UPDATE|DELETE|query\s*\+|f["'].*SELECT|["'].*\+.*WHERE)/i,
-    languages: ["javascript", "typescript", "python", "java", "php", "ruby"],
+    pattern: /(Statement\.execute\s*\(|createStatement\s*\(\).*\+|mysql_query\s*\(|mysqli_query\s*\(|f["'].*\b(SELECT|INSERT|UPDATE|DELETE)\b|["'].*\+\s*["'].*\bWHERE\b)/i,
+    languages: ["java", "php", "python", "ruby"],
+  },
+  {
+    id: "sql-concat-js",
+    title: "Possible SQL injection — dynamic SQL in query call",
+    severity: "high",
+    pattern: /\.(query|execute|raw|rawQuery|sql)\s*\(\s*[`'"].*\b(SELECT|INSERT|UPDATE|DELETE)\b|`[^`]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^`]*\$\{|['"][^'"]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^'"]*['"]\s*\+/i,
+    languages: ["javascript", "typescript"],
   },
   {
     id: "command-injection",
@@ -63,7 +70,7 @@ const RULES: Rule[] = [
     id: "weak-crypto",
     title: "Weak cryptography (MD5/SHA1/DES/ECB)",
     severity: "moderate",
-    pattern: /(MD5|SHA1|DES|ECB|createHash\s*\(\s*["']md5|MessageDigest\.getInstance\s*\(\s*["']MD5)/i,
+    pattern: /\b(MD5|SHA-?1|ECB)\b|createHash\s*\(\s*["']md5|MessageDigest\.getInstance\s*\(\s*["']MD5|(?<![a-zA-Z])DES(?![a-zA-Z])/i,
   },
   {
     id: "hardcoded-password",

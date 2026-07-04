@@ -1,6 +1,6 @@
 {
   "name": "argus-codescan",
-  "version": "0.4.0",
+  "version": "0.4.4",
   "description": "MCP server for comprehensive code security testing (SAST, DAST, SCA, Secrets, IaC)",
   "keywords": [
     "mcp",

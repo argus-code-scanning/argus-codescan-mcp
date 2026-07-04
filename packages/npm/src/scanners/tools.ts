@@ -11,13 +11,14 @@ export async function isToolAvailable(name: string): Promise<boolean> {
 
 export async function runToolsCommand(): Promise<number> {
   console.log("Argus scanners (included vs optional):\n");
-  console.log("  ✅ argus-native     Built-in — JS, Python, Java, PHP, Go, … (always on)");
+  console.log("  ✅ argus-native     Built-in — JS/TS security patterns (always on)");
   console.log("  ✅ eslint-security  Built-in — JS/JSX security + unused vars");
   console.log("  ✅ argus-secrets    Built-in — pattern-based secret detection");
-  console.log("  ✅ npm audit        Built-in — dependency scan (scan sca)\n");
+  console.log("  ✅ npm audit        Built-in — dependency scan (scan sca)");
+  console.log("  ✅ opengrep         Auto-downloads on first scan (Semgrep-compatible, no pip)\n");
 
   const optional: Array<[string, string]> = [
-    ["semgrep", "Optional — deeper multi-language SAST (pip install semgrep)"],
+    ["semgrep", "Optional — official Semgrep CLI (pip install semgrep)"],
     ["gitleaks", "Optional — deeper secret scan (see gitleaks.io)"],
   ];
 

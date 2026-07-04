@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { ScanReport, ScanResult, Severity } from "./types.js";
 
 function countBySeverity(results: ScanResult[]) {
@@ -77,13 +79,81 @@ export function shouldFail(report: ScanReport, failOn: Severity): boolean {
   return false;
 }
 
+function csvCell(value: string | number | undefined): string {
+  const text = value === undefined ? "" : String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+export function formatCsv(report: ScanReport): string {
+  const headers = [
+    "severity",
+    "scan_type",
+    "tool",
+    "file",
+    "line",
+    "rule_id",
+    "title",
+    "description",
+    "package",
+    "version",
+    "url",
+  ];
+  const rows = [headers.join(",")];
+
+  for (const result of report.results) {
+    for (const f of result.findings) {
+      rows.push(
+        [
+          csvCell(f.severity),
+          csvCell(result.scanType),
+          csvCell(f.tool),
+          csvCell(f.file),
+          csvCell(f.line),
+          csvCell(f.ruleId),
+          csvCell(f.title),
+          csvCell(f.description),
+          csvCell(f.package),
+          csvCell(f.version),
+          csvCell(f.url),
+        ].join(","),
+      );
+    }
+  }
+
+  return rows.join("\n") + "\n";
+}
+
+export function defaultCsvPath(report: ScanReport): string {
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  return join(process.cwd(), `argus-${report.scanType}-${stamp}.csv`);
+}
+
+export function writeScanCsv(report: ScanReport, outputPath: string): void {
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, formatCsv(report), "utf8");
+}
+
 export function printScanReport(
   report: ScanReport,
-  format: "json" | "table",
+  format: "json" | "table" | "csv",
   failOn: Severity | "never",
+  options: { csvPath?: string; writeCsv?: boolean } = {},
 ): number {
+  const writeCsv = options.writeCsv !== false;
+  const csvPath = options.csvPath ?? defaultCsvPath(report);
+
+  if (writeCsv) {
+    writeScanCsv(report, csvPath);
+    console.error(`CSV report written: ${csvPath}`);
+  }
+
   if (format === "json") {
     console.log(JSON.stringify(report, null, 2));
+  } else if (format === "csv") {
+    console.log(formatCsv(report));
   } else {
     console.log(formatTable(report));
   }
