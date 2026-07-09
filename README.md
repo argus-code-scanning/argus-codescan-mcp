@@ -155,8 +155,17 @@ curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/mai
 ### Docker (all scanners bundled)
 
 ```bash
-docker pull ghcr.io/okiriGabriel/argus-codescan-mcp:latest
+docker pull ghcr.io/okirigabriel/argus-codescan-mcp:latest
+
+# MCP server (add to ~/.cursor/mcp.json — see packages/docker/README.md)
+docker run --rm -i -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp
+
+# One-shot CLI scan
+docker run --rm -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp \
+  scan all /workspace
 ```
+
+Full Docker guide: [packages/docker/README.md](packages/docker/README.md)
 
 ### VS Code Extension
 

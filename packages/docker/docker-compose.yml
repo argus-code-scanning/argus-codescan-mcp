@@ -1,0 +1,23 @@
+# Argus Docker Compose
+#
+# Requires a running container engine (Colima, Podman machine, OrbStack, etc.)
+#
+# Build:
+#   docker compose -f packages/docker/docker-compose.yml build
+#
+# MCP server (stdio — use with Cursor / Claude Desktop via docker run instead):
+#   docker compose -f packages/docker/docker-compose.yml run --rm argus
+#
+# One-shot scan:
+#   docker compose -f packages/docker/docker-compose.yml run --rm argus scan all /workspace
+
+services:
+  argus:
+    image: ghcr.io/okirigabriel/argus-codescan-mcp:latest
+    build:
+      context: ../..
+      dockerfile: packages/docker/Dockerfile
+    stdin_open: true
+    volumes:
+      - ${ARGUS_WORKSPACE:-.}:/workspace
+    working_dir: /workspace
