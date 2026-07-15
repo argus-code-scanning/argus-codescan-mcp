@@ -19,28 +19,37 @@ type ServerCmd struct {
 
 // Resolve finds the best available command to start the Python MCP server.
 // Resolution order:
-//  1. CODETESTING_MCP_PYTHON env var
-//  2. argus-scan on PATH  (pip install)
-//  3. uvx argus-scan      (uv tool runner)
-//  4. python3 -m argus.server
-//  5. python -m argus.server
+//  1. ARGUS_MCP_PYTHON / CODETESTING_MCP_PYTHON env var
+//  2. argus-mcp on PATH          (pip install — dedicated MCP entrypoint)
+//  3. argus / argus-scan + mcp   (pip install — CLI with mcp subcommand)
+//  4. uvx --from argus-scan argus-mcp
+//  5. python3/python -m argus.server
 func Resolve() (*ServerCmd, error) {
 	// 1. Explicit env override
-	if envCmd := os.Getenv("CODETESTING_MCP_PYTHON"); envCmd != "" {
-		return &ServerCmd{Path: envCmd}, nil
+	for _, key := range []string{"ARGUS_MCP_PYTHON", "CODETESTING_MCP_PYTHON"} {
+		if envCmd := os.Getenv(key); envCmd != "" {
+			return &ServerCmd{Path: envCmd}, nil
+		}
 	}
 
-	// 2. argus-scan CLI on PATH
-	if path, err := exec.LookPath("argus-scan"); err == nil {
+	// 2. Dedicated MCP entrypoint
+	if path, err := exec.LookPath("argus-mcp"); err == nil {
 		return &ServerCmd{Path: path}, nil
 	}
 
-	// 3. uvx
-	if path, err := exec.LookPath("uvx"); err == nil {
-		return &ServerCmd{Path: path, Args: []string{"argus-scan"}}, nil
+	// 3. CLI with mcp subcommand
+	for _, name := range []string{"argus", "argus-scan"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return &ServerCmd{Path: path, Args: []string{"mcp"}}, nil
+		}
 	}
 
-	// 4. python3 -m
+	// 4. uvx
+	if path, err := exec.LookPath("uvx"); err == nil {
+		return &ServerCmd{Path: path, Args: []string{"--from", "argus-scan", "argus-mcp"}}, nil
+	}
+
+	// 5. python -m
 	for _, py := range []string{"python3", "python"} {
 		if path, err := exec.LookPath(py); err == nil {
 			return &ServerCmd{
@@ -53,7 +62,7 @@ func Resolve() (*ServerCmd, error) {
 	return nil, errors.New(
 		"argus-scan Python server not found.\n" +
 			"Install with: pip install argus-scan\n" +
-			"Or set CODETESTING_MCP_PYTHON to the server executable path.",
+			"Or set ARGUS_MCP_PYTHON to the server executable path.",
 	)
 }
 
@@ -81,27 +90,32 @@ func Spawn(stdin io.Reader, stdout io.Writer, stderr io.Writer, extraEnv []strin
 	return proc.Run()
 }
 
-// Version returns the version string from the installed Python server.
+// Version returns the version string from the installed Python package.
 func Version() (string, error) {
-	cmd, err := Resolve()
-	if err != nil {
+	if _, err := Resolve(); err != nil {
 		return "", err
 	}
 
-	// Build a command that prints the version and exits
-	var proc *exec.Cmd
-	if len(cmd.Args) > 0 {
-		args := append(cmd.Args, "--version")
-		proc = exec.Command(cmd.Path, args...)
-	} else {
-		proc = exec.Command(cmd.Path, "--version")
+	// Prefer the CLI --version path (works for argus / argus-scan).
+	for _, name := range []string{"argus", "argus-scan"} {
+		if path, err := exec.LookPath(name); err == nil {
+			out, err := exec.Command(path, "--version").Output()
+			if err == nil {
+				return string(out), nil
+			}
+		}
 	}
 
-	out, err := proc.Output()
-	if err != nil {
-		return "unknown", nil // --version may not be implemented yet
+	for _, py := range []string{"python3", "python"} {
+		if path, err := exec.LookPath(py); err == nil {
+			out, err := exec.Command(path, "-c", "import argus; print(argus.__version__)").Output()
+			if err == nil {
+				return string(out), nil
+			}
+		}
 	}
-	return string(out), nil
+
+	return "unknown", nil
 }
 
 // platformNote returns a platform-specific install hint.

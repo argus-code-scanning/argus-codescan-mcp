@@ -14,7 +14,7 @@ from typing import Any
 
 import mcp.server.stdio
 import mcp.types as types
-from mcp.server import Server
+from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from argus.models import AggregatedReport
@@ -838,7 +838,7 @@ async def main() -> None:
                 server_name="argus-scan",
                 server_version="0.1.0",
                 capabilities=server.get_capabilities(
-                    notification_options=None,
+                    notification_options=NotificationOptions(),
                     experimental_capabilities={},
                 ),
             ),

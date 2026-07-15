@@ -52,7 +52,8 @@ argus tools
 ### Run the MCP Server
 
 ```bash
-argus-scan
+argus mcp
+# or: argus-mcp
 ```
 
 The server communicates via **stdio** (standard MCP transport).
@@ -65,7 +66,7 @@ Add to your MCP configuration (`~/.cursor/mcp.json` or `claude_desktop_config.js
 {
   "mcpServers": {
     "argus": {
-      "command": "argus-scan"
+      "command": "argus-mcp"
     }
   }
 }
@@ -78,7 +79,7 @@ Or with `uvx` (no installation required):
   "mcpServers": {
     "argus": {
       "command": "uvx",
-      "args": ["argus-scan"]
+      "args": ["--from", "argus-scan", "argus-mcp"]
     }
   }
 }

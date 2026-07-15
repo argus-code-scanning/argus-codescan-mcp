@@ -30,6 +30,7 @@ async def run_command(
     if env:
         merged_env.update(env)
 
+    proc: asyncio.subprocess.Process | None = None
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -46,6 +47,12 @@ async def run_command(
         )
     except asyncio.TimeoutError:
         logger.warning("Command timed out after %ds: %s", timeout, " ".join(args))
+        if proc is not None:
+            try:
+                proc.kill()
+                await proc.wait()
+            except ProcessLookupError:
+                pass
         return -1, "", f"Command timed out after {timeout}s"
     except FileNotFoundError:
         return -1, "", f"Tool not found: {args[0]}"

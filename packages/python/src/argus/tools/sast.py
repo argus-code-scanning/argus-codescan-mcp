@@ -124,12 +124,13 @@ async def run_bandit(
         return result
 
     target_path = Path(target)
+    confidence_flag = {"l": "-i", "m": "-ii", "h": "-iii"}.get(confidence_level, "-i")
     cmd = [
         "bandit",
         "--format",
         "json",
         f"-{severity_level}",
-        f"-i{'i' * (len(confidence_level) - 1)}",
+        confidence_flag,
     ]
     if target_path.is_dir():
         cmd.extend(["-r", target])

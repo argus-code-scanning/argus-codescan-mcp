@@ -238,7 +238,7 @@ async def run_nikto(
     else:
         # Parse text output
         for line in stdout.splitlines():
-            if line.startswith("+") and "OSVDB" in line or "CVE" in line:
+            if line.startswith("+") and ("OSVDB" in line or "CVE" in line):
                 finding = Finding(
                     title="nikto-finding",
                     severity=Severity.MEDIUM,

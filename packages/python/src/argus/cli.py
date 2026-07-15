@@ -283,7 +283,9 @@ def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fa
         else:
             print(text)
 
-    return 1 if _should_fail(filtered, fail_on) else 0
+    # Fail against the full report so --min-severity display filtering
+    # cannot hide findings that should still fail CI.
+    return 1 if _should_fail(report_dict, fail_on) else 0
 
 
 # ── Scan runners ──────────────────────────────────────────────────────────────
@@ -437,6 +439,12 @@ def _cmd_tools() -> None:
         "docker": ("DAST (ZAP) / Container", "Install Docker Desktop"),
     }
 
+    use_color = _supports_color()
+    green = "\033[32m" if use_color else ""
+    red = "\033[31m" if use_color else ""
+    reset = _RESET if use_color else ""
+    bold = _BOLD if use_color else ""
+
     print(f"\n{bold}Built-in (always available){reset}\n")
     print(f"  {green}✔{reset}  {'argus-languages':<20} Multi-language code (Java, PHP, Terraform, Ansible, …)")
     print(f"       pip install argus-languages   or   argus scan code <path>")
@@ -447,12 +455,6 @@ def _cmd_tools() -> None:
             installed.append((tool, category))
         else:
             missing.append((tool, category, hint))
-
-    use_color = _supports_color()
-    green = "\033[32m" if use_color else ""
-    red = "\033[31m" if use_color else ""
-    reset = _RESET if use_color else ""
-    bold = _BOLD if use_color else ""
 
     print(f"\n{bold}Installed ({len(installed)}/{len(TOOLS)}){reset}\n")
     for tool, cat in installed:

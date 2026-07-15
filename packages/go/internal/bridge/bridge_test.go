@@ -8,6 +8,7 @@ import (
 )
 
 func TestResolveEnvOverride(t *testing.T) {
+	t.Setenv("ARGUS_MCP_PYTHON", "")
 	t.Setenv("CODETESTING_MCP_PYTHON", "/custom/path/server")
 
 	cmd, err := bridge.Resolve()
@@ -19,11 +20,25 @@ func TestResolveEnvOverride(t *testing.T) {
 	}
 }
 
+func TestResolveArgusEnvOverride(t *testing.T) {
+	t.Setenv("ARGUS_MCP_PYTHON", "/argus/path/server")
+	t.Setenv("CODETESTING_MCP_PYTHON", "/legacy/path/server")
+
+	cmd, err := bridge.Resolve()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if cmd.Path != "/argus/path/server" {
+		t.Errorf("expected /argus/path/server, got %q", cmd.Path)
+	}
+}
+
 func TestResolveNoServerReturnsError(t *testing.T) {
 	// Temporarily remove all resolution candidates from PATH
 	original := os.Getenv("PATH")
 	t.Setenv("PATH", "")
 	t.Setenv("CODETESTING_MCP_PYTHON", "")
+	t.Setenv("ARGUS_MCP_PYTHON", "")
 	defer os.Setenv("PATH", original)
 
 	_, err := bridge.Resolve()

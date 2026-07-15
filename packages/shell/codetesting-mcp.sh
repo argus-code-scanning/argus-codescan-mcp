@@ -5,11 +5,12 @@
 # or sourced for the helper functions.
 #
 # Resolution order:
-#   1. $ARGUS_MCP_PYTHON
-#   2. argus-scan CLI on PATH
-#   3. uvx argus-scan
-#   4. python3 -m argus.server
-#   5. python -m argus.server
+#   1. $ARGUS_MCP_PYTHON / $CODETESTING_MCP_PYTHON
+#   2. argus-mcp on PATH
+#   3. argus / argus-scan mcp
+#   4. uvx --from argus-scan argus-mcp
+#   5. python3 -m argus.server
+#   6. python -m argus.server
 
 set -e
 
@@ -59,7 +60,7 @@ _config() {
 {
   "mcpServers": {
     "argus": {
-      "command": "argus-scan"
+      "command": "argus-mcp"
     }
   }
 }
@@ -71,7 +72,7 @@ JSON
   "mcpServers": {
     "argus": {
       "command": "uvx",
-      "args": ["argus-scan"]
+      "args": ["--from", "argus-scan", "argus-mcp"]
     }
   }
 }
@@ -83,7 +84,7 @@ JSON
   "mcpServers": {
     "argus": {
       "command": "npx",
-      "args": ["-y", "argus-scan"]
+      "args": ["-y", "argus-codescan", "mcp"]
     }
   }
 }
@@ -95,7 +96,7 @@ JSON
   "mcpServers": {
     "argus": {
       "command": "docker",
-      "args": ["run", "--rm", "-i", "-v", "${PWD}:/workspace", "ghcr.io/your-org/argus-scan:latest"]
+      "args": ["run", "--rm", "-i", "-v", "${PWD}:/workspace", "ghcr.io/okirigabriel/argus-codescan-mcp:latest"]
     }
   }
 }
@@ -130,7 +131,7 @@ EXAMPLES:
   argus-scan config npx
 
 INSTALL:
-  curl -sSfL https://raw.githubusercontent.com/your-org/argus-scan/main/packages/shell/install.sh | sh
+  curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh
 
 TOOLS PROVIDED (via MCP):
   scan_sast        Semgrep, Bandit, ESLint-security
@@ -165,13 +166,22 @@ case "${1:-}" in
     if [ -n "$ARGUS_MCP_PYTHON" ]; then
       exec "$ARGUS_MCP_PYTHON"
     fi
-
-    if command -v argus-scan > /dev/null 2>&1 && [ "$(basename "$0")" != "argus-scan" ]; then
-      exec argus-scan
+    if [ -n "$CODETESTING_MCP_PYTHON" ]; then
+      exec "$CODETESTING_MCP_PYTHON"
     fi
 
+    if command -v argus-mcp > /dev/null 2>&1; then
+      exec argus-mcp
+    fi
+
+    for CMD in argus argus-scan; do
+      if command -v "$CMD" > /dev/null 2>&1 && [ "$(basename "$0")" != "$CMD" ]; then
+        exec "$CMD" mcp
+      fi
+    done
+
     if command -v uvx > /dev/null 2>&1; then
-      exec uvx argus-scan
+      exec uvx --from argus-scan argus-mcp
     fi
 
     for PY in python3 python; do
@@ -182,7 +192,7 @@ case "${1:-}" in
 
     echo "ERROR: argus-scan Python server not found." >&2
     echo "Install with: pip install argus-scan" >&2
-    echo "Or run: curl -sSfL https://raw.githubusercontent.com/your-org/argus-scan/main/packages/shell/install.sh | sh" >&2
+    echo "Or run: curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh" >&2
     exit 1
     ;;
   *)
