@@ -1,0 +1,58 @@
+- id: flutter-debug-dependency
+  title: Debug-only package in production dependencies
+  severity: moderate
+  pattern: '^\s*(flutter_test|integration_test|mockito|build_runner):'
+  flags: [m]
+  languages: [flutter]
+
+- id: flutter-http-dependency
+  title: Plain http package — prefer https and certificate pinning for production
+  severity: low
+  pattern: '^\s*http:\s'
+  flags: [m]
+  languages: [flutter]
+
+- id: flutter-android-debuggable
+  title: Android app debuggable in release — set android:debuggable=false for production
+  severity: high
+  pattern: 'android:debuggable\s*=\s*["'']true["'']'
+  languages: [flutter]
+
+- id: flutter-android-backup
+  title: Android allowBackup enabled — may expose app data
+  severity: moderate
+  pattern: 'android:allowBackup\s*=\s*["'']true["'']'
+  languages: [flutter]
+
+- id: flutter-android-cleartext
+  title: Android cleartext traffic allowed
+  severity: high
+  pattern: 'usesCleartextTraffic\s*=\s*["'']true["'']'
+  languages: [flutter]
+
+- id: flutter-android-exported
+  title: Android component exported without permission — review attack surface
+  severity: moderate
+  pattern: 'android:exported\s*=\s*["'']true["'']'
+  languages: [flutter]
+
+- id: flutter-ios-arbitrary-loads
+  title: iOS App Transport Security disabled (allows arbitrary loads)
+  severity: high
+  pattern: '<key>NSAllowsArbitraryLoads</key>\s*<true\s*/>'
+  flags: [i]
+  languages: [flutter]
+
+- id: flutter-ios-file-sharing
+  title: iOS UIFileSharingEnabled — app documents exposed via iTunes
+  severity: moderate
+  pattern: '<key>UIFileSharingEnabled</key>\s*<true\s*/>'
+  flags: [i]
+  languages: [flutter]
+
+- id: flutter-hardcoded-secret-pubspec
+  title: Possible secret in pubspec or config file
+  severity: high
+  pattern: '(api[_-]?key|secret|password|token)\s*:\s*[''"][^''"]{8,}[''"]'
+  flags: [i]
+  languages: [flutter]

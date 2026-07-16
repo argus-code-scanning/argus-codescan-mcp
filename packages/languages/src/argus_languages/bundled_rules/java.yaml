@@ -1,0 +1,35 @@
+- id: java-sql-statement-concat
+  title: Java SQL Statement built via string concatenation
+  severity: high
+  pattern: '(Statement\.execute\s*\(|createStatement\s*\(\).*\+|PreparedStatement.*\+.*\+)'
+  languages: [java, kotlin, scala]
+
+- id: java-xxe
+  title: Possible XXE — XML parser without secure features
+  severity: high
+  pattern: '(DocumentBuilderFactory\.newInstance|SAXParserFactory\.newInstance|XMLInputFactory\.newInstance)'
+  languages: [java, kotlin, scala]
+
+- id: java-ldap-injection
+  title: Possible LDAP injection — concatenated filter
+  severity: high
+  pattern: '(search\s*\([^)]*\+|DirContext\.search\s*\([^)]*\+)'
+  languages: [java, kotlin]
+
+- id: java-path-traversal
+  title: Possible path traversal — user input in file path
+  severity: moderate
+  pattern: '(Paths\.get\s*\([^)]*\+|Files\.(read|write).*\+)'
+  languages: [java, kotlin, scala]
+
+- id: spring-csrf-disabled
+  title: Spring CSRF protection disabled
+  severity: moderate
+  pattern: '\.csrf\s*\(\s*\)\.disable\s*\(\)'
+  languages: [java, kotlin]
+
+- id: java-log-injection
+  title: Possible log injection — user input in log statement
+  severity: low
+  pattern: '(logger\.(info|warn|error|debug)\s*\([^)]*\+.*request\.|log\.(info|warn|error)\s*\([^)]*\+)'
+  languages: [java, kotlin]

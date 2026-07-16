@@ -1,0 +1,57 @@
+- id: dart-cleartext-http
+  title: Cleartext HTTP URL — use HTTPS
+  severity: high
+  pattern: 'http://[^\s"'']+'
+  languages: [dart]
+
+- id: dart-hardcoded-secret
+  title: Hardcoded API key or secret in Dart source
+  severity: high
+  pattern: '(apiKey|api_key|secretKey|secret_key|accessToken|password)\s*=\s*[''"][^''"]{8,}[''"]'
+  flags: [i]
+  languages: [dart]
+
+- id: dart-weak-hash
+  title: Weak hashing (MD5/SHA-1) in Dart crypto
+  severity: moderate
+  pattern: '(Digest\s*\(\s*[''"]SHA-1|Digest\s*\(\s*[''"]MD5|MD5Digest|SHA1Digest|md5\.convert|sha1\.convert)'
+  flags: [i]
+  languages: [dart]
+
+- id: dart-bad-cert-callback
+  title: TLS certificate validation disabled (badCertificateCallback)
+  severity: high
+  pattern: 'badCertificateCallback\s*=>|badCertificateCallback\s*\('
+  languages: [dart]
+
+- id: dart-insecure-storage
+  title: Sensitive data in SharedPreferences — prefer flutter_secure_storage
+  severity: moderate
+  pattern: '(SharedPreferences.*\.(setString|setBool).*(password|token|secret|pin|apiKey))'
+  flags: [i]
+  languages: [dart]
+
+- id: dart-webview-js
+  title: WebView JavaScript enabled — XSS risk if loading untrusted content
+  severity: moderate
+  pattern: 'javascriptMode:\s*JavascriptMode\.unrestricted'
+  languages: [dart]
+
+- id: dart-print-sensitive
+  title: Possible sensitive data logged via print/debugPrint
+  severity: low
+  pattern: '(print|debugPrint)\s*\([^)]*(password|token|secret|apiKey|credential)'
+  flags: [i]
+  languages: [dart]
+
+- id: dart-sql-concat
+  title: Possible SQL injection — string concatenation in query
+  severity: high
+  pattern: '(rawQuery|execute)\s*\(\s*[''"][^''"]*[''"]\s*\+'
+  languages: [dart]
+
+- id: dart-eval
+  title: Dynamic evaluation — code injection risk
+  severity: high
+  pattern: '(Isolate\.spawnUri|Function\.apply\s*\([^)]*user|dart:mirrors)'
+  languages: [dart]

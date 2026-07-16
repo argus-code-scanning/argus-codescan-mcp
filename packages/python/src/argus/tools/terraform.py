@@ -17,7 +17,7 @@ import logging
 from typing import Any
 
 from argus.models import Finding, ScanResult, ScanType, Severity
-from argus.utils import is_tool_available, parse_json_output, run_command
+from argus.utils import collect_scan_results, is_tool_available, parse_json_output, run_command
 
 logger = logging.getLogger(__name__)
 
@@ -408,10 +408,4 @@ async def run_all_terraform(
         tasks.append(run_checkov_terraform(target, timeout=timeout))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    final: list[ScanResult] = []
-    for r in results:
-        if isinstance(r, Exception):
-            logger.exception("Terraform scanner raised an exception: %s", r)
-        else:
-            final.append(r)
-    return final
+    return collect_scan_results(results, label="Terraform scanner")

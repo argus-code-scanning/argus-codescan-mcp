@@ -1,0 +1,42 @@
+- id: ansible-shell-command
+  title: Ansible shell/command module — prefer ansible.builtin.command
+  severity: moderate
+  pattern: 'ansible\.builtin\.(shell|raw):|^\s*(shell|raw):\s'
+  flags: [m]
+  languages: [ansible]
+
+- id: ansible-no-become-password
+  title: Hardcoded become/sudo password
+  severity: high
+  pattern: '(ansible_become_pass|ansible_sudo_pass|become_pass):\s*["''][^"'']+["'']'
+  languages: [ansible]
+
+- id: ansible-ssl-verify-off
+  title: SSL certificate verification disabled
+  severity: high
+  pattern: '(validate_certs:\s*false|verify:\s*false|insecure:\s*true)'
+  languages: [ansible]
+
+- id: ansible-world-perms
+  title: File permissions too open (777 or 666)
+  severity: moderate
+  pattern: 'mode:\s*[''"]?(0777|666|0o777)'
+  languages: [ansible]
+
+- id: ansible-hardcoded-secret
+  title: Hardcoded password or token in playbook
+  severity: high
+  pattern: '(password|api_key|token|secret):\s*["''][^"'']{4,}["'']'
+  languages: [ansible]
+
+- id: ansible-unquoted-var-shell
+  title: Unquoted Jinja variable in shell context
+  severity: moderate
+  pattern: '(shell|command):\s*[^\n]*\{\{[^}]+\}\}'
+  languages: [ansible]
+
+- id: ansible-git-insecure
+  title: Git clone with accept_hostkey or force
+  severity: moderate
+  pattern: '(accept_hostkey:\s*true|force:\s*true)'
+  languages: [ansible]

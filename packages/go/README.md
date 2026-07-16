@@ -11,12 +11,18 @@ brew install GabrielOkiri/tap/argus
 
 ### Go install
 ```bash
-go install github.com/GabrielOkiri/argus-mcp/packages/go/cmd/argus-scan@latest
+go install github.com/OkiriGabriel/argus-codescan-mcp/cmd/argus@latest
+
+# Or build from a clone:
+cd packages/go
+go install ./cmd/argus
 ```
+
+> Note: the Go module lives under `packages/go`. From a clone, always build inside that directory.
 
 ### Pre-built binaries
 
-Download from the [GitHub Releases](https://github.com/GabrielOkiri/argus-mcp/releases) page:
+Download from the [GitHub Releases](https://github.com/OkiriGabriel/argus-codescan-mcp/releases) page:
 
 | Platform | Binary |
 |----------|--------|
@@ -49,7 +55,7 @@ Example output:
   "mcpServers": {
     "argus": {
       "command": "uvx",
-      "args": ["argus-scan"]
+      "args": ["--from", "argus-scan", "argus-mcp"]
     }
   }
 }
@@ -59,23 +65,23 @@ Example output:
 
 The binary finds the Python server in this order:
 
-1. `CODETESTING_MCP_PYTHON` environment variable
-2. `argus-scan` CLI on PATH (from `pip install argus-scan`)
-3. `uvx argus-scan` (uv tool runner)
-4. `python3 -m argus.server`
-5. `python -m argus.server`
+1. `ARGUS_MCP_PYTHON` / `CODETESTING_MCP_PYTHON` environment variable
+2. `argus-mcp` on PATH (from `pip install argus-scan`)
+3. `argus` / `argus-scan mcp` on PATH
+4. `uvx --from argus-scan argus-mcp`
+5. `python3 -m argus.server` / `python -m argus.server`
 
 ## Build from Source
 
 ```bash
-git clone https://github.com/GabrielOkiri/argus-mcp
-cd argus-scan/packages/go
-go build ./cmd/argus-scan
+git clone https://github.com/OkiriGabriel/argus-codescan-mcp
+cd packages/go
+go build ./cmd/argus
 ```
 
 Cross-compile:
 ```bash
-GOOS=linux GOARCH=amd64 go build -o argus-scan-linux-amd64 ./cmd/argus-scan
-GOOS=darwin GOARCH=arm64 go build -o argus-scan-darwin-arm64 ./cmd/argus-scan
-GOOS=windows GOARCH=amd64 go build -o argus-scan-windows-amd64.exe ./cmd/argus-scan
+GOOS=linux GOARCH=amd64 go build -o argus-scan-linux-amd64 ./cmd/argus
+GOOS=darwin GOARCH=arm64 go build -o argus-scan-darwin-arm64 ./cmd/argus
+GOOS=windows GOARCH=amd64 go build -o argus-scan-windows-amd64.exe ./cmd/argus
 ```

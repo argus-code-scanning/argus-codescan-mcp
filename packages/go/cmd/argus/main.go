@@ -59,7 +59,7 @@ func configCmd() *cobra.Command {
 				"pip": `{
   "mcpServers": {
     "argus": {
-      "command": "argus-scan"
+      "command": "argus-mcp"
     }
   }
 }`,
@@ -67,7 +67,7 @@ func configCmd() *cobra.Command {
   "mcpServers": {
     "argus": {
       "command": "uvx",
-      "args": ["argus-scan"]
+      "args": ["--from", "argus-scan", "argus-mcp"]
     }
   }
 }`,
@@ -75,7 +75,7 @@ func configCmd() *cobra.Command {
   "mcpServers": {
     "argus": {
       "command": "npx",
-      "args": ["-y", "argus-scan"]
+      "args": ["-y", "argus-codescan", "mcp"]
     }
   }
 }`,

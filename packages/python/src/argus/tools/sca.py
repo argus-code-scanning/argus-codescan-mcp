@@ -11,6 +11,7 @@ from pathlib import Path
 
 from argus.models import Finding, ScanResult, ScanType, Severity
 from argus.utils import (
+    collect_scan_results,
     is_tool_available,
     parse_json_output,
     run_command,
@@ -180,12 +181,12 @@ async def run_safety(
                 )
                 severity = TRIVY_SEVERITY_MAP.get(sev_str, Severity.HIGH)
                 finding = Finding(
-                    title=vuln.get("vulnerability_id", vuln.get("id", "safety-vuln")),
+                    title=str(vuln.get("vulnerability_id", vuln.get("id", "safety-vuln")) or "safety-vuln"),
                     severity=severity,
                     scan_type=ScanType.SCA,
                     tool="safety",
                     file=str(req_file),
-                    description=vuln.get("advisory", vuln.get("description", "")),
+                    description=str(vuln.get("advisory", vuln.get("description", "")) or ""),
                     cve=vuln.get("cve", ""),
                     rule_id=vuln.get("vulnerability_id", ""),
                     raw=vuln,
@@ -349,10 +350,4 @@ async def run_all_sca(
     ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    final: list[ScanResult] = []
-    for r in results:
-        if isinstance(r, Exception):
-            logger.exception("SCA tool raised an exception: %s", r)
-        else:
-            final.append(r)
-    return final
+    return collect_scan_results(results, label="SCA tool")

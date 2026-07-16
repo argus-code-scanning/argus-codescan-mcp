@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 
 from argus.models import Finding, ScanResult, ScanType, Severity
-from argus.utils import is_tool_available, parse_json_output, run_command
+from argus.utils import collect_scan_results, is_tool_available, parse_json_output, run_command
 
 logger = logging.getLogger(__name__)
 
@@ -348,10 +348,4 @@ async def run_all_iac(
         tasks.append(run_ansible_lint(target, timeout=timeout))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    final: list[ScanResult] = []
-    for r in results:
-        if isinstance(r, Exception):
-            logger.exception("IaC scanner raised an exception: %s", r)
-        else:
-            final.append(r)
-    return final
+    return collect_scan_results(results, label="IaC scanner")

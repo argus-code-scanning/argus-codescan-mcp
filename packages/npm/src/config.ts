@@ -20,6 +20,8 @@ export interface McpServerConfig {
 
 /**
  * Generate an MCP server config for a given installation method.
+ *
+ * Prefer `argus-mcp` (or `argus mcp`) — bare `argus-scan` prints CLI help.
  */
 export function getMcpServerConfig(
   method: "pip" | "uvx" | "npx" = "uvx"
@@ -28,9 +30,9 @@ export function getMcpServerConfig(
     "pip" | "uvx" | "npx",
     { command: string; args: string[] }
   > = {
-    pip: { command: "argus-scan", args: [] },
-    uvx: { command: "uvx", args: ["argus-scan"] },
-    npx: { command: "npx", args: ["-y", "argus-scan"] },
+    pip: { command: "argus-mcp", args: [] },
+    uvx: { command: "uvx", args: ["--from", "argus-scan", "argus-mcp"] },
+    npx: { command: "npx", args: ["-y", "argus-codescan", "mcp"] },
   };
 
   const { command, args } = configs[method];

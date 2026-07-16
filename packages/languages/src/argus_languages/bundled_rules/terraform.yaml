@@ -1,0 +1,59 @@
+- id: tf-public-s3-acl
+  title: S3 bucket ACL set to public-read or public-read-write
+  severity: high
+  pattern: 'acl\s*=\s*"(public-read|public-read-write|authenticated-read)"'
+  languages: [terraform]
+
+- id: tf-s3-public-access-block-off
+  title: S3 public access block disabled
+  severity: high
+  pattern: 'block_public_(acls|policy)\s*=\s*false'
+  languages: [terraform]
+
+- id: tf-open-security-group
+  title: Security group allows ingress from 0.0.0.0/0
+  severity: high
+  pattern: '(cidr_blocks\s*=\s*\[[^\]]*["'']0\.0\.0\.0\/0["'']|0\.0\.0\.0\/0)'
+  languages: [terraform]
+
+- id: tf-unencrypted-ebs
+  title: EBS volume encryption disabled
+  severity: moderate
+  pattern: 'encrypted\s*=\s*false'
+  languages: [terraform]
+
+- id: tf-rds-public
+  title: RDS instance publicly accessible
+  severity: high
+  pattern: 'publicly_accessible\s*=\s*true'
+  languages: [terraform]
+
+- id: tf-hardcoded-secret
+  title: Hardcoded secret in Terraform resource
+  severity: high
+  pattern: '(password\s*=\s*"[^"]{4,}"|secret_key\s*=\s*"[^"]+"|access_key\s*=\s*"AKIA)'
+  languages: [terraform]
+
+- id: tf-iam-wildcard
+  title: IAM policy allows wildcard actions or resources
+  severity: high
+  pattern: '(Action\s*=\s*"\*"|Resource\s*=\s*"\*")'
+  languages: [terraform]
+
+- id: tf-http-backend
+  title: Terraform HTTP backend without TLS verification
+  severity: moderate
+  pattern: '(skip_tls_verification\s*=\s*true|address\s*=\s*"http:\/\/)'
+  languages: [terraform]
+
+- id: tf-azure-storage-public
+  title: Azure storage allows public blob access
+  severity: high
+  pattern: 'allow_blob_public_access\s*=\s*true'
+  languages: [terraform]
+
+- id: tf-gcp-public-bucket
+  title: GCP bucket with allUsers or allAuthenticatedUsers
+  severity: high
+  pattern: '(allUsers|allAuthenticatedUsers)'
+  languages: [terraform]

@@ -1,0 +1,29 @@
+# Git / CI
+.git/
+.github/
+
+# Docs & meta (not needed in image)
+docs/
+*.md
+!packages/python/README.md
+!packages/python/LICENSE
+
+# Packages not copied by Dockerfile
+extensions/
+packages/npm/
+packages/go/
+packages/shell/
+
+# Python / Node build artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/node_modules/
+**/dist/
+**/*.vsix
+**/.env
+**/coverage.xml
+**/htmlcov/

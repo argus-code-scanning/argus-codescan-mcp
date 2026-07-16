@@ -14,7 +14,7 @@ from typing import Any
 
 import mcp.server.stdio
 import mcp.types as types
-from mcp.server import Server
+from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from argus.models import AggregatedReport
@@ -59,7 +59,7 @@ from argus.tools.terraform import (
     run_tflint,
     run_tfsec,
 )
-from argus.utils import format_markdown_report, is_tool_available
+from argus.utils import collect_scan_results, format_markdown_report, is_tool_available
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -457,8 +457,7 @@ async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
             tasks.append(run_bandit(target, timeout=timeout))
         if "eslint" in tools:
             tasks.append(run_eslint_security(target, timeout=timeout))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        results = [r for r in results if not isinstance(r, Exception)]
+        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
     else:
         results = await run_all_sast(target, semgrep_config=semgrep_config, timeout=timeout)
 
@@ -485,8 +484,7 @@ async def _handle_scan_dast(args: dict[str, Any]) -> list[types.TextContent]:
             tasks.append(run_zap_baseline(target_url, timeout=timeout))
         if "nikto" in tools:
             tasks.append(run_nikto(target_url, timeout=min(timeout, 300)))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        results = [r for r in results if not isinstance(r, Exception)]
+        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
     else:
         results = await run_all_dast(target_url, timeout=timeout)
 
@@ -511,8 +509,7 @@ async def _handle_scan_sca(args: dict[str, Any]) -> list[types.TextContent]:
             tasks.append(run_pip_audit(target, timeout=timeout))
         if "npm-audit" in tools:
             tasks.append(run_npm_audit(target, timeout=timeout))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        results = [r for r in results if not isinstance(r, Exception)]
+        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
     else:
         results = await run_all_sca(target, timeout=timeout)
 
@@ -535,8 +532,7 @@ async def _handle_scan_secrets(args: dict[str, Any]) -> list[types.TextContent]:
             tasks.append(run_detect_secrets(target, timeout=timeout))
         if "trufflehog" in tools:
             tasks.append(run_trufflehog(target, timeout=timeout))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        results = [r for r in results if not isinstance(r, Exception)]
+        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
     else:
         results = await run_all_secrets(target, timeout=timeout)
 
@@ -560,8 +556,7 @@ async def _handle_scan_iac(args: dict[str, Any]) -> list[types.TextContent]:
             tasks.append(run_trivy_config(target, timeout=timeout))
         if "terrascan" in tools:
             tasks.append(run_terrascan(target, timeout=timeout))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        results = [r for r in results if not isinstance(r, Exception)]
+        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
     else:
         results = await run_all_iac(target, timeout=timeout)
 
@@ -588,8 +583,7 @@ async def _handle_scan_terraform(args: dict[str, Any]) -> list[types.TextContent
             tasks.append(run_kics_terraform(target, timeout=timeout))
         if "checkov" in tools:
             tasks.append(run_checkov_terraform(target, timeout=timeout))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        results = [r for r in results if not isinstance(r, Exception)]
+        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
     else:
         results = await run_all_terraform(target, timeout=timeout)
 
@@ -613,8 +607,7 @@ async def _handle_scan_ansible(args: dict[str, Any]) -> list[types.TextContent]:
             tasks.append(run_kics_ansible(target, timeout=timeout))
         if "checkov" in tools:
             tasks.append(run_checkov_ansible(target, timeout=timeout))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        results = [r for r in results if not isinstance(r, Exception)]
+        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
     else:
         results = await run_all_ansible(target, timeout=timeout, ansible_lint_profile=profile)
 
@@ -838,7 +831,7 @@ async def main() -> None:
                 server_name="argus-scan",
                 server_version="0.1.0",
                 capabilities=server.get_capabilities(
-                    notification_options=None,
+                    notification_options=NotificationOptions(),
                     experimental_capabilities={},
                 ),
             ),

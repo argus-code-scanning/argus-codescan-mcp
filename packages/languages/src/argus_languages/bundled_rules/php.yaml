@@ -1,0 +1,35 @@
+- id: php-xss-echo
+  title: Possible XSS — unescaped output
+  severity: high
+  pattern: '(echo\s+\$_|print\s+\$_|<\?=\s*\$_)'
+  languages: [php]
+
+- id: php-include-user-input
+  title: Possible LFI — include/require with variable
+  severity: high
+  pattern: '((include|require)(_once)?\s*\(\s*\$)'
+  languages: [php]
+
+- id: php-sql-mysql
+  title: Possible SQL injection — mysql_query with variable
+  severity: high
+  pattern: '(mysql_query\s*\([^)]*\$|mysqli_query\s*\([^)]*\$)'
+  languages: [php]
+
+- id: php-deserialize
+  title: Unsafe unserialize() on user input
+  severity: high
+  pattern: 'unserialize\s*\(\s*\$_'
+  languages: [php]
+
+- id: php-dangerous-functions
+  title: Dangerous function — eval/assert/create_function
+  severity: high
+  pattern: '\b(assert\s*\(|create_function\s*\(|preg_replace\s*\([^)]*\/e)'
+  languages: [php]
+
+- id: php-open-redirect
+  title: Possible open redirect — header Location with user input
+  severity: moderate
+  pattern: 'header\s*\(\s*["'']Location:.*\$_(GET|POST|REQUEST)'
+  languages: [php]

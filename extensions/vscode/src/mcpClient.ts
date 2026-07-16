@@ -94,11 +94,13 @@ export class McpClient implements vscode.Disposable {
       return { command: parts[0], args: parts.slice(1) };
     }
 
-    // Try common installation methods in order
+    // Prefer dedicated MCP entrypoints — bare argus-scan prints CLI help.
     const candidates: Array<{ command: string; args: string[] }> = [
-      { command: "argus-scan", args: [] },
-      { command: "uvx", args: ["argus-scan"] },
-      { command: "npx", args: ["-y", "argus-scan"] },
+      { command: "argus-mcp", args: [] },
+      { command: "argus", args: ["mcp"] },
+      { command: "argus-scan", args: ["mcp"] },
+      { command: "uvx", args: ["--from", "argus-scan", "argus-mcp"] },
+      { command: "npx", args: ["-y", "argus-codescan", "mcp"] },
     ];
 
     for (const candidate of candidates) {

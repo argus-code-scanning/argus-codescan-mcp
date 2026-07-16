@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 # argus-scan installer
-# Usage: curl -sSfL https://raw.githubusercontent.com/your-org/argus-scan/main/packages/shell/install.sh | sh
+# Usage: curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh
 #        Or with options: curl ... | sh -s -- --prefix /usr/local
 
 set -e
 
 PREFIX="${PREFIX:-/usr/local}"
 SCRIPT_NAME="argus-scan"
-REPO="your-org/argus-scan"
+REPO="OkiriGabriel/argus-codescan-mcp"
 MAIN_BRANCH="main"
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -80,18 +80,28 @@ set -e
 if [ -n "$ARGUS_MCP_PYTHON" ]; then
   exec "$ARGUS_MCP_PYTHON" "$@"
 fi
-
-# 2. argus-scan CLI (pip install drops this on PATH)
-if command -v argus-scan-server > /dev/null 2>&1; then
-  exec argus-scan-server "$@"
+if [ -n "$CODETESTING_MCP_PYTHON" ]; then
+  exec "$CODETESTING_MCP_PYTHON" "$@"
 fi
 
-# 3. uvx
+# 2. Dedicated MCP entrypoint (pip install)
+if command -v argus-mcp > /dev/null 2>&1; then
+  exec argus-mcp "$@"
+fi
+
+# 3. CLI with mcp subcommand
+for CMD in argus argus-scan; do
+  if command -v "$CMD" > /dev/null 2>&1 && [ "$(command -v "$CMD")" != "$0" ]; then
+    exec "$CMD" mcp "$@"
+  fi
+done
+
+# 4. uvx
 if command -v uvx > /dev/null 2>&1; then
-  exec uvx argus-scan "$@"
+  exec uvx --from argus-scan argus-mcp "$@"
 fi
 
-# 4. python module
+# 5. python module
 for PY in python3 python; do
   if command -v "$PY" > /dev/null 2>&1; then
     exec "$PY" -m argus.server "$@"
@@ -116,6 +126,8 @@ fi
 echo ""
 ok "argus-scan installed successfully!"
 echo ""
+echo "Repo: https://github.com/${REPO} (${MAIN_BRANCH})"
+echo ""
 echo "Next steps:"
 echo "  1. Install scanners:"
 echo "     pip install semgrep bandit safety pip-audit detect-secrets checkov"
@@ -126,11 +138,11 @@ cat << 'JSON'
      {
        "mcpServers": {
          "argus": {
-           "command": "argus-scan"
+           "command": "argus-mcp"
          }
        }
      }
 JSON
 echo ""
-echo "  3. Verify: argus-scan --check"
+echo "  3. Verify: argus tools"
 echo ""

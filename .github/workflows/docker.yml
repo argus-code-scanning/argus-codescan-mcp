@@ -7,11 +7,14 @@ on:
     paths:
       - 'packages/docker/**'
       - 'packages/python/**'
+      - 'packages/languages/**'
       - '.github/workflows/docker.yml'
   pull_request:
     branches: [main]
     paths:
       - 'packages/docker/**'
+      - 'packages/python/**'
+      - 'packages/languages/**'
 
 jobs:
   build:

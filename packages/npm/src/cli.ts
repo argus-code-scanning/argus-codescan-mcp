@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * CLI entry point for the argus-scan npm package.
+ * CLI entry point for argus-codescan.
  *
- * When invoked, it locates and starts the Python MCP server,
- * piping stdio through so MCP clients can communicate with it.
+ * - `scan …`  → native Node.js scans (no Python)
+ * - `mcp`     → start Python MCP server (optional, for AI clients)
+ * - default   → same as `mcp`
  */
 
 import { spawnPythonMcpServer, checkPythonServerAvailable } from "./python-bridge.js";
 import { getMcpServerConfig } from "./config.js";
+import { runScanCli } from "./scan-cli.js";
 
 const args = process.argv.slice(2);
 
@@ -29,54 +31,57 @@ async function main() {
     process.exit(0);
   }
 
-  // Default: start the MCP server
-  await startServer();
+  // Native scans — no Python
+  if (args[0] === "scan") {
+    const code = await runScanCli(args.slice(1));
+    process.exit(code);
+  }
+
+  if (args[0] === "tools") {
+    const { runToolsCommand } = await import("./scanners/tools.js");
+    const code = await runToolsCommand();
+    process.exit(code);
+  }
+
+  // Explicit MCP mode or legacy default
+  if (args[0] === "mcp" || args.length === 0) {
+    await startServer();
+    return;
+  }
+
+  console.error(`Unknown command: ${args.join(" ")}\n`);
+  printHelp();
+  process.exit(1);
 }
 
 function printHelp() {
   console.log(`
-argus-scan — MCP server for code security testing
+argus-codescan — security scanner for Node.js projects
 
 USAGE:
-  argus-scan [options]
+  argus-codescan scan sca [path]     Dependency vulnerabilities (npm audit)
+  argus-codescan scan sast [path]    Source code — Python, Java, PHP, JS, …
+  argus-codescan scan secrets [path] Leaked credentials
+  argus-codescan scan all [path]     Everything above
+  argus-codescan tools               Show installed scanners
+  argus-codescan mcp                 Start MCP server (requires Python)
+  argus-codescan --check             Check Python MCP server availability
+  argus-codescan --config [method]   Print MCP config JSON (pip|uvx|npx)
+  argus-codescan --help              Show this help
 
-OPTIONS:
-  (no args)         Start the MCP server (stdio transport)
-  --check           Check if the Python server is available
-  --config [method] Print MCP config JSON (method: pip|uvx|npx)
-  --help, -h        Show this help
+NATIVE SCANS (Node.js — no Python):
+  scan sca      npm audit (dependencies)
+  scan sast     semgrep + eslint (source code, multi-language)
+  scan secrets  gitleaks + pattern scan
+  scan all      all of the above
+  tools         list what's installed
 
-SETUP:
-  Add to your MCP client config (e.g. ~/.cursor/mcp.json):
-  
-  {
-    "mcpServers": {
-      "argus-scan": {
-        "command": "npx",
-        "args": ["-y", "argus-scan"]
-      }
-    }
-  }
+INSTALL FOR FULL CODE SCANNING:
+  Nothing required — eslint + argus-native are bundled in the npm package.
 
-  Or with uvx (recommended):
-  {
-    "mcpServers": {
-      "argus-scan": {
-        "command": "uvx",
-        "args": ["argus-scan"]
-      }
-    }
-  }
-
-TOOLS PROVIDED:
-  scan_sast        Static code analysis (Semgrep, Bandit, ESLint)
-  scan_dast        Dynamic web app scanning (OWASP ZAP, Nikto)
-  scan_sca         Dependency scanning (Trivy, Safety, pip-audit, npm audit)
-  scan_secrets     Secret/credential detection (Gitleaks, detect-secrets, TruffleHog)
-  scan_iac         IaC misconfiguration (Checkov, Trivy, Terrascan)
-  scan_container   Container image scanning (Trivy)
-  scan_all         Full comprehensive scan
-  check_tools      List available scanning tools
+EXAMPLES:
+  argus-codescan scan all .
+  argus-codescan scan sast . --fail-on high
 `);
 }
 
@@ -84,12 +89,13 @@ async function runCheck() {
   console.log("Checking argus-scan Python server availability...\n");
   const result = await checkPythonServerAvailable();
   if (result.available) {
-    console.log(`✅ Python MCP server available`);
+    console.log("✅ Python MCP server available");
     console.log(`   Command: ${result.command}`);
   } else {
-    console.error(`❌ Python MCP server not available`);
+    console.error("❌ Python MCP server not available");
     console.error(`   Error: ${result.error}`);
-    console.error(`\n   Install with: pip install argus-scan`);
+    console.error("\n   For MCP only: pip install argus-scan");
+    console.error("   For npm SCA scans: argus-codescan scan sca . (no Python needed)");
     process.exitCode = 1;
   }
 }
@@ -97,7 +103,6 @@ async function runCheck() {
 async function startServer() {
   const proc = await spawnPythonMcpServer();
 
-  // Pipe stdio through to the parent process (MCP protocol)
   process.stdin.pipe(proc.stdin!);
   proc.stdout!.pipe(process.stdout);
   proc.stderr!.pipe(process.stderr);
@@ -111,6 +116,6 @@ async function startServer() {
 }
 
 main().catch((err) => {
-  console.error(`[argus-scan] Fatal error: ${err.message}`);
+  console.error(`[argus-codescan] Fatal error: ${err.message}`);
   process.exit(1);
 });

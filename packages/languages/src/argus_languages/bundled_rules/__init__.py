@@ -1,0 +1,1 @@
+"""Bundled YAML security rules."""

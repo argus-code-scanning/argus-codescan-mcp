@@ -68,19 +68,76 @@ Connect Cursor, Claude Desktop, or any MCP-compatible AI assistant and drive sca
 
 ## Install
 
-### Python (pip)
+Pick the package that matches your project:
+
+| Your project | Install | Scan command |
+|--------------|---------|--------------|
+| **React / Next.js / Node** | `npm install -D argus-codescan` | `npx argus-codescan scan all .` |
+| **Java, PHP, Flutter, Terraform, Ansible** | `pip install argus-languages` | `argus-languages scan /path/to/project` |
+| **Full suite (MCP, DAST, IaC tools)** | `pip install argus-scan` | `argus scan all /path/to/project` |
+
+### React / Node (npm) — no Python required
+
+```bash
+npm install -D argus-codescan
+
+npx argus-codescan scan sca .       # dependencies (npm audit)
+npx argus-codescan scan sast .      # source code (JS/TS)
+npx argus-codescan scan secrets .   # API keys, tokens
+npx argus-codescan scan all .       # everything
+
+# CSV report written automatically (or set path with --output)
+npx argus-codescan scan all . --output ./reports/security.csv
+```
+
+Add to `package.json`:
+
+```json
+{
+  "scripts": {
+    "security:scan": "argus-codescan scan sca . --output ./reports/deps.csv",
+    "security:code": "argus-codescan scan sast . --output ./reports/code.csv",
+    "security:secrets": "argus-codescan scan secrets . --output ./reports/secrets.csv",
+    "security:all": "argus-codescan scan all . --output ./reports/full.csv"
+  }
+}
+```
+
+### Java, PHP, Flutter, IaC (pip — lightweight)
+
+```bash
+pip install argus-languages
+
+# Any supported language / IaC in one command
+argus-languages scan /path/to/project
+
+# Examples
+argus-languages scan ./my-java-app
+argus-languages scan ./terraform
+argus-languages scan ./flutter-app
+```
+
+### Full Argus CLI + MCP (pip)
 
 ```bash
 pip install argus-scan
 # With all Python-native scanners:
 pip install "argus-scan[all-tools]"
+
+argus scan code /path/to/project    # built-in multi-language (uses argus-languages)
+argus scan sast /path/to/project    # + Semgrep, Bandit, ESLint if installed
+argus scan terraform /path/to/infra
+argus scan ansible /path/to/playbooks
+argus scan all /path/to/project --fail-on high
+argus tools                         # show installed scanners
+argus mcp                           # start MCP server for Cursor / Claude
 ```
 
 ### Zero-install
 
 ```bash
-uvx argus-scan       # via uv
-npx argus-codescan   # via npm
+uvx argus-scan       # full Python CLI via uv
+npx argus-codescan   # Node/React via npm
 ```
 
 ### Go (single binary)
@@ -98,8 +155,17 @@ curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/mai
 ### Docker (all scanners bundled)
 
 ```bash
-docker pull ghcr.io/okiriGabriel/argus-codescan-mcp:latest
+docker pull ghcr.io/okirigabriel/argus-codescan-mcp:latest
+
+# MCP server (add to ~/.cursor/mcp.json — see packages/docker/README.md)
+docker run --rm -i -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp
+
+# One-shot CLI scan
+docker run --rm -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp \
+  scan all /workspace
 ```
+
+Full Docker guide: [packages/docker/README.md](packages/docker/README.md)
 
 ### VS Code Extension
 
@@ -109,21 +175,28 @@ Install **Argus Security Scanner** from the VS Code Marketplace.
 
 ## Quick Start
 
-### CLI
+### React / Next.js
 
 ```bash
-# Install Argus
+npm install -D argus-codescan
+npm run security:all   # after adding scripts — see Install section above
+```
+
+### Flutter / Java / PHP / Terraform
+
+```bash
+pip install argus-languages
+argus-languages scan /path/to/project
+```
+
+### Full CLI (all scan types)
+
+```bash
 pip install "argus-scan[all-tools]"
-
-# Check which scanners are ready
 argus tools
-
-# Scan a project
-argus scan sast /path/to/project
+argus scan code /path/to/project
 argus scan terraform /path/to/infra
 argus scan all /path/to/project --format table
-
-# CI/CD — fail the build on high+ findings
 argus scan all /path/to/project --fail-on high
 ```
 
@@ -202,17 +275,11 @@ argus-codescan-mcp/
 │   │   └── src/argus/
 │   │       ├── cli.py             Standalone CLI
 │   │       ├── server.py          MCP server
-│   │       ├── models.py          Shared data models
-│   │       ├── utils.py           Subprocess helpers
-│   │       └── tools/
-│   │           ├── sast.py        Semgrep, Bandit, ESLint
-│   │           ├── dast.py        OWASP ZAP, Nikto
-│   │           ├── sca.py         Trivy, Safety, pip-audit, npm audit
-│   │           ├── secrets.py     Gitleaks, detect-secrets, TruffleHog
-│   │           ├── iac.py         Checkov, Trivy config, Terrascan
-│   │           ├── terraform.py   tfsec, tflint, terraform validate, KICS
-│   │           └── ansible.py     ansible-lint, KICS, Checkov
-│   ├── npm/             npx argus-codescan
+│   │       └── tools/             SAST, DAST, SCA, secrets, IaC, …
+│   ├── languages/       pip install argus-languages  ← Java, PHP, Terraform, Ansible, all code
+│   │   └── src/argus_languages/
+│   │       └── bundled_rules/     YAML rules shared across Python (and future Go client)
+│   ├── npm/             npx argus-codescan  (Node.js / JS-TS only)
 │   ├── go/              go install .../argus@latest
 │   ├── shell/           curl | sh installer
 │   └── docker/          ghcr.io/okiriGabriel/argus-codescan-mcp

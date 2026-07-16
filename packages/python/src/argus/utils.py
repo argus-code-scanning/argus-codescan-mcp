@@ -11,7 +11,24 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from argus.models import ScanResult
+
 logger = logging.getLogger(__name__)
+
+
+def collect_scan_results(
+    results: list[ScanResult | BaseException],
+    *,
+    label: str = "Scan tool",
+) -> list[ScanResult]:
+    """Filter asyncio.gather(..., return_exceptions=True) results for mypy-safe use."""
+    final: list[ScanResult] = []
+    for item in results:
+        if isinstance(item, ScanResult):
+            final.append(item)
+        elif isinstance(item, BaseException):
+            logger.exception("%s raised an exception: %s", label, item)
+    return final
 
 
 def is_tool_available(name: str) -> bool:
@@ -30,6 +47,7 @@ async def run_command(
     if env:
         merged_env.update(env)
 
+    proc: asyncio.subprocess.Process | None = None
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -46,6 +64,12 @@ async def run_command(
         )
     except asyncio.TimeoutError:
         logger.warning("Command timed out after %ds: %s", timeout, " ".join(args))
+        if proc is not None:
+            try:
+                proc.kill()
+                await proc.wait()
+            except ProcessLookupError:
+                pass
         return -1, "", f"Command timed out after {timeout}s"
     except FileNotFoundError:
         return -1, "", f"Tool not found: {args[0]}"

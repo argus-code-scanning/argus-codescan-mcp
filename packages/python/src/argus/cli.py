@@ -4,7 +4,7 @@ Runs security scans directly from the terminal — no AI, no token,
 no subscription needed. Just Python + the open-source scanner tools.
 
 Usage:
-    argus scan sast /path/to/code
+    argus scan code /path/to/flutter-app   # Dart + Android/iOS Flutter config     # built-in Java, PHP, Terraform, Ansible, …
     argus scan sca  /path/to/project
     argus scan secrets /path/to/repo
     argus scan iac /path/to/infra
@@ -93,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
     sast_p = scan_sub.add_parser("sast", help="Static Application Security Testing")
     _add_common(sast_p)
     sast_p.add_argument("--semgrep-config", default="auto", help="Semgrep ruleset (default: auto)")
+
+    code_p = scan_sub.add_parser(
+        "code",
+        help="Built-in multi-language code scan (Java, PHP, Terraform, Ansible, … — no extra tools)",
+    )
+    _add_common(code_p)
 
     sca_p = scan_sub.add_parser("sca", help="Software Composition Analysis (dependencies)")
     _add_common(sca_p)
@@ -277,7 +283,9 @@ def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fa
         else:
             print(text)
 
-    return 1 if _should_fail(filtered, fail_on) else 0
+    # Fail against the full report so --min-severity display filtering
+    # cannot hide findings that should still fail CI.
+    return 1 if _should_fail(report_dict, fail_on) else 0
 
 
 # ── Scan runners ──────────────────────────────────────────────────────────────
@@ -299,6 +307,10 @@ async def _run_scan(args: argparse.Namespace) -> int:
 
         if tools:
             tasks: list = []
+            if "argus-languages" in tools or "native" in tools:
+                from argus.tools.code import run_native_languages
+
+                tasks.append(run_native_languages(args.target))
             if "semgrep" in tools:
                 tasks.append(run_semgrep(args.target, config=args.semgrep_config, timeout=timeout))
             if "bandit" in tools:
@@ -310,6 +322,11 @@ async def _run_scan(args: argparse.Namespace) -> int:
             results = await run_all_sast(
                 args.target, semgrep_config=args.semgrep_config, timeout=timeout
             )
+
+    elif scan_type == "code":
+        from argus.tools.code import run_native_languages
+
+        results = [await run_native_languages(args.target)]
 
     elif scan_type == "sca":
         from argus.tools.sca import run_all_sca
@@ -422,18 +439,22 @@ def _cmd_tools() -> None:
         "docker": ("DAST (ZAP) / Container", "Install Docker Desktop"),
     }
 
+    use_color = _supports_color()
+    green = "\033[32m" if use_color else ""
+    red = "\033[31m" if use_color else ""
+    reset = _RESET if use_color else ""
+    bold = _BOLD if use_color else ""
+
+    print(f"\n{bold}Built-in (always available){reset}\n")
+    print(f"  {green}✔{reset}  {'argus-languages':<20} Multi-language code (Java, PHP, Terraform, Ansible, …)")
+    print("       pip install argus-languages   or   argus scan code <path>")
+
     installed, missing = [], []
     for tool, (category, hint) in TOOLS.items():
         if is_tool_available(tool):
             installed.append((tool, category))
         else:
             missing.append((tool, category, hint))
-
-    use_color = _supports_color()
-    green = "\033[32m" if use_color else ""
-    red = "\033[31m" if use_color else ""
-    reset = _RESET if use_color else ""
-    bold = _BOLD if use_color else ""
 
     print(f"\n{bold}Installed ({len(installed)}/{len(TOOLS)}){reset}\n")
     for tool, cat in installed:
@@ -505,6 +526,13 @@ def _print_mcp_config() -> None:
 def run() -> None:
     """Synchronous entry point (called by pip-installed script)."""
     sys.exit(main())
+
+
+def run_mcp() -> None:
+    """Entry point for `argus-mcp` — start MCP server directly."""
+    from argus.server import run as run_server
+
+    run_server()
 
 
 if __name__ == "__main__":

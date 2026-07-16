@@ -22,8 +22,8 @@ htmlcov/
 node_modules/
 dist/
 *.js.map
-*.d.ts
-*.d.ts.map
+# Note: do not ignore *.d.ts globally — packages/npm/src/types/ has hand-written declarations.
+# Generated .d.ts files live under dist/, which is already ignored above.
 
 # VS Code
 .vscode/

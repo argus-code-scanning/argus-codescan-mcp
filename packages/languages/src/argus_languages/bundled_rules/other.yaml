@@ -1,0 +1,111 @@
+- id: python-debug-enabled
+  title: Debug mode enabled
+  severity: low
+  pattern: '(DEBUG\s*=\s*True|app\.run\s*\([^)]*debug\s*=\s*True)'
+  flags: [i]
+  languages: [python]
+
+- id: python-flask-secret
+  title: Hardcoded Flask secret key
+  severity: high
+  pattern: 'SECRET_KEY\s*=\s*["''][^"'']+["'']'
+  languages: [python]
+
+- id: python-django-allowed-hosts
+  title: Django ALLOWED_HOSTS allows all (*)
+  severity: moderate
+  pattern: 'ALLOWED_HOSTS\s*=\s*\[[^\]]*[''"]\*[''"]'
+  languages: [python]
+
+- id: docker-secrets-env
+  title: Secret passed via ENV in Dockerfile
+  severity: high
+  pattern: '^ENV\s+.*(PASSWORD|SECRET|API_KEY|TOKEN)='
+  flags: [im]
+  languages: [docker]
+
+- id: docker-privileged
+  title: Docker Compose privileged mode enabled
+  severity: high
+  pattern: 'privileged:\s*true'
+  languages: [docker]
+
+- id: docker-host-network
+  title: Docker Compose uses host network mode
+  severity: moderate
+  pattern: 'network_mode:\s*["'']?host["'']?'
+  languages: [docker]
+
+- id: docker-socket-mount
+  title: Docker socket mounted — container escape risk
+  severity: high
+  pattern: '/var/run/docker\.sock'
+  languages: [docker]
+
+- id: k8s-privileged-container
+  title: Kubernetes container runs in privileged mode
+  severity: high
+  pattern: 'privileged:\s*true'
+  languages: [kubernetes]
+
+- id: k8s-run-as-root
+  title: Kubernetes pod runs as root (runAsUser 0)
+  severity: moderate
+  pattern: 'runAsUser:\s*0'
+  languages: [kubernetes]
+
+- id: k8s-host-network
+  title: Pod uses hostNetwork
+  severity: high
+  pattern: 'hostNetwork:\s*true'
+  languages: [kubernetes]
+
+- id: k8s-host-pid
+  title: Pod uses hostPID
+  severity: high
+  pattern: 'hostPID:\s*true'
+  languages: [kubernetes]
+
+- id: go-insecure-tls
+  title: TLS InsecureSkipVerify enabled
+  severity: high
+  pattern: 'InsecureSkipVerify:\s*true'
+  languages: [go]
+
+- id: go-sql-sprintf
+  title: SQL built with fmt.Sprintf — use parameterized queries
+  severity: high
+  pattern: '(fmt\.Sprintf\s*\(\s*["''].*(SELECT|INSERT|UPDATE|DELETE))'
+  flags: [i]
+  languages: [go]
+
+- id: shell-curl-pipe-bash
+  title: curl/wget piped to shell — supply chain risk
+  severity: high
+  pattern: '(curl|wget)[^\n|]*\|\s*(bash|sh|zsh)'
+  languages: [shell]
+
+- id: sql-grant-all
+  title: GRANT ALL privileges
+  severity: moderate
+  pattern: 'GRANT\s+ALL'
+  flags: [i]
+  languages: [sql]
+
+- id: csharp-binary-formatter
+  title: BinaryFormatter deserialization — RCE risk
+  severity: high
+  pattern: 'BinaryFormatter'
+  languages: [csharp]
+
+- id: rust-unsafe-block
+  title: Unsafe Rust block — review memory safety
+  severity: low
+  pattern: '\bunsafe\s*\{'
+  languages: [rust]
+
+- id: elixir-eval
+  title: Elixir Code.eval_string — code injection risk
+  severity: high
+  pattern: 'Code\.eval_string'
+  languages: [elixir]
