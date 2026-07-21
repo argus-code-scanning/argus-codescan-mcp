@@ -215,6 +215,7 @@ export class McpClient implements vscode.Disposable {
       ...(options.tools && { tools: options.tools }),
       ...(options.semgrepConfig && { semgrep_config: options.semgrepConfig }),
       ...(options.timeout && { timeout: options.timeout }),
+      ...(options.format && { format: options.format }),
     });
   }
 

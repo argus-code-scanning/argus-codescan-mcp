@@ -14,6 +14,15 @@ const SEVERITY_COLORS: Record<Severity, string> = {
   unknown: "#9ca3af",
 };
 
+const KNOWN_SEVERITIES = new Set<Severity>([
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "info",
+  "unknown",
+]);
+
 export class ScanDashboardPanel implements vscode.Disposable {
   private static instance: ScanDashboardPanel | undefined;
   private panel: vscode.WebviewPanel;
@@ -160,18 +169,21 @@ export class ScanDashboardPanel implements vscode.Disposable {
     const summary = report.summary;
     const sevBadges = Object.entries(summary.by_severity)
       .filter(([, count]) => count > 0)
-      .map(([sev, count]) => `<span class="badge-${sev}">${count} ${sev}</span>`)
+      .map(([sev, count]) => {
+        const safeSev = safeSeverity(sev);
+        return `<span class="badge-${safeSev}">${count} ${escapeHtml(sev)}</span>`;
+      })
       .join(" ");
 
     const toolRows = report.results
       .map(
         (r) => `
         <tr>
-          <td><code>${r.tool}</code></td>
-          <td>${r.scan_type}</td>
+          <td><code>${escapeHtml(r.tool)}</code></td>
+          <td>${escapeHtml(r.scan_type)}</td>
           <td>${r.tool_available ? "✅" : "❌ Not installed"}</td>
           <td>${r.findings.length}</td>
-          <td>${r.errors.length > 0 ? `⚠ ${r.errors[0].slice(0, 60)}` : "—"}</td>
+          <td>${r.errors.length > 0 ? `⚠ ${escapeHtml(r.errors[0].slice(0, 60))}` : "—"}</td>
         </tr>`
       )
       .join("");
@@ -242,12 +254,15 @@ function renderResultSection(result: { tool: string; findings: Array<{ severity:
   const rows = result.findings
     .slice(0, 100)
     .map(
-      (f) => `<tr>
-      <td><span class="badge-${f.severity}">${f.severity}</span></td>
+      (f) => {
+        const safeSev = safeSeverity(f.severity);
+        return `<tr>
+      <td><span class="badge-${safeSev}">${escapeHtml(f.severity)}</span></td>
       <td>${escapeHtml(f.title.slice(0, 60))}</td>
       <td><code>${escapeHtml(f.file ? f.file.split("/").pop() ?? "" : "")}</code>:${f.line}</td>
       <td>${escapeHtml(f.description.slice(0, 80))}</td>
-    </tr>`
+    </tr>`;
+      }
     )
     .join("");
 
@@ -267,8 +282,15 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function safeSeverity(severity: string): Severity {
+  return KNOWN_SEVERITIES.has(severity as Severity)
+    ? (severity as Severity)
+    : "unknown";
+}
+
 function markdownToHtml(md: string): string {
-  return md
+  const escaped = escapeHtml(md);
+  return escaped
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, "<h2>$1</h2>")
     .replace(/^# (.+)$/gm, "<h1>$1</h1>")

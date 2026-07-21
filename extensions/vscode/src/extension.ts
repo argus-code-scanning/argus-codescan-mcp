@@ -145,19 +145,13 @@ async function runScan(type: "sast" | "sca" | "secrets" | "iac" | "all"): Promis
 
     panel.showMarkdown(result, target);
 
-    // Try to parse JSON from the result and apply diagnostics
-    const jsonMatch = result.match(/```json\n([\s\S]+?)\n```/);
-    if (jsonMatch) {
-      try {
-        const report = JSON.parse(jsonMatch[1]) as AggregatedReport;
-        diagnosticsProvider?.applyReport(report, workspaceRoot);
-        const total = report.summary?.total_findings ?? 0;
-        vscode.window.showInformationMessage(
-          `Security scan complete: ${total} finding(s) found.`
-        );
-      } catch {
-        // JSON parsing failed — that's OK, markdown is still shown
-      }
+    const report = parseScanReport(result);
+    if (report) {
+      diagnosticsProvider?.applyReport(report, workspaceRoot);
+      const total = report.summary?.total_findings ?? 0;
+      vscode.window.showInformationMessage(
+        `Security scan complete: ${total} finding(s) found.`
+      );
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -227,12 +221,27 @@ async function runSilentSast(file: string, workspaceRoot: string): Promise<void>
 
   try {
     const result = await mcpClient.scanSast(file, { format: "json" });
-    const jsonMatch = result.match(/```json\n([\s\S]+?)\n```/);
-    if (jsonMatch) {
-      const report = JSON.parse(jsonMatch[1]) as AggregatedReport;
+    const report = parseScanReport(result);
+    if (report) {
       diagnosticsProvider.applyReport(report, workspaceRoot);
     }
   } catch {
     // Silent scan — don't show errors
+  }
+}
+
+function parseScanReport(result: string): AggregatedReport | undefined {
+  try {
+    return JSON.parse(result) as AggregatedReport;
+  } catch {
+    const jsonMatch = result.match(/```json\n([\s\S]+?)\n```/);
+    if (!jsonMatch) {
+      return undefined;
+    }
+    try {
+      return JSON.parse(jsonMatch[1]) as AggregatedReport;
+    } catch {
+      return undefined;
+    }
   }
 }
