@@ -105,6 +105,12 @@ async def list_tools() -> list[types.Tool]:
                         "description": "Timeout in seconds per tool (default: 300)",
                         "default": 300,
                     },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json"],
+                        "description": "Output format (default: markdown)",
+                        "default": "markdown",
+                    },
                 },
                 "required": ["target"],
             },
@@ -448,6 +454,7 @@ async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
     tools = args.get("tools")
     semgrep_config = args.get("semgrep_config", "auto")
     timeout = int(args.get("timeout", 300))
+    fmt = args.get("format", "markdown")
 
     if tools:
         tasks = []
@@ -463,6 +470,10 @@ async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
 
     report = AggregatedReport(target=target, results=list(results))
     report_dict = report.to_dict()
+
+    if fmt == "json":
+        return [types.TextContent(type="text", text=json.dumps(report_dict, indent=2))]
+
     md = format_markdown_report(report_dict)
     return [
         types.TextContent(type="text", text=md),
