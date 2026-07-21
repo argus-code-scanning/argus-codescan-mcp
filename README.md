@@ -62,7 +62,69 @@ Connect Cursor, Claude Desktop, or any MCP-compatible AI assistant and drive sca
 | `scan_ansible` | Ansible playbook & role security scan |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
+| `apply_fix` | Preview or apply a fix for one finding (user must ask — scans never auto-fix) |
+| `get_scan_report` | Reformat a previous scan JSON as Markdown |
 | `check_tools` | List which scanners are installed |
+
+Scans are **read-only**. Fixes run only when you ask — via `apply_fix`, VS Code Quick Fix, or your AI editing code from `fix_guidance`.
+
+---
+
+## Fix on request
+
+Argus **never modifies your code during a scan**. After results come back:
+
+| How | AI token needed? |
+|-----|:----------------:|
+| **VS Code Quick Fix** (lightbulb → Show fix guidance / Apply automated fix) | No |
+| **MCP `apply_fix`** with `apply=true` (ESLint / Semgrep autofix only) | Only if AI calls it for you |
+| **AI edits code** from finding guidance (secrets, CVEs, IaC, OWASP, etc.) | Yes (for the AI client) |
+
+```bash
+# CLI and MCP scans — detect only
+argus scan all /path/to/project
+
+# MCP: user asks AI to fix a specific finding
+# → apply_fix { target, file, tool, apply: true }
+```
+
+Details: [API Reference — apply_fix](docs/api-reference.md#apply_fix)
+
+---
+
+## Cloud dashboard upload (optional)
+
+Send scan results to the Argus cloud dashboard when `ARGUS_API_KEY` is set. Local scans still work without any key.
+
+```bash
+export ARGUS_API_URL=http://localhost:4000/v1   # default
+export ARGUS_API_KEY=arg_live_PASTE_YOUR_KEY
+
+argus scan all /path/to/project                 # uploads automatically
+argus scan sast . --upload --fail-on high       # force upload
+argus scan secrets . --no-upload                # skip upload
+```
+
+**MCP / Cursor** — add env to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "argus": {
+      "command": "argus",
+      "args": ["mcp"],
+      "env": {
+        "ARGUS_API_URL": "http://localhost:4000/v1",
+        "ARGUS_API_KEY": "arg_live_PASTE_YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+Print the same template: `argus mcp --config`
+
+After each MCP scan or CLI scan, results upload to `{ARGUS_API_URL}/scans` with repo/branch/commit from git. Full setup: [docs/AGENT-UPLOAD.md](docs/AGENT-UPLOAD.md)
 
 ---
 
@@ -129,8 +191,10 @@ argus scan sast /path/to/project    # + Semgrep, Bandit, ESLint if installed
 argus scan terraform /path/to/infra
 argus scan ansible /path/to/playbooks
 argus scan all /path/to/project --fail-on high
+argus scan all /path/to/project --upload          # cloud dashboard (needs ARGUS_API_KEY)
 argus tools                         # show installed scanners
 argus mcp                           # start MCP server for Cursor / Claude
+argus mcp --config                  # print MCP config with cloud env vars
 ```
 
 ### Zero-install
@@ -207,12 +271,19 @@ Add to `~/.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "argus": { "command": "argus", "args": ["mcp"] }
+    "argus": {
+      "command": "argus",
+      "args": ["mcp"],
+      "env": {
+        "ARGUS_API_URL": "http://localhost:4000/v1",
+        "ARGUS_API_KEY": "arg_live_PASTE_YOUR_KEY"
+      }
+    }
   }
 }
 ```
 
-Or zero-install with `uvx`:
+Omit the `env` block if you only want local scans (no cloud upload). Or zero-install with `uvx`:
 
 ```json
 {
@@ -226,7 +297,7 @@ Then ask your AI:
 ```
 Scan /path/to/myproject for security vulnerabilities
 Are there any hardcoded secrets in this repo?
-Scan my Kubernetes manifests for misconfigurations
+Fix the high-severity finding in src/api.js line 42
 Run a full security audit and give me a prioritised fix list
 ```
 
@@ -253,16 +324,16 @@ Full guide: [docs/tool-setup.md](docs/tool-setup.md)
 
 ## Do I Need a Token or Subscription?
 
-**No.** Every scanner Argus uses is open-source and runs locally:
+**No Argus subscription** for local scanning. Every scanner runs on your machine:
 
 | Layer | Cost | Requires |
 |-------|------|---------|
-| Argus CLI | Free | Python 3.10+ |
+| Argus CLI & MCP | Free | Python 3.10+ |
 | Semgrep, Trivy, Bandit, tfsec… | Free | Local install |
-| Argus MCP server | Free | Python 3.10+ |
-| AI client (Cursor, Claude) | Subscription needed | Only if you want AI-driven scanning |
+| Cloud dashboard upload | Optional | `ARGUS_API_KEY` from your dashboard |
+| AI client (Cursor, Claude) | Subscription | Only for chat-driven scans and fixes |
 
-The AI subscription is for the **AI client**, not for Argus.
+The AI subscription is for the **AI client**, not for Argus. Cloud upload uses your **Argus API key** (`arg_live_…`), not your Cursor/Claude token.
 
 ---
 
@@ -275,6 +346,7 @@ argus-codescan-mcp/
 │   │   └── src/argus/
 │   │       ├── cli.py             Standalone CLI
 │   │       ├── server.py          MCP server
+│   │       ├── cloud_upload.py    Optional dashboard upload
 │   │       └── tools/             SAST, DAST, SCA, secrets, IaC, …
 │   ├── languages/       pip install argus-languages  ← Java, PHP, Terraform, Ansible, all code
 │   │   └── src/argus_languages/
@@ -289,6 +361,7 @@ argus-codescan-mcp/
 │   ├── getting-started.md
 │   ├── architecture.md
 │   ├── api-reference.md
+│   ├── AGENT-UPLOAD.md
 │   └── tool-setup.md
 └── .github/
     ├── workflows/        CI for Python, npm, Go, VS Code, Docker
@@ -304,6 +377,7 @@ argus-codescan-mcp/
 | [Getting Started](docs/getting-started.md) | Install, configure, first scan |
 | [Architecture](docs/architecture.md) | How Argus works under the hood |
 | [API Reference](docs/api-reference.md) | All MCP tools, parameters, schemas |
+| [Agent Upload](docs/AGENT-UPLOAD.md) | Cloud dashboard upload & API keys |
 | [Tool Setup](docs/tool-setup.md) | Install every scanner on every platform |
 | [Contributing](CONTRIBUTING.md) | Add scanners, clients, and fixes |
 | [Security Policy](SECURITY.md) | Report vulnerabilities |

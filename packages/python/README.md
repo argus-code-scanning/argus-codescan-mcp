@@ -15,7 +15,11 @@ Exposes the following **MCP tools** for use by any MCP-compatible AI client:
 | `scan_iac` | IaC misconfiguration scanning | Checkov, Trivy config, Terrascan |
 | `scan_container` | Container image scanning | Trivy |
 | `scan_all` | Full scan (all of the above) | All tools |
+| `apply_fix` | Preview or apply fix for one finding (only when user asks) | ESLint, Semgrep |
+| `get_scan_report` | Reformat scan JSON as Markdown | — |
 | `check_tools` | Check tool availability | — |
+
+Scans never modify files. Upload to the cloud dashboard is optional when `ARGUS_API_KEY` is set.
 
 ## Installation
 
@@ -46,7 +50,10 @@ argus scan iac /path/to/infra
 argus scan terraform /path/to/tf
 argus scan ansible /path/to/playbooks
 argus scan all /path/to/project --fail-on high
+argus scan all /path/to/project --upload      # cloud dashboard (ARGUS_API_KEY)
+argus scan sast . --no-upload                 # skip cloud upload
 argus tools
+argus mcp --config                            # MCP JSON with cloud env template
 ```
 
 ### Run the MCP Server
@@ -66,11 +73,17 @@ Add to your MCP configuration (`~/.cursor/mcp.json` or `claude_desktop_config.js
 {
   "mcpServers": {
     "argus": {
-      "command": "argus-mcp"
+      "command": "argus-mcp",
+      "env": {
+        "ARGUS_API_URL": "http://localhost:4000/v1",
+        "ARGUS_API_KEY": "arg_live_PASTE_YOUR_KEY"
+      }
     }
   }
 }
 ```
+
+Omit `env` for local-only scans. After each scan, results upload automatically when the API key is set.
 
 Or with `uvx` (no installation required):
 
@@ -84,6 +97,24 @@ Or with `uvx` (no installation required):
   }
 }
 ```
+
+## Fix on request
+
+- **Scans** — detect only; no file changes
+- **`apply_fix`** — call with `apply=false` for guidance, `apply=true` after user confirms (ESLint / Semgrep autofix)
+- **Secrets, SCA, IaC, DAST** — guidance only; use AI or manual edits
+
+VS Code extension: Quick Fix lightbulb on Problems panel findings.
+
+## Cloud dashboard upload
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `ARGUS_API_KEY` | — | Required to upload (`arg_live_…` from dashboard) |
+| `ARGUS_API_URL` | `http://localhost:4000/v1` | API base URL |
+| `ARGUS_FAIL_ON` | `high` | Severity for `status: failed` in uploads |
+
+See [docs/AGENT-UPLOAD.md](../../docs/AGENT-UPLOAD.md).
 
 ## External Tool Dependencies
 
@@ -130,7 +161,7 @@ Once configured, you can ask:
 - *"Scan `/path/to/myproject` for security vulnerabilities"*
 - *"Check my Python code for OWASP Top 10 issues using Semgrep"*
 - *"Are there any hardcoded secrets in this repository?"*
-- *"Scan my Kubernetes manifests for misconfigurations"*
+- *"Fix the SQL injection finding in routes.py line 42"*
 - *"Run a full security audit of my codebase"*
 
 ## Development
