@@ -11,6 +11,7 @@ Comprehensive security scanning directly in VS Code, powered by OWASP ZAP, Semgr
 - **IaC Scanning** — Terraform, Kubernetes, Dockerfile misconfigs (Checkov, Trivy)
 - **Container Scanning** — Image CVE scanning (Trivy)
 - **Problems Panel** — Findings appear as VS Code diagnostics
+- **Fix on request** — Quick Fix actions to view guidance or apply an automated fix (never during scan)
 - **Scan Dashboard** — Interactive webview with full report
 - **Scan on Save** — Optional auto-scan when files change
 
@@ -40,6 +41,9 @@ Open the Command Palette (`⇧⌘P`) and search for **Security**:
 | Security: Check Installed Tools | Tool availability |
 | Security: Open Scan Dashboard | Open report panel |
 | Security: Clear Diagnostics | Clear Problems panel |
+| *(Quick Fix on finding)* | Show fix guidance or apply automated fix |
+
+Scans **never modify your code**. To fix a finding, click the lightbulb on a diagnostic and choose **Show fix guidance** or **Apply automated fix** (ESLint/Semgrep only).
 
 You can also **right-click** any file or folder in the Explorer to run a security scan.
 

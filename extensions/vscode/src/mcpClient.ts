@@ -252,6 +252,20 @@ export class McpClient implements vscode.Disposable {
     return this.callTool("check_tools", {});
   }
 
+  async applyFix(args: {
+    target: string;
+    file: string;
+    tool: string;
+    scan_type?: string;
+    rule_id?: string;
+    line?: number;
+    fix_guidance?: string;
+    apply?: boolean;
+    semgrep_config?: string;
+  }): Promise<string> {
+    return this.callTool("apply_fix", args);
+  }
+
   stop(): void {
     if (this.process) {
       this.process.kill();

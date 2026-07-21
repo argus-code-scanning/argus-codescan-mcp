@@ -27,6 +27,8 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 export class SecurityDiagnosticsProvider implements vscode.Disposable {
   private readonly collection: vscode.DiagnosticCollection;
   private readonly decorationType: vscode.TextEditorDecorationType;
+  /** Findings keyed by uri:line:code for user-initiated fix actions */
+  private readonly findingsIndex = new Map<string, Finding>();
 
   constructor() {
     this.collection = vscode.languages.createDiagnosticCollection("argus-scan");
@@ -43,6 +45,7 @@ export class SecurityDiagnosticsProvider implements vscode.Disposable {
 
   applyReport(report: AggregatedReport, workspaceRoot: string): void {
     const diagnosticsMap = new Map<string, vscode.Diagnostic[]>();
+    this.findingsIndex.clear();
     const config = vscode.workspace.getConfiguration("argus-scan");
     const minSeverity = config.get<Severity>("minSeverity") ?? "low";
     const minOrder = SEVERITY_ORDER[minSeverity];
@@ -57,6 +60,7 @@ export class SecurityDiagnosticsProvider implements vscode.Disposable {
 
         const diagnostic = this.findingToDiagnostic(finding);
         const key = uri.toString();
+        this.findingsIndex.set(this.findingKey(key, diagnostic), finding);
         if (!diagnosticsMap.has(key)) {
           diagnosticsMap.set(key, []);
         }
@@ -93,10 +97,27 @@ export class SecurityDiagnosticsProvider implements vscode.Disposable {
     diagnostic.code = finding.rule_id || finding.cve || finding.cwe;
 
     if (finding.fix_guidance) {
-      diagnostic.tags = [];
+      diagnostic.relatedInformation = [
+        new vscode.DiagnosticRelatedInformation(
+          new vscode.Location(vscode.Uri.file(finding.file), new vscode.Position(line, col)),
+          `Fix: ${finding.fix_guidance.slice(0, 120)}${finding.fix_guidance.length > 120 ? "…" : ""}`
+        ),
+      ];
     }
 
     return diagnostic;
+  }
+
+  getFinding(uri: vscode.Uri, diagnostic: vscode.Diagnostic): Finding | undefined {
+    return this.findingsIndex.get(this.findingKey(uri.toString(), diagnostic));
+  }
+
+  private findingKey(uri: string, diagnostic: vscode.Diagnostic): string {
+    const code =
+      typeof diagnostic.code === "object"
+        ? String(diagnostic.code.value)
+        : String(diagnostic.code ?? "");
+    return `${uri}:${diagnostic.range.start.line}:${code}`;
   }
 
   private resolveUri(file: string, workspaceRoot: string): vscode.Uri | null {
@@ -139,6 +160,7 @@ export class SecurityDiagnosticsProvider implements vscode.Disposable {
 
   clear(): void {
     this.collection.clear();
+    this.findingsIndex.clear();
     for (const editor of vscode.window.visibleTextEditors) {
       editor.setDecorations(this.decorationType, []);
     }

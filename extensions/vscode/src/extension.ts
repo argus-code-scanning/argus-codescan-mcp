@@ -9,7 +9,12 @@ import * as vscode from "vscode";
 import { McpClient } from "./mcpClient.js";
 import { SecurityDiagnosticsProvider } from "./diagnostics.js";
 import { ScanDashboardPanel } from "./webview.js";
-import type { AggregatedReport } from "./types.js";
+import {
+  ArgusFixCodeActionProvider,
+  applyFix,
+  showFixGuidance,
+} from "./fixActions.js";
+import type { AggregatedReport, Finding } from "./types.js";
 
 let mcpClient: McpClient | undefined;
 let diagnosticsProvider: SecurityDiagnosticsProvider | undefined;
@@ -57,7 +62,29 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("argus-scan.clearDiagnostics", () => {
       diagnosticsProvider?.clear();
       vscode.window.showInformationMessage("Security diagnostics cleared.");
-    })
+    }),
+    vscode.commands.registerCommand("argus-scan.showFixGuidance", (finding: Finding) =>
+      showFixGuidance(finding)
+    ),
+    vscode.commands.registerCommand("argus-scan.applyFix", (finding: Finding) =>
+      applyFix(
+        finding,
+        mcpClient,
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      )
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      { scheme: "file" },
+      new ArgusFixCodeActionProvider(
+        diagnosticsProvider,
+        () => mcpClient,
+        () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      ),
+      { providedCodeActionKinds: ArgusFixCodeActionProvider.providedCodeActionKinds }
+    )
   );
 
   // Scan on save (if configured)

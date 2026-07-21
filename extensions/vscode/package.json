@@ -88,6 +88,14 @@
         "command": "argus-scan.clearDiagnostics",
         "title": "Security: Clear Diagnostics",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "argus-scan.showFixGuidance",
+        "title": "Security: Show Fix Guidance"
+      },
+      {
+        "command": "argus-scan.applyFix",
+        "title": "Security: Apply Automated Fix"
       }
     ],
     "menus": {

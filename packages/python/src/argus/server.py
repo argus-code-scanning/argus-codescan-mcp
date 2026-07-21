@@ -59,6 +59,7 @@ from argus.tools.terraform import (
     run_tflint,
     run_tfsec,
 )
+from argus.tools.fix import apply_finding_fix
 from argus.utils import collect_scan_results, format_markdown_report, is_tool_available
 
 logging.basicConfig(level=logging.INFO)
@@ -397,6 +398,69 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["scan_result_json"],
             },
         ),
+        types.Tool(
+            name="apply_fix",
+            description=(
+                "Apply or preview a fix for a specific scan finding. "
+                "Only call this when the user explicitly asks to fix a finding — "
+                "scans never modify files automatically. "
+                "Set apply=false (default) to return fix guidance only; "
+                "set apply=true only after the user confirms they want an automated fix."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Project root or scan target path",
+                    },
+                    "file": {
+                        "type": "string",
+                        "description": "File path from the finding",
+                    },
+                    "tool": {
+                        "type": "string",
+                        "description": "Scanner tool name from the finding (e.g. semgrep, eslint-security)",
+                    },
+                    "scan_type": {
+                        "type": "string",
+                        "description": "Scan type from the finding (sast, sca, secrets, iac, etc.)",
+                        "default": "sast",
+                    },
+                    "rule_id": {
+                        "type": "string",
+                        "description": "Rule ID from the finding",
+                        "default": "",
+                    },
+                    "line": {
+                        "type": "integer",
+                        "description": "Line number from the finding",
+                        "default": 0,
+                    },
+                    "fix_guidance": {
+                        "type": "string",
+                        "description": "Fix guidance text from the finding",
+                        "default": "",
+                    },
+                    "apply": {
+                        "type": "boolean",
+                        "description": "If true, run an automated fix (user must have confirmed)",
+                        "default": False,
+                    },
+                    "semgrep_config": {
+                        "type": "string",
+                        "description": "Semgrep config when fixing semgrep findings",
+                        "default": "auto",
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in seconds for fix commands",
+                        "default": 120,
+                    },
+                },
+                "required": ["target", "file", "tool"],
+            },
+        ),
     ]
 
 
@@ -431,6 +495,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_check_tools()
         elif name == "get_scan_report":
             return await _handle_get_scan_report(arguments)
+        elif name == "apply_fix":
+            return await _handle_apply_fix(arguments)
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
     except Exception as exc:
@@ -813,6 +879,22 @@ async def _handle_get_scan_report(args: dict[str, Any]) -> list[types.TextConten
 
     md = format_markdown_report(data)
     return [types.TextContent(type="text", text=md)]
+
+
+async def _handle_apply_fix(args: dict[str, Any]) -> list[types.TextContent]:
+    result = await apply_finding_fix(
+        target=args["target"],
+        file=args["file"],
+        tool=args["tool"],
+        scan_type=args.get("scan_type", "sast"),
+        rule_id=args.get("rule_id", ""),
+        line=int(args.get("line", 0)),
+        fix_guidance=args.get("fix_guidance", ""),
+        apply=bool(args.get("apply", False)),
+        semgrep_config=args.get("semgrep_config", "auto"),
+        timeout=int(args.get("timeout", 120)),
+    )
+    return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
 
 # ---------------------------------------------------------------------------

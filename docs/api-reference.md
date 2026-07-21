@@ -237,6 +237,53 @@ Reformat a raw JSON scan result as Markdown.
 
 ---
 
+## `apply_fix`
+
+Preview or apply a fix for a **specific finding**. Only call when the user explicitly asks — scans never modify files.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `target` | `string` | ✅ | — | Project root or scan target |
+| `file` | `string` | ✅ | — | File path from the finding |
+| `tool` | `string` | ✅ | — | Scanner tool (e.g. `semgrep`, `eslint-security`) |
+| `scan_type` | `string` | ❌ | `"sast"` | Scan type from the finding |
+| `rule_id` | `string` | ❌ | `""` | Rule ID |
+| `line` | `integer` | ❌ | `0` | Line number |
+| `fix_guidance` | `string` | ❌ | `""` | Guidance text from the finding |
+| `apply` | `boolean` | ❌ | `false` | Run automated fix (only after user confirms) |
+| `semgrep_config` | `string` | ❌ | `"auto"` | Semgrep config for semgrep fixes |
+| `timeout` | `integer` | ❌ | `120` | Fix command timeout |
+
+### Behavior
+
+| `apply` | Result |
+|---------|--------|
+| `false` | Returns fix guidance and whether autofix is available |
+| `true` | Runs ESLint `--fix` or Semgrep `--autofix` on the file |
+
+**Never auto-fix:** secrets, SCA, DAST, and container findings — guidance only.
+
+### Example (guidance only)
+
+```json
+{
+  "name": "apply_fix",
+  "arguments": {
+    "target": "/home/user/myapp",
+    "file": "src/api.js",
+    "tool": "eslint-security",
+    "rule_id": "security/detect-eval-with-expression",
+    "line": 42,
+    "fix_guidance": "Avoid eval() with dynamic expressions",
+    "apply": false
+  }
+}
+```
+
+---
+
 ## Finding Schema
 
 Every finding returned by any tool is normalised to this shape:
