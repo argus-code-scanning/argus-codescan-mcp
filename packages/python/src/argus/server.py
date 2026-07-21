@@ -25,6 +25,7 @@ from argus.tools.ansible import (
     run_kics_ansible,
 )
 from argus.tools.dast import run_all_dast, run_nikto, run_zap_baseline
+from argus.tools.fix import apply_finding_fix
 from argus.tools.iac import (
     run_all_iac,
     run_checkov,
@@ -59,7 +60,6 @@ from argus.tools.terraform import (
     run_tflint,
     run_tfsec,
 )
-from argus.tools.fix import apply_finding_fix
 from argus.utils import collect_scan_results, format_markdown_report, is_tool_available
 
 logging.basicConfig(level=logging.INFO)
