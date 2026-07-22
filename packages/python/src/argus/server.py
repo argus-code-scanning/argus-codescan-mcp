@@ -586,19 +586,14 @@ async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
         results = await run_all_sast(target, semgrep_config=semgrep_config, timeout=timeout)
 
     report = AggregatedReport(target=target, results=list(results))
-    report_dict = report.to_dict()
-
-    if fmt == "json":
-        return [types.TextContent(type="text", text=json.dumps(report_dict, indent=2))]
-
-    md = format_markdown_report(report_dict)
-    return [
-        types.TextContent(type="text", text=md),
-        types.TextContent(
-            type="text",
-            text=f"\n\n<details><summary>Raw JSON</summary>\n\n```json\n{json.dumps(report_dict, indent=2)}\n```\n\n</details>",
-        ),
-    ]
+    return await _finish_scan(
+        report,
+        scan_type="sast",
+        timer=timer,
+        fmt=fmt,
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+    )
 
 
 async def _handle_scan_dast(args: dict[str, Any]) -> list[types.TextContent]:
