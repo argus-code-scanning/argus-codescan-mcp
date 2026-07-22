@@ -89,6 +89,16 @@ def build_parser() -> argparse.ArgumentParser:
             default="never",
             help="Exit with code 1 if findings at this severity or above are found",
         )
+        p.add_argument(
+            "--upload",
+            action="store_true",
+            help="Upload results to Argus cloud dashboard (requires ARGUS_API_KEY)",
+        )
+        p.add_argument(
+            "--no-upload",
+            action="store_true",
+            help="Skip cloud upload even when ARGUS_API_KEY is set",
+        )
 
     sast_p = scan_sub.add_parser("sast", help="Static Application Security Testing")
     _add_common(sast_p)
@@ -292,7 +302,10 @@ def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fa
 
 
 async def _run_scan(args: argparse.Namespace) -> int:
+    from argus.cloud_upload import ScanTimer, is_cloud_upload_enabled, upload_scan_report
+
     scan_type = args.scan_type
+    timer = ScanTimer()
     timeout = args.timeout
     fmt = args.format
     tools = getattr(args, "tools", None)
@@ -407,6 +420,25 @@ async def _run_scan(args: argparse.Namespace) -> int:
         print(f"Tools not installed (skipped): {', '.join(unavailable)}", file=sys.stderr)
         print("  Run 'argus tools' to see install instructions.", file=sys.stderr)
 
+    should_upload = (
+        getattr(args, "upload", False) or is_cloud_upload_enabled()
+    ) and not getattr(args, "no_upload", False)
+    if should_upload:
+        try:
+            upload_fail_on = fail_on if fail_on != "never" else None
+            status = await upload_scan_report(
+                report_dict,
+                duration_sec=timer.elapsed,
+                fail_on=upload_fail_on,
+                scan_type=scan_type,
+                target=args.target,
+                force=getattr(args, "upload", False),
+            )
+            if status:
+                print(f"Cloud upload: {status}", file=sys.stderr)
+        except Exception as exc:
+            print(f"Cloud upload failed: {exc}", file=sys.stderr)
+
     return _emit(report_dict, fmt, out_file, min_sev, fail_on)
 
 
@@ -516,7 +548,11 @@ def _print_mcp_config() -> None:
         '  "mcpServers": {\n'
         '    "argus": {\n'
         '      "command": "argus",\n'
-        '      "args": ["mcp"]\n'
+        '      "args": ["mcp"],\n'
+        '      "env": {\n'
+        '        "ARGUS_API_URL": "http://localhost:4000/v1",\n'
+        '        "ARGUS_API_KEY": "arg_live_PASTE_YOUR_KEY"\n'
+        "      }\n"
         "    }\n"
         "  }\n"
         "}"

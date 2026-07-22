@@ -17,6 +17,7 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
+from argus.cloud_upload import ScanTimer, upload_scan_report
 from argus.models import AggregatedReport
 from argus.tools.ansible import (
     run_all_ansible,
@@ -509,7 +510,57 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
 # ---------------------------------------------------------------------------
 
 
+async def _finish_scan(
+    report: AggregatedReport,
+    *,
+    scan_type: str,
+    timer: ScanTimer,
+    fmt: str = "markdown",
+    fail_on: str | None = None,
+    include_raw_json: bool = False,
+) -> list[types.TextContent]:
+    """Format scan output and optionally upload to the cloud dashboard."""
+    report_dict = report.to_dict()
+    upload_note = ""
+
+    try:
+        upload_status = await upload_scan_report(
+            report_dict,
+            duration_sec=timer.elapsed,
+            fail_on=fail_on,
+            scan_type=scan_type,
+            target=report.target,
+        )
+        if upload_status:
+            upload_note = f"\n\n☁️ **Cloud dashboard:** {upload_status}"
+            logger.info("Cloud upload: %s", upload_status)
+    except Exception as exc:
+        logger.warning("Cloud upload failed: %s", exc)
+        upload_note = f"\n\n⚠️ Cloud upload failed: {exc}"
+
+    if fmt == "json":
+        text = json.dumps(report_dict, indent=2)
+        if upload_note:
+            text += upload_note
+        return [types.TextContent(type="text", text=text)]
+
+    md = format_markdown_report(report_dict) + upload_note
+    parts: list[types.TextContent] = [types.TextContent(type="text", text=md)]
+    if include_raw_json:
+        parts.append(
+            types.TextContent(
+                type="text",
+                text=(
+                    f"\n\n<details><summary>Raw JSON</summary>\n\n```json\n"
+                    f"{json.dumps(report_dict, indent=2)}\n```\n\n</details>"
+                ),
+            )
+        )
+    return parts
+
+
 async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target = args["target"]
     tools = args.get("tools")
     semgrep_config = args.get("semgrep_config", "auto")
@@ -528,18 +579,18 @@ async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
         results = await run_all_sast(target, semgrep_config=semgrep_config, timeout=timeout)
 
     report = AggregatedReport(target=target, results=list(results))
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [
-        types.TextContent(type="text", text=md),
-        types.TextContent(
-            type="text",
-            text=f"\n\n<details><summary>Raw JSON</summary>\n\n```json\n{json.dumps(report_dict, indent=2)}\n```\n\n</details>",
-        ),
-    ]
+    return await _finish_scan(
+        report,
+        scan_type="sast",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+    )
 
 
 async def _handle_scan_dast(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target_url = args["target_url"]
     tools = args.get("tools")
     timeout = int(args.get("timeout", 600))
@@ -555,12 +606,17 @@ async def _handle_scan_dast(args: dict[str, Any]) -> list[types.TextContent]:
         results = await run_all_dast(target_url, timeout=timeout)
 
     report = AggregatedReport(target=target_url, results=list(results))
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="dast",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+    )
 
 
 async def _handle_scan_sca(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target = args["target"]
     tools = args.get("tools")
     timeout = int(args.get("timeout", 300))
@@ -580,12 +636,17 @@ async def _handle_scan_sca(args: dict[str, Any]) -> list[types.TextContent]:
         results = await run_all_sca(target, timeout=timeout)
 
     report = AggregatedReport(target=target, results=list(results))
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="sca",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+    )
 
 
 async def _handle_scan_secrets(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target = args["target"]
     tools = args.get("tools")
     timeout = int(args.get("timeout", 180))
@@ -603,12 +664,17 @@ async def _handle_scan_secrets(args: dict[str, Any]) -> list[types.TextContent]:
         results = await run_all_secrets(target, timeout=timeout)
 
     report = AggregatedReport(target=target, results=list(results))
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="secrets",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+    )
 
 
 async def _handle_scan_iac(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target = args["target"]
     framework = args.get("framework")
     tools = args.get("tools")
@@ -627,12 +693,17 @@ async def _handle_scan_iac(args: dict[str, Any]) -> list[types.TextContent]:
         results = await run_all_iac(target, timeout=timeout)
 
     report = AggregatedReport(target=target, results=list(results))
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="iac",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+    )
 
 
 async def _handle_scan_terraform(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target = args["target"]
     tools = args.get("tools")
     timeout = int(args.get("timeout", 300))
@@ -654,12 +725,17 @@ async def _handle_scan_terraform(args: dict[str, Any]) -> list[types.TextContent
         results = await run_all_terraform(target, timeout=timeout)
 
     report = AggregatedReport(target=target, results=list(results))
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="terraform",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+    )
 
 
 async def _handle_scan_ansible(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target = args["target"]
     tools = args.get("tools")
     timeout = int(args.get("timeout", 300))
@@ -678,23 +754,33 @@ async def _handle_scan_ansible(args: dict[str, Any]) -> list[types.TextContent]:
         results = await run_all_ansible(target, timeout=timeout, ansible_lint_profile=profile)
 
     report = AggregatedReport(target=target, results=list(results))
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="ansible",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+    )
 
 
 async def _handle_scan_container(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     image = args["image"]
     timeout = int(args.get("timeout", 300))
 
     result = await run_trivy_image(image, timeout=timeout)
     report = AggregatedReport(target=image, results=[result])
-    report_dict = report.to_dict()
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="container",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+    )
 
 
 async def _handle_scan_all(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
     target = args["target"]
     target_url = args.get("target_url")
     container_image = args.get("container_image")
@@ -726,13 +812,13 @@ async def _handle_scan_all(args: dict[str, Any]) -> list[types.TextContent]:
         all_results.append(container_result)
 
     report = AggregatedReport(target=target, results=all_results)
-    report_dict = report.to_dict()
-
-    if fmt == "json":
-        return [types.TextContent(type="text", text=json.dumps(report_dict, indent=2))]
-
-    md = format_markdown_report(report_dict)
-    return [types.TextContent(type="text", text=md)]
+    return await _finish_scan(
+        report,
+        scan_type="all",
+        timer=timer,
+        fmt=fmt,
+        fail_on=args.get("fail_on"),
+    )
 
 
 TOOLS_REGISTRY: dict[str, dict[str, str]] = {
