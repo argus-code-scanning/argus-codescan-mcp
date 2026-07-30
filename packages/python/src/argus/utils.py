@@ -15,6 +15,60 @@ from argus.models import ScanResult
 
 logger = logging.getLogger(__name__)
 
+# Directories skipped when walking project trees for language/SCA detection.
+SKIP_SCAN_DIRS = frozenset(
+    {
+        "node_modules",
+        ".git",
+        "dist",
+        "build",
+        ".next",
+        "coverage",
+        "vendor",
+        "__pycache__",
+        "target",
+        "bin",
+        "obj",
+        ".venv",
+        "venv",
+        ".terraform",
+        ".idea",
+        ".vscode",
+        "Pods",
+        "DerivedData",
+        ".dart_tool",
+        ".pub-cache",
+        ".gradle",
+    }
+)
+
+
+def find_scan_files(root: Path, *patterns: str) -> list[Path]:
+    """Find files under ``root`` matching globs, skipping heavy directories."""
+    if not patterns:
+        return []
+    if root.is_file():
+        return [root] if any(root.match(pattern) for pattern in patterns) else []
+
+    found: list[Path] = []
+
+    def walk(dir_path: Path) -> None:
+        try:
+            entries = list(dir_path.iterdir())
+        except OSError:
+            return
+        for entry in entries:
+            if entry.is_dir():
+                if entry.name in SKIP_SCAN_DIRS:
+                    continue
+                walk(entry)
+            elif any(entry.match(pattern) for pattern in patterns):
+                found.append(entry)
+
+    if root.is_dir():
+        walk(root)
+    return found
+
 
 def collect_scan_results(
     results: list[ScanResult | BaseException],

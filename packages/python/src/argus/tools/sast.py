@@ -12,6 +12,7 @@ from pathlib import Path
 from argus.models import Finding, ScanResult, ScanType, Severity
 from argus.utils import (
     collect_scan_results,
+    find_scan_files,
     is_tool_available,
     parse_json_output,
     run_command,
@@ -320,7 +321,7 @@ async def run_all_sast(
 
     # Language-specific tools
     py_files = (
-        list(target_path.rglob("*.py"))
+        find_scan_files(target_path, "*.py")
         if target_path.is_dir()
         else ([target_path] if target_path.suffix == ".py" else [])
     )
@@ -330,10 +331,7 @@ async def run_all_sast(
 
     js_files = (
         (
-            list(target_path.rglob("*.js"))
-            + list(target_path.rglob("*.ts"))
-            + list(target_path.rglob("*.jsx"))
-            + list(target_path.rglob("*.tsx"))
+            find_scan_files(target_path, "*.js", "*.ts", "*.jsx", "*.tsx")
         )
         if target_path.is_dir()
         else ([target_path] if target_path.suffix in (".js", ".ts", ".jsx", ".tsx") else [])
