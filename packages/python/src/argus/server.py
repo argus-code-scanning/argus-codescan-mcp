@@ -74,7 +74,7 @@ server = Server("argus-scan")
 # ---------------------------------------------------------------------------
 
 
-@server.list_tools()
+@server.list_tools()  # type: ignore[attr-defined]
 async def list_tools() -> list[types.Tool]:
     return [
         types.Tool(
@@ -85,7 +85,7 @@ async def list_tools() -> list[types.Tool]:
                 "hardcoded credentials, and more. Supports Python (Bandit, Semgrep), "
                 "JavaScript/TypeScript (ESLint security), and all languages via Semgrep."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -125,7 +125,7 @@ async def list_tools() -> list[types.Tool]:
                 "Uses OWASP ZAP (via Docker or local install) and Nikto. "
                 "The target URL must be a running application."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target_url": {
@@ -153,7 +153,7 @@ async def list_tools() -> list[types.Tool]:
                 "third-party dependencies and open-source libraries. Checks requirements.txt, "
                 "package.json, Pipfile, poetry.lock, etc. Uses Trivy, Safety, pip-audit, and npm audit."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -183,7 +183,7 @@ async def list_tools() -> list[types.Tool]:
                 "Scan source code for leaked secrets, API keys, passwords, tokens, and credentials. "
                 "Uses Gitleaks, detect-secrets, and TruffleHog. Works on both git repos and plain directories."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -214,7 +214,7 @@ async def list_tools() -> list[types.Tool]:
                 "Supports Terraform, CloudFormation, Kubernetes, Dockerfile, Helm, Ansible, and ARM templates. "
                 "Uses Checkov, Trivy config scan, and Terrascan."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -248,7 +248,7 @@ async def list_tools() -> list[types.Tool]:
                 "Scan a container image for OS package vulnerabilities, CVEs, and misconfigurations. "
                 "Uses Trivy image scan. Supports Docker Hub images, local images, and registry images."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "image": {
@@ -272,7 +272,7 @@ async def list_tools() -> list[types.Tool]:
                 "overly permissive IAM policies, missing logging, insecure security group rules, "
                 "and hardcoded secrets. Uses tfsec, tflint, terraform validate, KICS, and Checkov."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -304,7 +304,7 @@ async def list_tools() -> list[types.Tool]:
                 "risky file permissions, unvaulted secrets, and deprecated module usage. "
                 "Uses ansible-lint, KICS, and Checkov."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -341,7 +341,7 @@ async def list_tools() -> list[types.Tool]:
                 "on a code directory. Optionally include DAST if a URL is provided. "
                 "Returns an aggregated report with findings from all tools."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -377,7 +377,7 @@ async def list_tools() -> list[types.Tool]:
                 "Check which security scanning tools are installed and available on the system. "
                 "Returns availability status and installation instructions for any missing tools."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {},
             },
@@ -388,7 +388,7 @@ async def list_tools() -> list[types.Tool]:
                 "Retrieve a formatted security report from a previous scan result JSON. "
                 "Converts raw JSON scan data into a readable Markdown report."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "scan_result_json": {
@@ -414,7 +414,7 @@ async def list_tools() -> list[types.Tool]:
                 "Set apply=false (default) to return fix guidance only; "
                 "set apply=true only after the user confirms they want an automated fix."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "target": {
@@ -476,7 +476,7 @@ async def list_tools() -> list[types.Tool]:
 # ---------------------------------------------------------------------------
 
 
-@server.call_tool()
+@server.call_tool()  # type: ignore[attr-defined]
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
     """Dispatch tool calls to the appropriate scanner."""
     try:
