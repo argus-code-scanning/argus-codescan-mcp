@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
 from pathlib import Path
 
 from argus.models import Finding, ScanResult, ScanType, Severity
@@ -35,6 +36,9 @@ async def run_gitleaks(
     is_git = (target_path / ".git").exists()
     subcommand = "detect" if is_git else "detect"
 
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as report_file:
+        report_path = report_file.name
+
     cmd = [
         "gitleaks",
         subcommand,
@@ -43,9 +47,9 @@ async def run_gitleaks(
         "--report-format",
         "json",
         "--report-path",
-        "/dev/stdout",
+        report_path,
         "--exit-code",
-        "0",  # Don't fail the process
+        "0",
         "--no-banner",
     ]
     if not is_git:
@@ -53,11 +57,18 @@ async def run_gitleaks(
     if extra_args:
         cmd.extend(extra_args)
 
-    code, stdout, stderr = await run_command(cmd, timeout=timeout)
-    result.raw_output = stdout
+    try:
+        code, stdout, stderr = await run_command(cmd, timeout=timeout)
+        result.raw_output = stdout
+        try:
+            report_text = Path(report_path).read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            result.errors.append(f"Failed to read gitleaks report: {exc}")
+            return result
+    finally:
+        Path(report_path).unlink(missing_ok=True)
 
-    # Gitleaks outputs JSON array to stdout when --report-path /dev/stdout
-    data = parse_json_output(stdout)
+    data = parse_json_output(report_text)
     if not isinstance(data, list):
         if code > 0:
             result.errors.append(f"gitleaks error (exit {code}): {stderr[:400]}")
