@@ -12,6 +12,7 @@ from pathlib import Path
 from argus.models import Finding, ScanResult, ScanType, Severity
 from argus.utils import (
     collect_scan_results,
+    find_scan_files,
     is_tool_available,
     parse_json_output,
     run_command,
@@ -127,9 +128,7 @@ async def run_safety(
     target_path = Path(target)
     req_files = (
         (
-            list(target_path.rglob("requirements*.txt"))
-            + list(target_path.rglob("Pipfile.lock"))
-            + list(target_path.rglob("poetry.lock"))
+            find_scan_files(target_path, "requirements*.txt", "Pipfile.lock", "poetry.lock")
         )
         if target_path.is_dir()
         else [target_path]
@@ -214,7 +213,7 @@ async def run_pip_audit(
 
     target_path = Path(target)
     req_files = (
-        list(target_path.rglob("requirements*.txt"))
+        find_scan_files(target_path, "requirements*.txt")
         if target_path.is_dir()
         else ([target_path] if target_path.suffix in (".txt", ".lock") else [])
     )
@@ -274,7 +273,7 @@ async def run_npm_audit(
 
     target_path = Path(target)
     pkg_json_files = (
-        list(target_path.rglob("package.json"))
+        find_scan_files(target_path, "package.json")
         if target_path.is_dir()
         else ([target_path] if target_path.name == "package.json" else [])
     )
