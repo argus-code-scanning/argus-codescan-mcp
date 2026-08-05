@@ -1,0 +1,114 @@
+- id: ml-torch-load-unsafe
+  title: torch.load without weights_only — arbitrary code execution risk
+  severity: high
+  pattern: 'torch\.load\s*\('
+  languages: [python]
+
+- id: ml-numpy-load-pickle
+  title: NumPy load with allow_pickle=True — unsafe deserialization
+  severity: high
+  pattern: 'np\.load\s*\([^)]*allow_pickle\s*=\s*True'
+  flags: [i]
+  languages: [python]
+
+- id: ml-joblib-load
+  title: joblib.load on untrusted file — pickle-based RCE risk
+  severity: high
+  pattern: 'joblib\.load\s*\('
+  languages: [python]
+
+- id: ml-dill-load
+  title: dill.load — unsafe deserialization (arbitrary code execution)
+  severity: high
+  pattern: 'dill\.loads?\s*\('
+  languages: [python]
+
+- id: ml-trust-remote-code
+  title: Hugging Face trust_remote_code=True — executes remote model code
+  severity: high
+  pattern: 'trust_remote_code\s*=\s*True'
+  flags: [i]
+  languages: [python]
+
+- id: ml-insecure-model-url
+  title: Model loaded from insecure HTTP URL
+  severity: high
+  pattern: '(from_pretrained|load_model|torch\.hub\.load|keras\.models\.load_model)\s*\(\s*["'']http://'
+  flags: [i]
+  languages: [python]
+
+- id: ml-llm-api-key-hardcoded
+  title: Hardcoded LLM provider API key or token
+  severity: critical
+  pattern: '(OPENAI_API_KEY|ANTHROPIC_API_KEY|HUGGINGFACE_TOKEN|HF_TOKEN|REPLICATE_API_TOKEN|COHERE_API_KEY|GOOGLE_API_KEY|GEMINI_API_KEY|MISTRAL_API_KEY|TOGETHER_API_KEY|PINECONE_API_KEY|WANDB_API_KEY|LANGCHAIN_API_KEY)\s*=\s*["''][^"'']+["'']'
+  flags: [i]
+
+- id: ml-openai-key-inline
+  title: Inline OpenAI API key (sk-...)
+  severity: critical
+  pattern: 'sk-proj-[a-zA-Z0-9_-]{10,}|sk-[a-zA-Z0-9]{20,}'
+
+- id: ml-anthropic-key-inline
+  title: Inline Anthropic API key (sk-ant-...)
+  severity: critical
+  pattern: 'sk-ant-[a-zA-Z0-9_-]{10,}'
+
+- id: ml-huggingface-token-inline
+  title: Inline Hugging Face token (hf_...)
+  severity: critical
+  pattern: 'hf_[a-zA-Z0-9]{20,}'
+
+- id: ml-gradio-public-share
+  title: Gradio launch with share=True — exposes model UI publicly
+  severity: moderate
+  pattern: '\.launch\s*\([^)]*share\s*=\s*True'
+  flags: [i]
+  languages: [python]
+
+- id: ml-llm-prompt-fstring
+  title: LLM prompt built with f-string — prompt injection / data leakage risk
+  severity: moderate
+  pattern: '(prompt|messages|system_prompt|user_prompt)\s*=\s*f["'']'
+  flags: [i]
+  languages: [python]
+
+- id: ml-langchain-user-input-prompt
+  title: User input concatenated into LangChain prompt template
+  severity: high
+  pattern: '(PromptTemplate|ChatPromptTemplate)\s*\([^)]*(\+|\.format\s*\(|f["''])'
+  flags: [i]
+  languages: [python]
+
+- id: ml-model-path-from-request
+  title: Model path derived from request/user input — path traversal or arbitrary load
+  severity: high
+  pattern: '(load_model|from_pretrained|torch\.load|joblib\.load)\s*\(\s*(request\.|input\(|params\[|args\.|body\.|query\.|req\.)'
+  flags: [i]
+  languages: [python, javascript, typescript]
+
+- id: ml-streamlit-secrets-in-code
+  title: Streamlit secrets or API keys hardcoded instead of st.secrets
+  severity: high
+  pattern: 'st\.(text_input|sidebar\.text_input)\s*\(\s*["''](API[_ ]?KEY|OPENAI|TOKEN|SECRET)'
+  flags: [i]
+  languages: [python]
+
+- id: ml-fastapi-debug
+  title: FastAPI/uvicorn debug mode enabled — unsafe for model serving
+  severity: high
+  pattern: '(uvicorn\.run|app\.run)\s*\([^)]*debug\s*=\s*True'
+  flags: [i]
+  languages: [python]
+
+- id: ml-vertex-credentials-inline
+  title: GCP Vertex / service account credentials inline in code
+  severity: critical
+  pattern: '("type"\s*:\s*"service_account"|GOOGLE_APPLICATION_CREDENTIALS\s*=\s*["''][^"'']+["''])'
+  flags: [i]
+
+- id: ml-onnx-external-data
+  title: ONNX model load from external/untrusted path — verify provenance
+  severity: moderate
+  pattern: 'onnx\.load\s*\(\s*(request\.|input\(|params\.|args\.|os\.environ)'
+  flags: [i]
+  languages: [python]

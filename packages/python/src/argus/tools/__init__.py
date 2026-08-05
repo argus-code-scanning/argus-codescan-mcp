@@ -7,6 +7,7 @@ from argus.tools.ansible import (
     run_kics_ansible,
 )
 from argus.tools.code import run_native_languages
+from argus.tools.ml import run_ml_scan
 from argus.tools.dast import run_all_dast, run_nikto, run_zap_baseline
 from argus.tools.iac import (
     run_all_iac,
@@ -34,6 +35,7 @@ __all__ = [
     "run_eslint_security",
     "run_all_sast",
     "run_native_languages",
+    "run_ml_scan",
     # SCA
     "run_trivy_fs",
     "run_safety",

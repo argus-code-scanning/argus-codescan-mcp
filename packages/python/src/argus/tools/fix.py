@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 AUTOFIX_TOOLS = frozenset({"eslint", "eslint-security", "semgrep"})
 
 # Findings that must never be auto-modified — guidance only.
-GUIDANCE_ONLY_SCAN_TYPES = frozenset({"secrets", "sca", "dast", "container"})
+GUIDANCE_ONLY_SCAN_TYPES = frozenset({"secrets", "sca", "dast", "container", "ml"})
 
 
 def _autofix_available(tool: str, scan_type: str) -> bool:

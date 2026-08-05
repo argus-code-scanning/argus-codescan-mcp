@@ -12,6 +12,7 @@ from argus_languages.models import Severity
 
 RULE_FILES = (
     "common.yaml",
+    "ml.yaml",
     "java.yaml",
     "php.yaml",
     "terraform.yaml",
@@ -70,6 +71,20 @@ def load_rules_from_dir(rules_dir: Path | None = None) -> list[LoadedRule]:
 
     base = resources.files("argus_languages").joinpath("bundled_rules")
     for name in RULE_FILES:
+        resource = base.joinpath(name)
+        try:
+            text = resource.read_text(encoding="utf-8")
+        except (FileNotFoundError, OSError, AttributeError):
+            continue
+        rules.extend(_parse_yaml_rules(yaml.safe_load(text)))
+    return rules
+
+
+def load_rules_from_files(names: tuple[str, ...]) -> list[LoadedRule]:
+    """Load a subset of bundled rule files (e.g. ``('ml.yaml',)`` for ML-only scans)."""
+    rules: list[LoadedRule] = []
+    base = resources.files("argus_languages").joinpath("bundled_rules")
+    for name in names:
         resource = base.joinpath(name)
         try:
             text = resource.read_text(encoding="utf-8")
