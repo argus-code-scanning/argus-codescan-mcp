@@ -3,6 +3,7 @@ name: npm CI
 on:
   push:
     branches: [main, dev]
+    tags: ['v*']
     paths:
       - 'packages/npm/**'
       - '.github/workflows/ci-npm.yml'
