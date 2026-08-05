@@ -11,7 +11,7 @@ Use at: https://github.com/argus-code-scanning/argus-codescan-mcp/releases/new
 
 ### Argus v0.2.0 — DevSecOps orchestrator for CLI, MCP, and GitHub
 
-**Argus** is a free, MIT-licensed security scanner that runs **20+ open-source tools** locally (Semgrep, Trivy, Gitleaks, Checkov, tfsec, OWASP ZAP, and more) behind one CLI and one **MCP server** for Cursor and Claude.
+**Argus** is a free, MIT-licensed security scanner that runs **20+ open-source tools** locally (Semgrep, Trivy, Gitleaks, Checkov, tfsec, OWASP ZAP, and more) behind one CLI and one **MCP server** for any MCP-compatible IDE or AI client (Cursor, VS Code, Claude Desktop, JetBrains, etc.).
 
 ### What's new
 
@@ -53,7 +53,7 @@ argus scan code . --format sarif -o argus.sarif --fail-on high
 | Node/React | `npm install -D argus-codescan` |
 | Docker | `docker pull ghcr.io/argus-code-scanning/argus-codescan-mcp` |
 
-### MCP (Cursor)
+### MCP (any MCP-compatible IDE)
 
 ```json
 {

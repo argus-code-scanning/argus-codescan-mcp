@@ -4,7 +4,7 @@
 
 **One open-source scanner. Many eyes. SAST, SCA, secrets, IaC, Terraform, Ansible — CLI, MCP, and GitHub SARIF.**
 
-Argus orchestrates **20+ industry-standard tools** (Semgrep, Trivy, Gitleaks, tfsec, Checkov, OWASP ZAP, and more) behind a single command and an **MCP server** for Cursor and Claude. Runs locally. **No Argus subscription.** MIT licensed.
+Argus orchestrates **20+ industry-standard tools** (Semgrep, Trivy, Gitleaks, tfsec, Checkov, OWASP ZAP, and more) behind a single command and an **MCP server** for any MCP-compatible IDE or AI client. Runs locally. **No Argus subscription.** MIT licensed.
 
 [![Python CI](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-python.yml/badge.svg)](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-python.yml)
 [![npm CI](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-npm.yml)
@@ -22,7 +22,7 @@ Argus orchestrates **20+ industry-standard tools** (Semgrep, Trivy, Gitleaks, tf
 | **Setup** | Install & configure each tool separately | One CLI / MCP config |
 | **Output** | Different JSON/text per tool | Unified report + SARIF |
 | **CI** | Wire scripts yourself | `--format sarif`, `.argus.yml`, baseline diff |
-| **AI (Cursor)** | Manual copy-paste | MCP tools: `scan_all`, `compare_scans`, `apply_fix` |
+| **AI (MCP IDE)** | Manual copy-paste | MCP tools: `scan_all`, `compare_scans`, `apply_fix` |
 | **Cost** | Free (DIY labor) | Free (MIT) — AI client optional |
 | **Fixes** | You decide | Scan never auto-fixes; fix only when you ask |
 
@@ -53,7 +53,7 @@ Works for anyone. Just install Argus and the open-source scanner tools.
 argus mcp    # starts the MCP server
 ```
 
-Connect Cursor, Claude Desktop, or any MCP-compatible AI assistant and drive scans through natural language. The AI subscription is for the AI client — Argus itself is always free.
+Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compatible IDE and drive scans through natural language. The AI subscription is for the AI client — Argus itself is always free.
 
 ---
 
@@ -205,7 +205,7 @@ argus scan sast . --upload --fail-on high       # force upload
 argus scan secrets . --no-upload                # skip upload
 ```
 
-**MCP / Cursor** — add env to `~/.cursor/mcp.json`:
+**MCP** — add env to your IDE's MCP config (e.g. Cursor `~/.cursor/mcp.json`, VS Code MCP settings, Claude Desktop config):
 
 ```json
 {
@@ -295,7 +295,7 @@ argus scan all /path/to/project --upload          # cloud dashboard (needs ARGUS
 argus scan all . --format sarif -o argus.sarif    # GitHub Code Scanning export
 argus compare baseline.json current.json          # diff two scan JSON files
 argus tools                         # show installed scanners
-argus mcp                           # start MCP server for Cursor / Claude
+argus mcp                           # start MCP server for any MCP-compatible IDE
 argus mcp --config                  # print MCP config with cloud env vars
 ```
 
@@ -366,9 +366,9 @@ argus scan all /path/to/project --format table
 argus scan all /path/to/project --fail-on high
 ```
 
-### MCP (Cursor / Claude Desktop)
+### MCP (any MCP-compatible IDE)
 
-Add to `~/.cursor/mcp.json`:
+Add to your MCP client config (e.g. Cursor `~/.cursor/mcp.json`, VS Code MCP settings, Claude Desktop `claude_desktop_config.json`):
 
 ```json
 {

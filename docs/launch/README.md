@@ -25,4 +25,4 @@ Materials to promote Argus as open source.
 
 ## One-line pitch
 
-> **Argus** — free, local security scanner with MCP for Cursor: 20+ tools, SARIF for GitHub, policy file, PR baseline diff. MIT.
+> **Argus** — free, local security scanner with MCP for any IDE: 20+ tools, SARIF for GitHub, policy file, PR baseline diff. MIT.
