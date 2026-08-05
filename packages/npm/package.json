@@ -37,8 +37,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "argus-codescan": "bin/argus-codescan.js",
-    "argus": "bin/argus.js"
+    "argus-codescan": "bin/argus-codescan.js"
   },
   "files": [
     "bin",
