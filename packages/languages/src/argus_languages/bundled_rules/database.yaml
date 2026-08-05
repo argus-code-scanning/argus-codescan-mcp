@@ -1,0 +1,108 @@
+- id: db-connection-string
+  title: Hardcoded database connection string
+  severity: high
+  pattern: '(DATABASE_URL|DB_CONNECTION|jdbc:|postgres://|mysql://|mongodb(\+srv)?://)[^\s"'']+'
+  flags: [i]
+  languages: [python, javascript, typescript, java, csharp, go, ruby, php, kotlin, scala, rust, elixir]
+
+- id: db-connection-insecure-ssl
+  title: Database connection disables SSL/TLS
+  severity: high
+  pattern: '(sslmode\s*=\s*disable|ssl\s*=\s*false|encrypt\s*=\s*false|trustServerCertificate\s*=\s*true)'
+  flags: [i]
+
+- id: db-sqlalchemy-text-fstring
+  title: SQLAlchemy text() with f-string — SQL injection risk
+  severity: high
+  pattern: 'text\s*\(\s*f["'']'
+  languages: [python]
+
+- id: db-django-raw-query
+  title: Django raw() or extra() with string formatting
+  severity: high
+  pattern: '(\.raw\s*\(|\.extra\s*\(|RawSQL\s*\()'
+  languages: [python]
+
+- id: db-prisma-raw-query
+  title: Prisma $queryRaw / $executeRaw — verify parameterization
+  severity: moderate
+  pattern: '\$(queryRaw|executeRaw)\s*\('
+  languages: [javascript, typescript]
+
+- id: db-sequelize-query-raw
+  title: Sequelize query with raw string interpolation
+  severity: high
+  pattern: 'sequelize\.query\s*\(\s*[`"''].*(\$\{|\+)'
+  flags: [i]
+  languages: [javascript, typescript]
+
+- id: db-knex-raw
+  title: Knex raw() query — verify parameterization
+  severity: moderate
+  pattern: '\.raw\s*\(\s*[`"'']'
+  languages: [javascript, typescript]
+
+- id: db-jdbc-statement-concat
+  title: JDBC Statement built with string concatenation
+  severity: high
+  pattern: '(createStatement|prepareStatement)\s*\([^)]*\+'
+  languages: [java, kotlin, scala]
+
+- id: db-entity-framework-raw
+  title: Entity Framework raw SQL — verify parameterization
+  severity: moderate
+  pattern: '(FromSqlRaw|ExecuteSqlRaw|SqlQuery)\s*\('
+  languages: [csharp]
+
+- id: db-migration-grant-all
+  title: Migration grants ALL privileges — overly permissive
+  severity: moderate
+  pattern: 'GRANT\s+ALL(\s+PRIVILEGES)?(\s+ON\s+\*|\s+TO\s+)'
+  flags: [i]
+  languages: [sql]
+
+- id: db-migration-grant-superuser
+  title: Migration grants SUPERUSER or CREATEDB
+  severity: high
+  pattern: 'GRANT\s+(SUPERUSER|CREATEDB|CREATEROLE|REPLICATION)'
+  flags: [i]
+  languages: [sql]
+
+- id: db-migration-drop-database
+  title: Destructive DROP DATABASE in migration
+  severity: high
+  pattern: 'DROP\s+DATABASE'
+  flags: [i]
+  languages: [sql]
+
+- id: db-migration-truncate
+  title: TRUNCATE without WHERE in migration script
+  severity: moderate
+  pattern: 'TRUNCATE\s+(TABLE\s+)?[\w.]+'
+  flags: [i]
+  languages: [sql]
+
+- id: db-redis-keys-prod
+  title: Redis KEYS command — blocks server in production
+  severity: moderate
+  pattern: '\.keys\s*\(|KEYS\s+\*'
+  languages: [python, javascript, typescript, java, go, ruby, php]
+
+- id: db-mongo-where-js
+  title: MongoDB $where with JavaScript — injection risk
+  severity: high
+  pattern: '\$where\s*:'
+  languages: [javascript, typescript, python]
+
+- id: db-sql-dynamic-exec
+  title: Dynamic SQL EXEC/EXECUTE — injection risk
+  severity: high
+  pattern: '(EXEC\s*\(|EXECUTE\s+IMMEDIATE\s+|sp_executesql\s*\()'
+  flags: [i]
+  languages: [sql, csharp, java]
+
+- id: db-root-user
+  title: Database connection uses root/admin user
+  severity: moderate
+  pattern: '(user\s*=\s*["'']?(root|admin|postgres|sa)["'']?|username\s*=\s*["'']?(root|admin)["'']?)'
+  flags: [i]

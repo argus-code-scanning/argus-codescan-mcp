@@ -53,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument(
             "--format",
             "-f",
-            choices=["markdown", "json", "table"],
+            choices=["markdown", "json", "table", "sarif"],
             default="markdown",
             help="Output format (default: markdown)",
         )
@@ -98,6 +98,16 @@ def build_parser() -> argparse.ArgumentParser:
             "--no-upload",
             action="store_true",
             help="Skip cloud upload even when ARGUS_API_KEY is set",
+        )
+        p.add_argument(
+            "--policy",
+            metavar="FILE",
+            help="Path to .argus.yml policy file (default: auto-discover from target)",
+        )
+        p.add_argument(
+            "--baseline",
+            metavar="FILE",
+            help="Baseline scan JSON — only report new findings (overrides policy baseline)",
         )
 
     sast_p = scan_sub.add_parser("sast", help="Static Application Security Testing")
@@ -144,6 +154,29 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common(all_p)
     all_p.add_argument("--url", metavar="URL", help="Also run DAST against this URL")
     all_p.add_argument("--image", metavar="IMAGE", help="Also scan this container image")
+
+    # ── compare ─────────────────────────────────────────────────────────────
+    cmp_p = sub.add_parser("compare", help="Diff two scan JSON reports (baseline vs current)")
+    cmp_p.add_argument("baseline", help="Path to baseline scan JSON")
+    cmp_p.add_argument("current", help="Path to current scan JSON")
+    cmp_p.add_argument(
+        "--format",
+        "-f",
+        choices=["json", "markdown"],
+        default="json",
+        help="Output format (default: json)",
+    )
+    cmp_p.add_argument(
+        "--output",
+        "-o",
+        metavar="FILE",
+        help="Write output to FILE instead of stdout",
+    )
+    cmp_p.add_argument(
+        "--fail-on-new",
+        action="store_true",
+        help="Exit 1 if any new findings exist vs baseline",
+    )
 
     # ── tools ───────────────────────────────────────────────────────────────
     sub.add_parser("tools", help="List installed security tools and their status")
@@ -267,10 +300,14 @@ def _filter_severity(report_dict: dict, min_sev: str) -> dict:
 
 def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fail_on: str) -> int:
     """Render the report and return the exit code."""
+    from argus.formatters.sarif import aggregated_report_to_sarif
+
     filtered = _filter_severity(report_dict, min_sev)
 
     if fmt == "json":
         text = json.dumps(filtered, indent=2)
+    elif fmt == "sarif":
+        text = json.dumps(aggregated_report_to_sarif(filtered), indent=2)
     elif fmt == "table":
         import contextlib
         import io
@@ -303,6 +340,8 @@ def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fa
 
 async def _run_scan(args: argparse.Namespace) -> int:
     from argus.cloud_upload import ScanTimer, is_cloud_upload_enabled, upload_scan_report
+    from argus.compare import compare_reports, report_from_new_findings_only
+    from argus.policy import apply_policy, load_policy, merge_cli_policy
 
     scan_type = args.scan_type
     timer = ScanTimer()
@@ -312,6 +351,24 @@ async def _run_scan(args: argparse.Namespace) -> int:
     min_sev = getattr(args, "min_severity", "low")
     fail_on = getattr(args, "fail_on", "never")
     out_file = getattr(args, "output", None)
+
+    policy = load_policy(path=getattr(args, "policy", None), start=args.target)
+    policy = merge_cli_policy(
+        policy,
+        fail_on=fail_on if fail_on != "never" else None,
+        min_severity=min_sev if min_sev != "low" else None,
+        tools=tools,
+        semgrep_config=getattr(args, "semgrep_config", None),
+    )
+    if policy.fail_on != "never":
+        fail_on = policy.fail_on
+    if policy.min_severity != "low":
+        min_sev = policy.min_severity
+    if policy.tools and not tools:
+        tools = policy.tools
+    semgrep_cfg = getattr(args, "semgrep_config", "auto")
+    if policy.semgrep_config != "auto":
+        semgrep_cfg = policy.semgrep_config
 
     print(f"Running {scan_type.upper()} scan on: {args.target}", file=sys.stderr)
 
@@ -325,16 +382,14 @@ async def _run_scan(args: argparse.Namespace) -> int:
 
                 tasks.append(run_native_languages(args.target))
             if "semgrep" in tools:
-                tasks.append(run_semgrep(args.target, config=args.semgrep_config, timeout=timeout))
+                tasks.append(run_semgrep(args.target, config=semgrep_cfg, timeout=timeout))
             if "bandit" in tools:
                 tasks.append(run_bandit(args.target, timeout=timeout))
             if "eslint" in tools:
                 tasks.append(run_eslint_security(args.target, timeout=timeout))
             results = await asyncio.gather(*tasks)
         else:
-            results = await run_all_sast(
-                args.target, semgrep_config=args.semgrep_config, timeout=timeout
-            )
+            results = await run_all_sast(args.target, semgrep_config=semgrep_cfg, timeout=timeout)
 
     elif scan_type == "code":
         from argus.tools.code import run_native_languages
@@ -411,18 +466,32 @@ async def _run_scan(args: argparse.Namespace) -> int:
         return 2
 
     report = AggregatedReport(target=args.target, results=list(results))
-    report_dict = report.to_dict()
+    report_dict = apply_policy(report.to_dict(), policy)
 
-    total = report_dict["summary"]["total_findings"]
+    baseline_path = getattr(args, "baseline", None) or policy.baseline
+    if baseline_path:
+        baseline_data = json.loads(Path(baseline_path).read_text(encoding="utf-8"))
+        diff = compare_reports(baseline_data, report_dict)
+        print(
+            f"Baseline diff: {diff['summary']['new']} new, "
+            f"{diff['summary']['fixed']} fixed, "
+            f"{diff['summary']['unchanged']} unchanged.",
+            file=sys.stderr,
+        )
+        if policy.fail_on_new_only:
+            report_dict = report_from_new_findings_only(report_dict, baseline_data)
+            fail_on = fail_on if fail_on != "never" else "low"
+
+    total = sum(len(r.get("findings", [])) for r in report_dict.get("results", []))
     unavailable = report_dict["summary"]["tools_unavailable"]
     print(f"Scan complete. {total} finding(s) found.", file=sys.stderr)
     if unavailable:
         print(f"Tools not installed (skipped): {', '.join(unavailable)}", file=sys.stderr)
         print("  Run 'argus tools' to see install instructions.", file=sys.stderr)
 
-    should_upload = (
-        getattr(args, "upload", False) or is_cloud_upload_enabled()
-    ) and not getattr(args, "no_upload", False)
+    should_upload = (getattr(args, "upload", False) or is_cloud_upload_enabled()) and not getattr(
+        args, "no_upload", False
+    )
     if should_upload:
         try:
             upload_fail_on = fail_on if fail_on != "never" else None
@@ -440,6 +509,44 @@ async def _run_scan(args: argparse.Namespace) -> int:
             print(f"Cloud upload failed: {exc}", file=sys.stderr)
 
     return _emit(report_dict, fmt, out_file, min_sev, fail_on)
+
+
+def _cmd_compare(args: argparse.Namespace) -> int:
+    from argus.compare import compare_reports
+
+    baseline = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
+    current = json.loads(Path(args.current).read_text(encoding="utf-8"))
+    diff = compare_reports(baseline, current)
+
+    if args.format == "markdown":
+        lines = [
+            "# Scan Comparison",
+            "",
+            f"- **New findings:** {diff['summary']['new']}",
+            f"- **Fixed:** {diff['summary']['fixed']}",
+            f"- **Unchanged:** {diff['summary']['unchanged']}",
+            "",
+        ]
+        if diff["new"]:
+            lines.append("## New findings")
+            for f in diff["new"]:
+                lines.append(
+                    f"- [{f.get('severity')}] {f.get('tool')}: {f.get('title')} "
+                    f"({f.get('file')}:{f.get('line', 0)})"
+                )
+        text = "\n".join(lines)
+    else:
+        text = json.dumps(diff, indent=2)
+
+    if args.output:
+        Path(args.output).write_text(text)
+        print(f"Comparison written to: {args.output}", file=sys.stderr)
+    else:
+        print(text)
+
+    if getattr(args, "fail_on_new", False) and diff["summary"]["new"] > 0:
+        return 1
+    return 0
 
 
 def _cmd_tools() -> None:
@@ -478,7 +585,9 @@ def _cmd_tools() -> None:
     bold = _BOLD if use_color else ""
 
     print(f"\n{bold}Built-in (always available){reset}\n")
-    print(f"  {green}✔{reset}  {'argus-languages':<20} Multi-language code (Java, PHP, Terraform, Ansible, …)")
+    print(
+        f"  {green}✔{reset}  {'argus-languages':<20} Multi-language code (Java, PHP, Terraform, Ansible, …)"
+    )
     print("       pip install argus-languages   or   argus scan code <path>")
 
     installed, missing = [], []
@@ -531,6 +640,9 @@ def main(argv: list[str] | None = None) -> int:
 
         run_server()
         return 0
+
+    if args.command == "compare":
+        return _cmd_compare(args)
 
     if args.command == "scan":
         if args.scan_type is None:

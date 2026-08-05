@@ -127,9 +127,7 @@ async def run_safety(
 
     target_path = Path(target)
     req_files = (
-        (
-            find_scan_files(target_path, "requirements*.txt", "Pipfile.lock", "poetry.lock")
-        )
+        (find_scan_files(target_path, "requirements*.txt", "Pipfile.lock", "poetry.lock"))
         if target_path.is_dir()
         else [target_path]
     )
@@ -180,7 +178,9 @@ async def run_safety(
                 )
                 severity = TRIVY_SEVERITY_MAP.get(sev_str, Severity.HIGH)
                 finding = Finding(
-                    title=str(vuln.get("vulnerability_id", vuln.get("id", "safety-vuln")) or "safety-vuln"),
+                    title=str(
+                        vuln.get("vulnerability_id", vuln.get("id", "safety-vuln")) or "safety-vuln"
+                    ),
                     severity=severity,
                     scan_type=ScanType.SCA,
                     tool="safety",

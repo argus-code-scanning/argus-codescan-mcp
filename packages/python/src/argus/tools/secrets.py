@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from argus.models import Finding, ScanResult, ScanType, Severity
+from argus.remediation.secrets import format_fix_guidance
 from argus.utils import collect_scan_results, is_tool_available, parse_json_output, run_command
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,7 @@ async def run_gitleaks(
         finding.description = (
             finding.description or f"Potential secret matched rule: {finding.rule_id}"
         )
+        finding.fix_guidance = format_fix_guidance(finding.rule_id, finding.title, "gitleaks")
         result.findings.append(finding)
 
     return result
@@ -163,6 +165,7 @@ async def run_detect_secrets(
                 line=secret.get("line_number", 0),
                 description=f"Potential {description} found",
                 rule_id=detector,
+                fix_guidance=format_fix_guidance(detector, description, "detect-secrets"),
                 raw=secret,
             )
             result.findings.append(finding)
@@ -210,15 +213,17 @@ async def run_trufflehog(
 
         source_meta = item.get("SourceMetadata", {}).get("Data", {})
         file_info = source_meta.get("Filesystem", {}) or source_meta.get("Git", {}) or {}
+        detector = item.get("DetectorName", "trufflehog-secret")
         finding = Finding(
-            title=item.get("DetectorName", "trufflehog-secret"),
+            title=detector,
             severity=Severity.CRITICAL,
             scan_type=ScanType.SECRETS,
             tool="trufflehog",
             file=file_info.get("file", file_info.get("filename", "")),
             line=file_info.get("line", 0),
-            description=f"Verified={item.get('Verified', False)}: {item.get('DetectorName', '')} secret detected",
-            rule_id=item.get("DetectorName", ""),
+            description=f"Verified={item.get('Verified', False)}: {detector} secret detected",
+            rule_id=detector,
+            fix_guidance=format_fix_guidance(detector, detector, "trufflehog"),
             raw=item,
         )
         # Upgrade severity if verified

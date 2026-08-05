@@ -1,0 +1,37 @@
+# Example Argus policy — copy to .argus.yml in your repo root
+#
+# Docs: docs/features-roadmap.md
+
+# Exit code 1 when findings at or above this severity exist
+fail_on: high
+
+# Only show findings at or above this severity
+min_severity: low
+
+# Fail only on findings not present in baseline (requires baseline file)
+# fail_on_new_only: true
+# baseline: .argus/baseline.json
+
+# Paths to skip (glob patterns)
+exclude_paths:
+  - "tests/fixtures/**"
+  - "**/node_modules/**"
+  - "**/.venv/**"
+
+# Limit which scan types run for `argus scan all`
+# scans: [sast, sca, secrets, iac]
+
+# Limit external tools (optional)
+# tools: [semgrep, gitleaks, trivy]
+
+# Semgrep ruleset
+semgrep:
+  config: auto
+  # config: p/owasp-top-ten
+
+# Suppress known false positives (use sparingly; add expiry)
+suppressions:
+  - rule_id: bandit.B101
+    path: "tests/**"
+    reason: "asserts in test files"
+    expires: "2026-12-31"

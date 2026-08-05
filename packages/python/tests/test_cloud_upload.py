@@ -64,7 +64,10 @@ def test_build_upload_payload_maps_findings():
         ],
     }
 
-    with patch("argus.cloud_upload.get_git_metadata", return_value={"repo": "r", "branch": "b", "commit": "c"}):
+    with patch(
+        "argus.cloud_upload.get_git_metadata",
+        return_value={"repo": "r", "branch": "b", "commit": "c"},
+    ):
         payload = build_upload_payload(
             report,
             duration_sec=3.6,

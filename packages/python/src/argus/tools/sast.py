@@ -330,9 +330,7 @@ async def run_all_sast(
         tasks.append(run_flake8_security(target, timeout=timeout))
 
     js_files = (
-        (
-            find_scan_files(target_path, "*.js", "*.ts", "*.jsx", "*.tsx")
-        )
+        (find_scan_files(target_path, "*.js", "*.ts", "*.jsx", "*.tsx"))
         if target_path.is_dir()
         else ([target_path] if target_path.suffix in (".js", ".ts", ".jsx", ".tsx") else [])
     )
