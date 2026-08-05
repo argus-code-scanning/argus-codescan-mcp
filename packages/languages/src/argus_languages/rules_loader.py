@@ -12,6 +12,7 @@ from argus_languages.models import Severity
 
 RULE_FILES = (
     "common.yaml",
+    "database.yaml",
     "java.yaml",
     "php.yaml",
     "terraform.yaml",

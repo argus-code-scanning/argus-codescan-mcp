@@ -4,6 +4,7 @@
     This module is deprecated and will be removed in a future version.
     Use the :mod:`argus.cloud_upload` module instead.
 """
+
 from __future__ import annotations
 
 import json

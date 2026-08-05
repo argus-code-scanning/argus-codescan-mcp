@@ -248,6 +248,30 @@ asyncio.run(main())
 
 ---
 
+## SARIF, policy & baseline diff (v0.2+)
+
+```bash
+# GitHub Code Scanning — export SARIF
+argus scan code . --format sarif -o argus.sarif
+
+# Repo policy — copy .argus.yml.example to .argus.yml
+argus scan all . --fail-on high
+
+# PR diff — only fail on new findings
+argus scan all . --baseline baseline.json
+argus compare baseline.json current.json --fail-on-new
+
+# Secret remediation steps in JSON output
+argus scan secrets . --format json
+
+# DB security rules (SQLi, GRANT ALL, connection strings)
+argus scan code .
+```
+
+See [features-roadmap.md](features-roadmap.md) for full details.
+
+---
+
 ## Troubleshooting
 
 **Server doesn't start**

@@ -9,6 +9,8 @@ npx argus-codescan scan all .
 
 npm: https://www.npmjs.com/package/argus-codescan
 
+> **SARIF export, `.argus.yml` policy, baseline diff, and DB security rules** are in the Python package: `pip install argus-scan` (v0.2+). See [features roadmap](https://github.com/argus-code-scanning/argus-codescan-mcp/blob/main/docs/features-roadmap.md).
+
 ---
 
 ## Install
