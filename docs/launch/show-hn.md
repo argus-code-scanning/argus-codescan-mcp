@@ -3,7 +3,7 @@
 ## Title (pick one)
 
 **Option A (recommended):**  
-`Show HN: Argus – open-source security scanner with MCP for Cursor (SAST, SCA, secrets, SARIF)`
+`Show HN: Argus – open-source security scanner with MCP for your IDE (SAST, SCA, secrets, SARIF)`
 
 **Option B (shorter):**  
 `Show HN: Argus – one CLI + MCP server for 20+ security scanners, no vendor lock-in`
@@ -23,7 +23,7 @@ https://github.com/argus-code-scanning/argus-codescan-mcp
 
 ## Post body (paste as first comment immediately after submitting)
 
-Hi HN — I built **Argus**, an open-source security scanner that orchestrates 20+ tools (Semgrep, Trivy, Gitleaks, tfsec, Checkov, OWASP ZAP, etc.) behind one CLI and one **MCP server** for Cursor / Claude Desktop.
+Hi HN — I built **Argus**, an open-source security scanner that orchestrates 20+ tools (Semgrep, Trivy, Gitleaks, tfsec, Checkov, OWASP ZAP, etc.) behind one CLI and one **MCP server** for any MCP-compatible IDE or AI client (Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, etc.).
 
 **Problem:** Running DevSecOps locally means installing and wiring Semgrep, Trivy, Gitleaks, Checkov… separately. Most “AI security” products also want a subscription for the scanner itself.
 
@@ -49,7 +49,7 @@ npm install -D argus-codescan
 npx argus-codescan scan all .
 ```
 
-**MCP (Cursor):**
+**MCP (any MCP-compatible IDE):**
 
 ```json
 {
@@ -84,7 +84,7 @@ What would you want next: live DB audit, official GitHub Action marketplace list
 Argus doesn't replace them — it runs them (plus Bandit, Gitleaks, Checkov, etc.) in parallel, normalizes output, adds MCP/CLI, SARIF, policy file, baseline diff, and optional VS Code integration. One command instead of five.
 
 **"Why MCP?"**  
-So you can say in Cursor: "scan this repo for secrets and show only new findings vs main" without writing shell scripts. The scanner stays local; only the AI client needs a subscription if you use one.
+So you can say in your IDE: "scan this repo for secrets and show only new findings vs main" without writing shell scripts. The scanner stays local; only the AI client needs a subscription if you use one.
 
 **"Is it production-ready?"**  
 Beta — core scans work; we're hardening CI publish, Docker image, and docs. Issues welcome on GitHub.

@@ -14,11 +14,13 @@ Add Argus — open-source security scanner (SAST, SCA, secrets, IaC)
 
 ## Entry (markdown — adjust category to match the list's sections)
 
-Pick the section that fits best (e.g. **Security**, **Developer Tools**, or **Coding Tools**):
+Pick the section that fits best — **Developer Tools** is recommended (Security TOC link may not have a dedicated section in current README):
 
 ```markdown
-- [Argus](https://github.com/argus-code-scanning/argus-codescan-mcp) - Open-source multi-scanner security tool (SAST, DAST, SCA, secrets, IaC, Terraform, Ansible). Single MCP server orchestrating Semgrep, Trivy, Gitleaks, Checkov, tfsec, and 15+ tools. SARIF export, policy file, baseline diff. Works with Cursor and Claude Desktop. MIT.
+- [argus-code-scanning/argus-codescan-mcp](https://github.com/argus-code-scanning/argus-codescan-mcp) 🐍 📇 🏠 🍎 🪟 🐧 - Open-source multi-scanner security tool (SAST, DAST, SCA, secrets, IaC, Terraform, Ansible). Single MCP server orchestrating Semgrep, Trivy, Gitleaks, Checkov, tfsec, and 15+ tools. SARIF export, `.argus.yml` policy, baseline diff, fix-on-request. MIT. `pip install argus-scan`
 ```
+
+**Where to add:** Under `### 💻 Developer Tools` in [README.md](https://github.com/punkpeye/awesome-mcp-servers/blob/main/README.md) (alphabetically near other `a*` entries, e.g. after `aradar46/reuse-before-generate`).
 
 **Shorter variant:**
 

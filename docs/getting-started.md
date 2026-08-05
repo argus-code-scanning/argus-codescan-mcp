@@ -19,9 +19,10 @@
 │  Mode 2 — AI-assisted via MCP  (optional, needs client)     │
 │                                                             │
 │  argus-scan mcp   ← starts the server                 │
-│  Then Cursor / Claude Desktop drives the scans via chat.    │
+│  Then your IDE or AI client drives the scans via chat.      │
+│  (Cursor, VS Code, Claude Desktop, JetBrains, etc.)         │
 │                                                             │
-│  Needs: Cursor subscription OR Claude API key               │
+│  Needs: AI client subscription if your IDE requires one     │
 │  Does NOT need: any argus-scan token or licence        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -96,7 +97,9 @@ brew install trivy gitleaks          # macOS
 
 ---
 
-## Step 3 — Configure Your AI Client
+## Step 3 — Configure Your IDE (MCP)
+
+Pick your editor — all use the same `argus mcp` server and JSON config shape.
 
 ### Cursor
 
