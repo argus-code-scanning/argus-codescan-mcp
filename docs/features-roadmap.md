@@ -27,3 +27,16 @@ Included in `argus scan all` and MCP `scan_all`.
 | LLM dependency CVE checks (langchain, transformers, etc.) | Planned |
 | Prompt-injection DAST for chat endpoints | Planned |
 | Ollama / vLLM serving config checks | Planned |
+
+---
+
+## Planned — Wiz integration
+
+| Feature | Status |
+|---------|--------|
+| Integration guide + CI template | [docs/integrations/wiz.md](integrations/wiz.md) |
+| Parallel Wiz CLI + Argus in CI | Documented (Pattern 1) |
+| Argus SARIF → Wiz UVM via `wiz-sarif-action-ingest` | Documented (Pattern 2) |
+| Native `argus format wiz` + `--upload-wiz` | Planned |
+| MCP `scan_wiz` / optional `wizcli` runner | Planned |
+| Harness STO ingestion example | Documented |
