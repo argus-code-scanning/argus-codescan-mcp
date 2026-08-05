@@ -7,7 +7,6 @@ from argus.tools.ansible import (
     run_kics_ansible,
 )
 from argus.tools.code import run_native_languages
-from argus.tools.ml import run_ml_scan
 from argus.tools.dast import run_all_dast, run_nikto, run_zap_baseline
 from argus.tools.iac import (
     run_all_iac,
@@ -16,6 +15,7 @@ from argus.tools.iac import (
     run_trivy_config,
     run_trivy_image,
 )
+from argus.tools.ml import run_ml_scan
 from argus.tools.sast import run_all_sast, run_bandit, run_eslint_security, run_semgrep
 from argus.tools.sca import run_all_sca, run_npm_audit, run_pip_audit, run_safety, run_trivy_fs
 from argus.tools.secrets import run_all_secrets, run_detect_secrets, run_gitleaks, run_trufflehog

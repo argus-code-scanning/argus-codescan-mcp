@@ -27,7 +27,6 @@ from argus.tools.ansible import (
 )
 from argus.tools.dast import run_all_dast, run_nikto, run_zap_baseline
 from argus.tools.fix import apply_finding_fix
-from argus.tools.ml import run_ml_scan
 from argus.tools.iac import (
     run_all_iac,
     run_checkov,
@@ -35,6 +34,7 @@ from argus.tools.iac import (
     run_trivy_config,
     run_trivy_image,
 )
+from argus.tools.ml import run_ml_scan
 from argus.tools.sast import (
     run_all_sast,
     run_bandit,
