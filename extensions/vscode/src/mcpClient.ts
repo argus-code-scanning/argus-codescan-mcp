@@ -1,7 +1,7 @@
 /**
  * MCP client for communicating with the argus-scan Python server.
  *
- * Uses the JSON-RPC 2.0 protocol over stdio.
+ * Uses JSON-RPC 2.0 over stdio with Content-Length framing (MCP spec).
  */
 
 import * as cp from "child_process";
@@ -29,7 +29,7 @@ type PendingRequest = {
 
 export class McpClient implements vscode.Disposable {
   private process: cp.ChildProcess | null = null;
-  private buffer = "";
+  private buffer = Buffer.alloc(0);
   private requestId = 0;
   private pending = new Map<number, PendingRequest>();
   private initialized = false;
@@ -56,7 +56,7 @@ export class McpClient implements vscode.Disposable {
     });
 
     this.process.stdout!.on("data", (data: Buffer) => {
-      this.buffer += data.toString();
+      this.buffer = Buffer.concat([this.buffer, data]);
       this.processBuffer();
     });
 
@@ -97,8 +97,8 @@ export class McpClient implements vscode.Disposable {
     // Prefer dedicated MCP entrypoints — bare argus-scan prints CLI help.
     const candidates: Array<{ command: string; args: string[] }> = [
       { command: "argus-mcp", args: [] },
-      { command: "argus", args: ["mcp"] },
       { command: "argus-scan", args: ["mcp"] },
+      { command: "argus", args: ["mcp"] },
       { command: "uvx", args: ["--from", "argus-scan", "argus-mcp"] },
       { command: "npx", args: ["-y", "argus-codescan", "mcp"] },
     ];
@@ -140,13 +140,30 @@ export class McpClient implements vscode.Disposable {
   }
 
   private processBuffer(): void {
-    const lines = this.buffer.split("\n");
-    this.buffer = lines.pop() ?? "";
+    while (true) {
+      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      if (headerEnd === -1) {
+        return;
+      }
 
-    for (const line of lines) {
-      if (!line.trim()) continue;
+      const headerText = this.buffer.subarray(0, headerEnd).toString("utf-8");
+      const match = /Content-Length:\s*(\d+)/i.exec(headerText);
+      if (!match) {
+        this.buffer = this.buffer.subarray(headerEnd + 4);
+        continue;
+      }
+
+      const contentLength = Number.parseInt(match[1], 10);
+      const bodyStart = headerEnd + 4;
+      if (this.buffer.length < bodyStart + contentLength) {
+        return;
+      }
+
+      const body = this.buffer.subarray(bodyStart, bodyStart + contentLength).toString("utf-8");
+      this.buffer = this.buffer.subarray(bodyStart + contentLength);
+
       try {
-        const msg = JSON.parse(line) as JsonRpcResponse;
+        const msg = JSON.parse(body) as JsonRpcResponse;
         if ("id" in msg && msg.id !== undefined) {
           const pending = this.pending.get(msg.id);
           if (pending) {
@@ -159,9 +176,18 @@ export class McpClient implements vscode.Disposable {
           }
         }
       } catch {
-        // Non-JSON line — ignore
+        // ignore malformed payloads
       }
     }
+  }
+
+  private writeMessage(payload: unknown): void {
+    if (!this.process?.stdin) {
+      return;
+    }
+    const body = JSON.stringify(payload);
+    const header = `Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n`;
+    this.process.stdin.write(header + body);
   }
 
   private sendRequest(method: string, params: unknown): Promise<unknown> {
@@ -181,15 +207,13 @@ export class McpClient implements vscode.Disposable {
         params,
       };
 
-      const line = JSON.stringify(request) + "\n";
-      this.process.stdin!.write(line);
+      this.writeMessage(request);
     });
   }
 
   private async sendNotification(method: string, params: unknown): Promise<void> {
     if (!this.process) return;
-    const notification = { jsonrpc: "2.0", method, params };
-    this.process.stdin!.write(JSON.stringify(notification) + "\n");
+    this.writeMessage({ jsonrpc: "2.0", method, params });
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<string> {

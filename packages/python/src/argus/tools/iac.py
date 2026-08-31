@@ -32,6 +32,66 @@ TRIVY_SEVERITY_MAP: dict[str, Severity] = {
     "UNKNOWN": Severity.UNKNOWN,
 }
 
+_ANSIBLE_DIR_MARKERS = frozenset(
+    {
+        "tasks",
+        "roles",
+        "playbooks",
+        "handlers",
+        "vars",
+        "defaults",
+        "inventory",
+        "group_vars",
+        "host_vars",
+    }
+)
+
+_ANSIBLE_YAML_MARKERS = (
+    "- hosts:",
+    "hosts:",
+    "ansible.builtin",
+    "ansible.",
+    "gather_facts:",
+    "become:",
+    "ansible-playbook",
+)
+
+
+def _looks_like_ansible_project(target_path: Path) -> bool:
+    """True only when the tree looks like Ansible, not generic YAML (CI, Compose, etc.)."""
+    if not target_path.is_dir():
+        if target_path.suffix not in (".yml", ".yaml"):
+            return False
+        try:
+            sample = target_path.read_text(encoding="utf-8", errors="replace")[:4096]
+        except OSError:
+            return False
+        lower = sample.lower()
+        return any(marker in lower for marker in _ANSIBLE_YAML_MARKERS)
+
+    if any((target_path / name).is_dir() for name in _ANSIBLE_DIR_MARKERS):
+        return True
+
+    yaml_files: list[Path] = []
+    for pattern in ("*.yml", "*.yaml"):
+        yaml_files.extend(target_path.glob(pattern))
+        yaml_files.extend(target_path.glob(f"roles/*/{pattern}"))
+        yaml_files.extend(target_path.glob(f"playbooks/{pattern}"))
+
+    for path in yaml_files[:20]:
+        rel = path.relative_to(target_path).as_posix()
+        if rel.startswith(".github/") or rel in ("docker-compose.yml", "docker-compose.yaml"):
+            continue
+        try:
+            sample = path.read_text(encoding="utf-8", errors="replace")[:4096]
+        except OSError:
+            continue
+        lower = sample.lower()
+        if any(marker in lower for marker in _ANSIBLE_YAML_MARKERS):
+            return True
+
+    return False
+
 
 async def run_checkov(
     target: str,
@@ -329,20 +389,8 @@ async def run_all_iac(
         tasks.append(run_tfsec(target, timeout=timeout))
         tasks.append(run_tflint(target, timeout=min(timeout, 120)))
 
-    # Add Ansible-specific scanners when playbook YAML files are detected
-    has_ansible = (
-        (
-            any(
-                (target_path / d).is_dir()
-                for d in ("tasks", "roles", "playbooks", "handlers", "vars", "defaults")
-            )
-            or bool(list(target_path.glob("*.yml"))[:1])
-            or bool(list(target_path.glob("*.yaml"))[:1])
-        )
-        if target_path.is_dir()
-        else target_path.suffix in (".yml", ".yaml")
-    )
-    if has_ansible:
+    # Add Ansible-specific scanners only when Ansible layout/content is detected
+    if _looks_like_ansible_project(target_path):
         from argus.tools.ansible import run_ansible_lint
 
         tasks.append(run_ansible_lint(target, timeout=timeout))
