@@ -2,14 +2,33 @@
 
 > *In Greek mythology, Argus Panoptes was the hundred-eyed giant — an all-seeing guardian who never slept.*
 
-**Argus is an open-source security scanner with many eyes.**
+**One open-source scanner. Many eyes. SAST, SCA, secrets, IaC, Terraform, Ansible — CLI, MCP, and GitHub SARIF.**
 
-It brings together 20+ industry-standard scanning tools — Semgrep, Trivy, OWASP ZAP, Bandit, Gitleaks, tfsec, ansible-lint, KICS, Checkov, TruffleHog, and more — behind a single CLI and MCP server. Run SAST, DAST, SCA, secret scanning, IaC, Terraform, and Ansible security audits with one command. No AI subscription required.
+Argus orchestrates **20+ industry-standard tools** (Semgrep, Trivy, Gitleaks, tfsec, Checkov, OWASP ZAP, and more) behind a single command and an **MCP server** for any MCP-compatible IDE or AI client. Runs locally. **No Argus subscription.** MIT licensed.
 
-[![Python CI](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-python.yml/badge.svg)](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-python.yml)
-[![npm CI](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-npm.yml)
-[![Go CI](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-go.yml/badge.svg)](https://github.com/OkiriGabriel/argus-codescan-mcp/actions/workflows/ci-go.yml)
+[![Python CI](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-python.yml/badge.svg)](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-python.yml)
+[![npm CI](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-npm.yml)
+[![Go CI](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-go.yml/badge.svg)](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-go.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**Install:** `pip install argus-scan` · `npm install -D argus-codescan` · [Docker](packages/docker/README.md) · [Launch kit](docs/launch/show-hn.md)
+
+---
+
+## Why Argus?
+
+| | Run scanners yourself | Argus |
+|---|----------------------|--------|
+| **Setup** | Install & configure each tool separately | One CLI / MCP config |
+| **Output** | Different JSON/text per tool | Unified report + SARIF |
+| **CI** | Wire scripts yourself | `--format sarif`, `.argus.yml`, baseline diff |
+| **AI (MCP IDE)** | Manual copy-paste | MCP tools: `scan_all`, `compare_scans`, `apply_fix` |
+| **Cost** | Free (DIY labor) | Free (MIT) — AI client optional |
+| **Fixes** | You decide | Scan never auto-fixes; fix only when you ask |
+
+**Good for:** solo devs, OSS maintainers, teams wanting DevSecOps without a proprietary scanner SaaS.
+
+**Not a replacement for:** managed AppSec platforms with centralized policy, SOC, or compliance sign-off — Argus is a **local orchestrator** you own.
 
 ---
 
@@ -35,7 +54,7 @@ Works for anyone. Just install Argus and the open-source scanner tools.
 argus mcp    # starts the MCP server
 ```
 
-Connect Cursor, Claude Desktop, or any MCP-compatible AI assistant and drive scans through natural language. The AI subscription is for the AI client — Argus itself is always free.
+Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compatible IDE and drive scans through natural language. The AI subscription is for the AI client — Argus itself is always free.
 
 ---
 
@@ -189,7 +208,7 @@ argus scan sast . --upload --fail-on high       # force upload
 argus scan secrets . --no-upload                # skip upload
 ```
 
-**MCP / Cursor** — add env to `~/.cursor/mcp.json`:
+**MCP** — add env to your IDE's MCP config (e.g. Cursor `~/.cursor/mcp.json`, VS Code MCP settings, Claude Desktop config):
 
 ```json
 {
@@ -279,7 +298,7 @@ argus scan all /path/to/project --upload          # cloud dashboard (needs ARGUS
 argus scan all . --format sarif -o argus.sarif    # GitHub Code Scanning export
 argus compare baseline.json current.json          # diff two scan JSON files
 argus tools                         # show installed scanners
-argus mcp                           # start MCP server for Cursor / Claude
+argus mcp                           # start MCP server for any MCP-compatible IDE
 argus mcp --config                  # print MCP config with cloud env vars
 ```
 
@@ -350,9 +369,9 @@ argus scan all /path/to/project --format table
 argus scan all /path/to/project --fail-on high
 ```
 
-### MCP (Cursor / Claude Desktop)
+### MCP (any MCP-compatible IDE)
 
-Add to `~/.cursor/mcp.json`:
+Add to your MCP client config (e.g. Cursor `~/.cursor/mcp.json`, VS Code MCP settings, Claude Desktop `claude_desktop_config.json`):
 
 ```json
 {
