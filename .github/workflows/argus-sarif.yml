@@ -1,0 +1,50 @@
+name: Argus Security Scan (SARIF)
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  argus-sarif:
+    name: Argus scan → SARIF
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Argus
+        run: |
+          pip install -e packages/languages
+          pip install -e packages/python
+
+      - name: Run Argus scan (SARIF)
+        run: |
+          argus scan code packages/python \
+            --format sarif \
+            --output argus-results.sarif \
+            --fail-on never
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('argus-results.sarif') != ''
+        with:
+          sarif_file: argus-results.sarif
+          category: argus
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: argus-sarif
+          path: argus-results.sarif
+          if-no-files-found: ignore

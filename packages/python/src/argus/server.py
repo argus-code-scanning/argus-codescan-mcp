@@ -110,7 +110,7 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "format": {
                         "type": "string",
-                        "enum": ["markdown", "json"],
+                        "enum": ["markdown", "json", "sarif"],
                         "description": "Output format (default: markdown)",
                         "default": "markdown",
                     },
@@ -393,7 +393,7 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "format": {
                         "type": "string",
-                        "enum": ["markdown", "json"],
+                        "enum": ["markdown", "json", "sarif"],
                         "description": "Output format (default: markdown)",
                         "default": "markdown",
                     },
@@ -427,12 +427,39 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "format": {
                         "type": "string",
-                        "enum": ["markdown", "json"],
+                        "enum": ["markdown", "json", "sarif"],
                         "description": "Output format",
                         "default": "markdown",
                     },
                 },
                 "required": ["scan_result_json"],
+            },
+        ),
+        types.Tool(
+            name="compare_scans",
+            description=(
+                "Compare two scan JSON reports (baseline vs current) and return new, fixed, "
+                "and unchanged findings. Use for CI baseline diff or PR-only new findings."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "baseline_json": {
+                        "type": "string",
+                        "description": "JSON string of baseline AggregatedReport",
+                    },
+                    "current_json": {
+                        "type": "string",
+                        "description": "JSON string of current AggregatedReport",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["json", "markdown"],
+                        "description": "Output format (default: json)",
+                        "default": "json",
+                    },
+                },
+                "required": ["baseline_json", "current_json"],
             },
         ),
         types.Tool(
@@ -534,6 +561,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_check_tools()
         elif name == "get_scan_report":
             return await _handle_get_scan_report(arguments)
+        elif name == "compare_scans":
+            return await _handle_compare_scans(arguments)
         elif name == "apply_fix":
             return await _handle_apply_fix(arguments)
         else:
@@ -556,9 +585,17 @@ async def _finish_scan(
     fmt: str = "markdown",
     fail_on: str | None = None,
     include_raw_json: bool = False,
+    target_path: str | None = None,
 ) -> list[types.TextContent]:
     """Format scan output and optionally upload to the cloud dashboard."""
+    from argus.formatters.sarif import aggregated_report_to_sarif
+    from argus.policy import apply_policy, load_policy
+
     report_dict = report.to_dict()
+    if target_path:
+        policy = load_policy(start=target_path)
+        report_dict = apply_policy(report_dict, policy)
+
     upload_note = ""
 
     try:
@@ -578,6 +615,12 @@ async def _finish_scan(
 
     if fmt == "json":
         text = json.dumps(report_dict, indent=2)
+        if upload_note:
+            text += upload_note
+        return [types.TextContent(type="text", text=text)]
+
+    if fmt == "sarif":
+        text = json.dumps(aggregated_report_to_sarif(report_dict), indent=2)
         if upload_note:
             text += upload_note
         return [types.TextContent(type="text", text=text)]
@@ -625,6 +668,7 @@ async def _handle_scan_sast(args: dict[str, Any]) -> list[types.TextContent]:
         fmt=fmt,
         fail_on=args.get("fail_on"),
         include_raw_json=True,
+        target_path=target,
     )
 
 
@@ -878,6 +922,7 @@ async def _handle_scan_all(args: dict[str, Any]) -> list[types.TextContent]:
         timer=timer,
         fmt=fmt,
         fail_on=args.get("fail_on"),
+        target_path=target,
     )
 
 
@@ -1014,6 +1059,8 @@ async def _handle_check_tools() -> list[types.TextContent]:
 
 
 async def _handle_get_scan_report(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.formatters.sarif import aggregated_report_to_sarif
+
     try:
         data = json.loads(args["scan_result_json"])
     except json.JSONDecodeError as e:
@@ -1022,9 +1069,51 @@ async def _handle_get_scan_report(args: dict[str, Any]) -> list[types.TextConten
     fmt = args.get("format", "markdown")
     if fmt == "json":
         return [types.TextContent(type="text", text=json.dumps(data, indent=2))]
+    if fmt == "sarif":
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps(aggregated_report_to_sarif(data), indent=2),
+            )
+        ]
 
     md = format_markdown_report(data)
     return [types.TextContent(type="text", text=md)]
+
+
+async def _handle_compare_scans(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.compare import compare_reports
+
+    try:
+        baseline = json.loads(args["baseline_json"])
+        current = json.loads(args["current_json"])
+    except json.JSONDecodeError as e:
+        return [types.TextContent(type="text", text=f"Invalid JSON: {e}")]
+
+    diff = compare_reports(baseline, current)
+    fmt = args.get("format", "json")
+
+    if fmt == "markdown":
+        lines = [
+            "# Scan Comparison",
+            "",
+            f"- **New:** {diff['summary']['new']}",
+            f"- **Fixed:** {diff['summary']['fixed']}",
+            f"- **Unchanged:** {diff['summary']['unchanged']}",
+            "",
+        ]
+        if diff["new"]:
+            lines.append("## New findings")
+            for f in diff["new"]:
+                lines.append(
+                    f"- [{f.get('severity')}] {f.get('tool')}: {f.get('title')} "
+                    f"({f.get('file')}:{f.get('line', 0)})"
+                )
+        text = "\n".join(lines)
+    else:
+        text = json.dumps(diff, indent=2)
+
+    return [types.TextContent(type="text", text=text)]
 
 
 async def _handle_apply_fix(args: dict[str, Any]) -> list[types.TextContent]:

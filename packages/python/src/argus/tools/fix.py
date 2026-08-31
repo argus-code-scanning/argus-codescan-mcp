@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from argus.remediation.secrets import format_fix_guidance, remediation_to_dict
 from argus.utils import is_tool_available, run_command
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,14 @@ async def apply_finding_fix(
         "message": "",
     }
 
+    if scan_type == "secrets":
+        guidance = fix_guidance or format_fix_guidance(rule_id, tool=tool)
+        result["fix_guidance"] = guidance
+        result["remediation"] = remediation_to_dict(rule_id, tool=tool)
+        if not apply:
+            result["message"] = guidance
+            return result
+
     if not apply:
         if fix_guidance:
             result["message"] = fix_guidance
@@ -147,8 +156,7 @@ async def apply_finding_fix(
 
     if not autofix:
         result["message"] = (
-            "Automated fix is not supported for this tool. "
-            "Use fix_guidance to apply a manual fix."
+            "Automated fix is not supported for this tool. Use fix_guidance to apply a manual fix."
         )
         return result
 

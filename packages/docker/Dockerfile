@@ -100,10 +100,11 @@ RUN TFLINT_VERSION=$(curl -s https://api.github.com/repos/terraform-linters/tfli
     && chmod +x /usr/local/bin/tflint
 
 # ── KICS (multi-arch) ────────────────────────────────────────────────────────
+# Pin version: v2.1.21+ tags may ship without linux binaries.
 
-RUN KICS_VERSION=$(curl -s https://api.github.com/repos/Checkmarx/kics/releases/latest \
-      | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/') \
-    && case "${TARGETARCH}" in \
+ARG KICS_VERSION=2.1.20
+
+RUN case "${TARGETARCH}" in \
          amd64) KICS_ARCH=amd64 ;; \
          arm64) KICS_ARCH=arm64 ;; \
          *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \

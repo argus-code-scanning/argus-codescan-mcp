@@ -316,3 +316,38 @@ Every finding returned by any tool is normalised to this shape:
 | `low` | Best-practice deviation, low exploitability |
 | `info` | Informational, no direct security impact |
 | `unknown` | Severity not reported by the tool |
+
+---
+
+## `compare_scans`
+
+Diff two scan JSON reports (baseline vs current). Returns new, fixed, and unchanged findings.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `baseline_json` | `string` | ✅ | — | JSON string of baseline `AggregatedReport` |
+| `current_json` | `string` | ✅ | — | JSON string of current `AggregatedReport` |
+| `format` | `string` | ❌ | `"json"` | `"json"` or `"markdown"` |
+
+### CLI equivalent
+
+```bash
+argus compare baseline.json current.json --fail-on-new
+```
+
+---
+
+## Output formats
+
+| Format | CLI | MCP | Use case |
+|--------|-----|-----|----------|
+| `markdown` | ✅ | ✅ | Human-readable reports |
+| `json` | ✅ | ✅ | CI artifacts, baseline storage |
+| `sarif` | ✅ | ✅ | GitHub Code Scanning upload |
+| `table` | ✅ | ❌ | Terminal summary |
+
+SARIF export: `argus scan code . --format sarif -o argus.sarif`
+
+See [features roadmap](features-roadmap.md) for `.argus.yml` policy and baseline diff workflows.

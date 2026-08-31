@@ -21,7 +21,9 @@ It brings together 20+ industry-standard scanning tools — Semgrep, Trivy, OWAS
 argus scan sast /my/project
 argus scan terraform /my/infra
 argus scan all /my/project --fail-on high
+argus scan code /my/project --format sarif -o argus.sarif
 argus scan ml /my/ml-app
+argus compare baseline.json current.json --fail-on-new
 argus tools
 ```
 
@@ -66,7 +68,8 @@ Connect Cursor, Claude Desktop, or any MCP-compatible AI assistant and drive sca
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
 | `apply_fix` | Preview or apply a fix for one finding (user must ask — scans never auto-fix) |
-| `get_scan_report` | Reformat a previous scan JSON as Markdown |
+| `compare_scans` | Diff baseline vs current scan JSON (new/fixed findings) |
+| `get_scan_report` | Reformat a previous scan JSON as Markdown or SARIF |
 | `check_tools` | List which scanners are installed |
 
 Scans are **read-only**. Fixes run only when you ask — via `apply_fix`, VS Code Quick Fix, or your AI editing code from `fix_guidance`.
@@ -92,6 +95,84 @@ argus scan all /path/to/project
 ```
 
 Details: [API Reference — apply_fix](docs/api-reference.md#apply_fix)
+
+---
+
+## SARIF, policy & baseline diff
+
+Ship security findings to GitHub Code Scanning, enforce repo policy, and fail CI only on **new** findings.
+
+### SARIF export (GitHub Security tab)
+
+```bash
+# Export SARIF for GitHub Code Scanning
+argus scan code . --format sarif -o argus.sarif --fail-on high
+
+# MCP: scan_sast / scan_all with format: "sarif"
+```
+
+Upload in GitHub Actions (see `.github/workflows/argus-sarif.yml`):
+
+```yaml
+- run: pip install argus-scan && argus scan code . --format sarif -o argus.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: argus.sarif
+    category: argus
+```
+
+### `.argus.yml` policy file
+
+Copy [`.argus.yml.example`](.argus.yml.example) to `.argus.yml` in your repo root:
+
+```yaml
+fail_on: high
+exclude_paths:
+  - "tests/fixtures/**"
+semgrep:
+  config: p/owasp-top-ten
+suppressions:
+  - rule_id: bandit.B101
+    path: "tests/**"
+    reason: "asserts in tests"
+    expires: "2026-12-31"
+```
+
+Argus auto-discovers `.argus.yml` when scanning. Override with `--policy path/to/.argus.yml`.
+
+### Baseline diff (PR-only new findings)
+
+```bash
+# Save baseline from main
+argus scan all . --format json -o baseline.json
+
+# On PR — compare against baseline
+argus scan all . --baseline baseline.json --format json -o current.json
+argus compare baseline.json current.json --fail-on-new
+
+# Or set in .argus.yml:
+# baseline: .argus/baseline.json
+# fail_on_new_only: true
+```
+
+### Secret remediation guidance
+
+Secret findings include step-by-step rotate/revoke guidance (AWS, GitHub tokens, private keys, Stripe, etc.):
+
+```bash
+argus scan secrets . --format json   # fix_guidance on each finding
+# MCP apply_fix for secrets returns remediation steps (no auto-fix)
+```
+
+### Database security rules
+
+Built-in static rules for SQL injection, connection strings, migration GRANTs, ORM raw queries:
+
+```bash
+argus scan code .    # includes database.yaml rules via argus-languages
+```
+
+Full docs: [docs/features-roadmap.md](docs/features-roadmap.md) · [API reference](docs/api-reference.md)
 
 ---
 
@@ -195,6 +276,8 @@ argus scan terraform /path/to/infra
 argus scan ansible /path/to/playbooks
 argus scan all /path/to/project --fail-on high
 argus scan all /path/to/project --upload          # cloud dashboard (needs ARGUS_API_KEY)
+argus scan all . --format sarif -o argus.sarif    # GitHub Code Scanning export
+argus compare baseline.json current.json          # diff two scan JSON files
 argus tools                         # show installed scanners
 argus mcp                           # start MCP server for Cursor / Claude
 argus mcp --config                  # print MCP config with cloud env vars
