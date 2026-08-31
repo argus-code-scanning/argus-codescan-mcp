@@ -60,10 +60,10 @@ argus-mcp     = "argus.cli:run_mcp"
 argus-scan    = "argus.cli:run"
 
 [project.urls]
-Homepage      = "https://github.com/OkiriGabriel/argus-codescan-mcp"
-Repository    = "https://github.com/OkiriGabriel/argus-codescan-mcp"
-Issues        = "https://github.com/OkiriGabriel/argus-codescan-mcp/issues"
-Documentation = "https://github.com/OkiriGabriel/argus-codescan-mcp/blob/main/README.md"
+Homepage      = "https://github.com/argus-code-scanning/argus-codescan-mcp"
+Repository    = "https://github.com/argus-code-scanning/argus-codescan-mcp"
+Issues        = "https://github.com/argus-code-scanning/argus-codescan-mcp/issues"
+Documentation = "https://github.com/argus-code-scanning/argus-codescan-mcp/blob/main/README.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/argus"]

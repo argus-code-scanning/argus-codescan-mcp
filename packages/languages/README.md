@@ -272,4 +272,4 @@ argus scan all /path/to/project
 
 ## License
 
-MIT — see [GitHub](https://github.com/OkiriGabriel/argus-codescan-mcp).
+MIT — see [GitHub](https://github.com/argus-code-scanning/argus-codescan-mcp).

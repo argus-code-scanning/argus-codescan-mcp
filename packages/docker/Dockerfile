@@ -167,5 +167,5 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # Metadata
 LABEL org.opencontainers.image.title="argus-scan"
 LABEL org.opencontainers.image.description="MCP server for code security testing (SAST, DAST, SCA, Secrets, IaC)"
-LABEL org.opencontainers.image.source="https://github.com/OkiriGabriel/argus-codescan-mcp"
+LABEL org.opencontainers.image.source="https://github.com/argus-code-scanning/argus-codescan-mcp"
 LABEL org.opencontainers.image.licenses="MIT"

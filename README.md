@@ -312,13 +312,13 @@ npx argus-codescan   # Node/React via npm
 ### Go (single binary)
 
 ```bash
-go install github.com/OkiriGabriel/argus-codescan-mcp/packages/go/cmd/argus@latest
+go install github.com/argus-code-scanning/argus-codescan-mcp/packages/go/cmd/argus@latest
 ```
 
 ### Shell script
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh
+curl -sSfL https://raw.githubusercontent.com/argus-code-scanning/argus-codescan-mcp/main/packages/shell/install.sh | sh
 ```
 
 ### Docker (all scanners bundled)

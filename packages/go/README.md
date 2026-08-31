@@ -11,7 +11,7 @@ brew install GabrielOkiri/tap/argus
 
 ### Go install
 ```bash
-go install github.com/OkiriGabriel/argus-codescan-mcp/cmd/argus@latest
+go install github.com/argus-code-scanning/argus-codescan-mcp/cmd/argus@latest
 
 # Or build from a clone:
 cd packages/go
@@ -22,7 +22,7 @@ go install ./cmd/argus
 
 ### Pre-built binaries
 
-Download from the [GitHub Releases](https://github.com/OkiriGabriel/argus-codescan-mcp/releases) page:
+Download from the [GitHub Releases](https://github.com/argus-code-scanning/argus-codescan-mcp/releases) page:
 
 | Platform | Binary |
 |----------|--------|
@@ -74,7 +74,7 @@ The binary finds the Python server in this order:
 ## Build from Source
 
 ```bash
-git clone https://github.com/OkiriGabriel/argus-codescan-mcp
+git clone https://github.com/argus-code-scanning/argus-codescan-mcp
 cd packages/go
 go build ./cmd/argus
 ```

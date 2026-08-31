@@ -124,7 +124,7 @@ func platformNote() string {
 	case "darwin":
 		return "Tip: brew install semgrep trivy gitleaks"
 	case "linux":
-		return "Tip: see https://github.com/OkiriGabriel/argus-codescan-mcp/blob/main/docs/tool-setup.md"
+		return "Tip: see https://github.com/argus-code-scanning/argus-codescan-mcp/blob/main/docs/tool-setup.md"
 	default:
 		return ""
 	}
