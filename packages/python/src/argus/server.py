@@ -34,6 +34,7 @@ from argus.tools.iac import (
     run_trivy_config,
     run_trivy_image,
 )
+from argus.tools.ml import run_ml_scan
 from argus.tools.sast import (
     run_all_sast,
     run_bandit,
@@ -335,10 +336,39 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="scan_ml",
+            description=(
+                "Scan AI/ML code and LLM pipelines for security issues: unsafe model deserialization "
+                "(pickle, torch.load, joblib), hardcoded LLM API keys, trust_remote_code, prompt injection "
+                "patterns, and insecure model serving. Built-in rules — no extra tools required."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to ML project directory or file",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json", "sarif"],
+                        "description": "Output format (default: markdown)",
+                        "default": "markdown",
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Reserved for future external ML scanners (default: 300)",
+                        "default": 300,
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_all",
             description=(
-                "Run a comprehensive security scan combining SAST, SCA, secret scanning, and IaC checks "
-                "on a code directory. Optionally include DAST if a URL is provided. "
+                "Run a comprehensive security scan combining SAST, SCA, secret scanning, IaC checks, "
+                "and AI/ML pipeline rules on a code directory. Optionally include DAST if a URL is provided. "
                 "Returns an aggregated report with findings from all tools."
             ),
             input_schema={
@@ -521,6 +551,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_scan_terraform(arguments)
         elif name == "scan_ansible":
             return await _handle_scan_ansible(arguments)
+        elif name == "scan_ml":
+            return await _handle_scan_ml(arguments)
         elif name == "scan_container":
             return await _handle_scan_container(arguments)
         elif name == "scan_all":
@@ -814,6 +846,24 @@ async def _handle_scan_ansible(args: dict[str, Any]) -> list[types.TextContent]:
     )
 
 
+async def _handle_scan_ml(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
+    target = args["target"]
+    fmt = args.get("format", "markdown")
+
+    result = await run_ml_scan(target)
+    report = AggregatedReport(target=target, results=[result])
+    return await _finish_scan(
+        report,
+        scan_type="ml",
+        timer=timer,
+        fmt=fmt,
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+        target_path=target,
+    )
+
+
 async def _handle_scan_container(args: dict[str, Any]) -> list[types.TextContent]:
     timer = ScanTimer()
     image = args["image"]
@@ -846,11 +896,14 @@ async def _handle_scan_all(args: dict[str, Any]) -> list[types.TextContent]:
         run_all_sca(target, timeout=timeout),
         run_all_secrets(target, timeout=timeout),
         run_all_iac(target, timeout=timeout),
+        run_ml_scan(target),
     ]
     code_scan_results = await asyncio.gather(*code_tasks, return_exceptions=True)
     for batch in code_scan_results:
         if isinstance(batch, list):
             all_results.extend(batch)
+        elif not isinstance(batch, BaseException):
+            all_results.append(batch)
 
     # Optional DAST
     if target_url:

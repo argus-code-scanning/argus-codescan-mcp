@@ -1,0 +1,70 @@
+# Argus scan → SARIF → Wiz UVM ingestion (optional).
+# Requires Wiz UVM + service account with create:external_data_ingestion.
+#
+# Secrets: WIZ_CLIENT_ID, WIZ_CLIENT_SECRET, WIZ_TOKEN_URL, WIZ_API_ENDPOINT_URL
+# Enable by uncommenting the ingest job or copying into your main security workflow.
+
+name: Argus → Wiz (SARIF ingest)
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 6 * * 1"  # weekly
+
+permissions:
+  contents: read
+
+jobs:
+  argus-sarif:
+    name: Argus SARIF
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Argus
+        run: |
+          pip install -e packages/languages
+          pip install -e packages/python
+
+      - name: Run Argus (SARIF)
+        run: |
+          mkdir -p sarif
+          argus scan all . \
+            --format sarif \
+            --output sarif/argus.sarif \
+            --fail-on never
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: argus-sarif
+          path: sarif/
+          retention-days: 30
+
+  # Uncomment when Wiz secrets are configured:
+  #
+  # wiz-ingest:
+  #   name: Upload to Wiz UVM
+  #   needs: argus-sarif
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: argus-sarif
+  #         path: sarif
+  #     - uses: gassorg/wiz-sarif-action-ingest/.github/workflows/action.yml@main
+  #       with:
+  #         sarif_input_dir: "./sarif"
+  #         repository_name: ${{ github.repository }}
+  #         repository_url: ${{ github.server_url }}/${{ github.repository }}
+  #         branch_name: ${{ github.ref_name }}
+  #       secrets:
+  #         WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
+  #         WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+  #         WIZ_TOKEN_URL: ${{ secrets.WIZ_TOKEN_URL }}
+  #         WIZ_API_ENDPOINT_URL: ${{ secrets.WIZ_API_ENDPOINT_URL }}
