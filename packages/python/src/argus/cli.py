@@ -10,6 +10,7 @@ Usage:
     argus scan iac /path/to/infra
     argus scan terraform /path/to/tf
     argus scan ansible /path/to/playbooks
+    argus scan ml /path/to/ml-project
     argus scan all /path/to/project
     argus scan dast http://localhost:3000
     argus scan container nginx:latest
@@ -33,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="argus",
         description=(
-            "Code security scanner — SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible.\n"
+            "Code security scanner — SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible, ML/AI.\n"
             "All scanners are open-source. No AI token or subscription needed for CLI use."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -119,6 +120,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Built-in multi-language code scan (Java, PHP, Terraform, Ansible, … — no extra tools)",
     )
     _add_common(code_p)
+
+    ml_p = scan_sub.add_parser(
+        "ml",
+        help="AI/ML security scan — unsafe model loading, LLM API keys, prompt injection (built-in)",
+    )
+    _add_common(ml_p)
 
     sca_p = scan_sub.add_parser("sca", help="Software Composition Analysis (dependencies)")
     _add_common(sca_p)
@@ -396,6 +403,11 @@ async def _run_scan(args: argparse.Namespace) -> int:
 
         results = [await run_native_languages(args.target)]
 
+    elif scan_type == "ml":
+        from argus.tools.ml import run_ml_scan
+
+        results = [await run_ml_scan(args.target)]
+
     elif scan_type == "sca":
         from argus.tools.sca import run_all_sca
 
@@ -442,6 +454,7 @@ async def _run_scan(args: argparse.Namespace) -> int:
     elif scan_type == "all":
         from argus.tools.dast import run_all_dast
         from argus.tools.iac import run_all_iac, run_trivy_image
+        from argus.tools.ml import run_ml_scan
         from argus.tools.sast import run_all_sast
         from argus.tools.sca import run_all_sca
         from argus.tools.secrets import run_all_secrets
@@ -451,9 +464,15 @@ async def _run_scan(args: argparse.Namespace) -> int:
             run_all_sca(args.target, timeout=timeout),
             run_all_secrets(args.target, timeout=timeout),
             run_all_iac(args.target, timeout=timeout),
+            run_ml_scan(args.target),
             return_exceptions=True,
         )
-        results = [r for batch in batches if isinstance(batch, list) for r in batch]
+        results = []
+        for batch in batches:
+            if isinstance(batch, list):
+                results.extend(batch)
+            elif not isinstance(batch, BaseException):
+                results.append(batch)
 
         if getattr(args, "url", None):
             dast = await run_all_dast(args.url, timeout=600)
@@ -589,6 +608,8 @@ def _cmd_tools() -> None:
         f"  {green}✔{reset}  {'argus-languages':<20} Multi-language code (Java, PHP, Terraform, Ansible, …)"
     )
     print("       pip install argus-languages   or   argus scan code <path>")
+    print(f"  {green}✔{reset}  {'argus-ml':<20} AI/ML & LLM pipeline security (model load, API keys, prompts)")
+    print("       argus scan ml <path>   (included in argus scan all)")
 
     installed, missing = [], []
     for tool, (category, hint) in TOOLS.items():

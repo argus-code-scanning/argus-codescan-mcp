@@ -41,6 +41,7 @@ argus scan sast /my/project
 argus scan terraform /my/infra
 argus scan all /my/project --fail-on high
 argus scan code /my/project --format sarif -o argus.sarif
+argus scan ml /my/ml-app
 argus compare baseline.json current.json --fail-on-new
 argus tools
 ```
@@ -69,6 +70,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **Terraform** | tfsec · tflint · terraform validate · KICS · Checkov |
 | **Ansible** | ansible-lint · KICS · Checkov |
 | **Container** | Trivy image scan |
+| **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 
 ## MCP Tools (for AI clients)
 
@@ -81,6 +83,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | `scan_iac` | Terraform, K8s, Dockerfile, Helm, Ansible misconfigs |
 | `scan_terraform` | Deep Terraform scan (tfsec, tflint, validate, KICS) |
 | `scan_ansible` | Ansible playbook & role security scan |
+| `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
 | `apply_fix` | Preview or apply a fix for one finding (user must ask — scans never auto-fix) |
@@ -309,13 +312,13 @@ npx argus-codescan   # Node/React via npm
 ### Go (single binary)
 
 ```bash
-go install github.com/OkiriGabriel/argus-codescan-mcp/packages/go/cmd/argus@latest
+go install github.com/argus-code-scanning/argus-codescan-mcp/packages/go/cmd/argus@latest
 ```
 
 ### Shell script
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh
+curl -sSfL https://raw.githubusercontent.com/argus-code-scanning/argus-codescan-mcp/main/packages/shell/install.sh | sh
 ```
 
 ### Docker (all scanners bundled)

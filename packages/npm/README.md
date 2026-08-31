@@ -229,4 +229,4 @@ Everything works without these — opengrep auto-downloads on first SAST scan.
 
 ## License
 
-MIT — see [GitHub](https://github.com/OkiriGabriel/argus-codescan-mcp).
+MIT — see [GitHub](https://github.com/argus-code-scanning/argus-codescan-mcp).

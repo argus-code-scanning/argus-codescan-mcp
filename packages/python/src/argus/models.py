@@ -23,6 +23,7 @@ class ScanType(str, Enum):
     SECRETS = "secrets"
     IAC = "iac"
     CONTAINER = "container"
+    ML = "ml"
 
 
 @dataclass

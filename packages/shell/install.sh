@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 # argus-scan installer
-# Usage: curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh
+# Usage: curl -sSfL https://raw.githubusercontent.com/argus-code-scanning/argus-codescan-mcp/main/packages/shell/install.sh | sh
 #        Or with options: curl ... | sh -s -- --prefix /usr/local
 
 set -e
 
 PREFIX="${PREFIX:-/usr/local}"
 SCRIPT_NAME="argus-scan"
-REPO="OkiriGabriel/argus-codescan-mcp"
+REPO="argus-code-scanning/argus-codescan-mcp"
 MAIN_BRANCH="main"
 
 # ── Helpers ─────────────────────────────────────────────────────────────────

@@ -131,7 +131,7 @@ EXAMPLES:
   argus-scan config npx
 
 INSTALL:
-  curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh
+  curl -sSfL https://raw.githubusercontent.com/argus-code-scanning/argus-codescan-mcp/main/packages/shell/install.sh | sh
 
 TOOLS PROVIDED (via MCP):
   scan_sast        Semgrep, Bandit, ESLint-security
@@ -192,7 +192,7 @@ case "${1:-}" in
 
     echo "ERROR: argus-scan Python server not found." >&2
     echo "Install with: pip install argus-scan" >&2
-    echo "Or run: curl -sSfL https://raw.githubusercontent.com/OkiriGabriel/argus-codescan-mcp/main/packages/shell/install.sh | sh" >&2
+    echo "Or run: curl -sSfL https://raw.githubusercontent.com/argus-code-scanning/argus-codescan-mcp/main/packages/shell/install.sh | sh" >&2
     exit 1
     ;;
   *)
