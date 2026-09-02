@@ -17,7 +17,7 @@ Add Argus — open-source security scanner (SAST, SCA, secrets, IaC)
 Pick the section that fits best — **Developer Tools** is recommended (Security TOC link may not have a dedicated section in current README):
 
 ```markdown
-- [argus-code-scanning/argus-codescan-mcp](https://github.com/argus-code-scanning/argus-codescan-mcp) 🐍 📇 🏠 🍎 🪟 🐧 - Open-source multi-scanner security tool (SAST, DAST, SCA, secrets, IaC, Terraform, Ansible). Single MCP server orchestrating Semgrep, Trivy, Gitleaks, Checkov, tfsec, and 15+ tools. SARIF export, `.argus.yml` policy, baseline diff, fix-on-request. MIT. `pip install argus-scan`
+- [argus-code-scanning/argus-codescan-mcp](https://github.com/argus-code-scanning/argus-codescan-mcp) [![argus-code-scanning/argus-codescan-mcp MCP server](https://glama.ai/mcp/servers/argus-code-scanning/argus-codescan-mcp/badges/score.svg)](https://glama.ai/mcp/servers/argus-code-scanning/argus-codescan-mcp) 🐍 📇 🏠 🍎 🪟 🐧 - Open-source multi-scanner security tool (SAST, DAST, SCA, secrets, IaC, Terraform, Ansible, ML/LLM). Single MCP server orchestrating Semgrep, Trivy, Gitleaks, Checkov, tfsec, and 15+ tools. SARIF export, `.argus.yml` policy, baseline diff, fix-on-request. MIT. `pip install argus-scan`
 ```
 
 **Where to add:** Under `### 💻 Developer Tools` in [README.md](https://github.com/punkpeye/awesome-mcp-servers/blob/main/README.md) (alphabetically near other `a*` entries, e.g. after `aradar46/reuse-before-generate`).
@@ -95,3 +95,9 @@ Happy to adjust wording or category per maintainer preference.
 - [ ] GitHub repo has **Topics** set: `mcp`, `security`, `sast`, `devsecops`
 - [ ] Latest release tagged on GitHub (e.g. `v0.2.0`)
 - [ ] PyPI/npm published (optional but helps reviewers)
+- [ ] **Glama** — submit at https://glama.ai/mcp/servers (Dockerfile required for checks)
+- [ ] Add Glama score badge after the repo link (required by awesome-mcp maintainers):
+
+```markdown
+[![argus-code-scanning/argus-codescan-mcp MCP server](https://glama.ai/mcp/servers/argus-code-scanning/argus-codescan-mcp/badges/score.svg)](https://glama.ai/mcp/servers/argus-code-scanning/argus-codescan-mcp)
+```
