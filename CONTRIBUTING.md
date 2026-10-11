@@ -18,6 +18,17 @@ Thank you for helping make security tooling more accessible! Contributions of al
 
 **Fastest first PR:** add a malware/ML/database rule in YAML + one test ([5-minute guide](docs/contributing-rules.md)).
 
+### Find us / share with contributors
+
+| Place | Link |
+|-------|------|
+| Good first issues | https://github.com/argus-code-scanning/argus-codescan-mcp/labels/good%20first%20issue |
+| 5-minute YAML guide | [docs/contributing-rules.md](docs/contributing-rules.md) |
+| Discussions | https://github.com/argus-code-scanning/argus-codescan-mcp/discussions |
+| Topic: MCP | https://github.com/topics/mcp |
+| Topic: security | https://github.com/topics/security |
+| Viral / discovery playbook | [docs/launch/viral-contributors.md](docs/launch/viral-contributors.md) |
+
 ---
 
 ## Development Setup

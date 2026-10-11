@@ -27,6 +27,45 @@ Install: `pip install argus-scan` · `npm install -D argus-codescan`
 
 ---
 
+## Where contributors actually browse (GitHub)
+
+| Place | Why it helps | Link / action |
+|-------|----------------|---------------|
+| **Good first issues explore** | Main “I want to help” feed | [github.com/topics/good-first-issue](https://github.com/topics/good-first-issue) · search [`label:"good first issue" malware`](https://github.com/search?q=label%3A%22good+first+issue%22+malware&type=issues) |
+| **Your labeled issues** | Direct list of easy Argus tasks | [argus-codescan-mcp good first issues](https://github.com/argus-code-scanning/argus-codescan-mcp/labels/good%20first%20issue) |
+| **Repo topics** | Discoverable on topic pages | Topics set: `mcp`, `security`, `sast`, `devsecops`, `sarif`, `malware`, `secrets`, `python`, `opensource`, `hacktoberfest`, `cursor` |
+| **Topic pages** | People browsing MCP / security | [topics/mcp](https://github.com/topics/mcp) · [topics/security](https://github.com/topics/security) · [topics/malware](https://github.com/topics/malware) |
+| **Hacktoberfest** | Seasonal contributor wave | Topic `hacktoberfest` on repo · register at [hacktoberfest.com](https://hacktoberfest.com) when active |
+| **Discussions** | Onboarding Q&A | [Discussions](https://github.com/argus-code-scanning/argus-codescan-mcp/discussions) — pin “First contribution: add a YAML rule” |
+| **Awesome lists** | Permanent backlinks | [awesome-mcp PR](https://github.com/punkpeye/awesome-mcp-servers/pull/11551) + [Glama](https://glama.ai/mcp/servers) |
+| **GitHub search** | Keywords in description | Description mentions YAML rules + good first issues |
+
+### Repo settings already aimed at contributors
+
+- **Description:** malware, SARIF, MCP, “YAML rules welcome — good first issues”
+- **Homepage:** points at `#contributing`
+- **Topics:** listed above
+
+### Best “share this” links (Discord / HN / LinkedIn / website)
+
+```text
+Easy issues:
+https://github.com/argus-code-scanning/argus-codescan-mcp/labels/good%20first%20issue
+
+5-minute YAML rule guide:
+https://github.com/argus-code-scanning/argus-codescan-mcp/blob/main/docs/contributing-rules.md
+
+Repo:
+https://github.com/argus-code-scanning/argus-codescan-mcp
+
+Install:
+pip install -U argus-scan
+```
+
+Website CTA: button **Contribute** → good first issues; secondary link → contributing-rules.md.
+
+---
+
 ## 7-day launch sequence
 
 ### Day 1 — Product ready (you)
