@@ -482,6 +482,7 @@ argus-codescan-mcp/
 
 | Doc | Description |
 |-----|-------------|
+| [MCP Prompt Cookbook](docs/mcp-prompt-cookbook.md) | 8 example prompts for Argus MCP scans |
 | [Getting Started](docs/getting-started.md) | Install, configure, first scan |
 | [Architecture](docs/architecture.md) | How Argus works under the hood |
 | [API Reference](docs/api-reference.md) | All MCP tools, parameters, schemas |
@@ -490,7 +491,6 @@ argus-codescan-mcp/
 | [Tool Setup](docs/tool-setup.md) | Install every scanner on every platform |
 | [Contributing](CONTRIBUTING.md) | Add scanners, clients, and fixes |
 | [Add a YAML rule](docs/contributing-rules.md) | 5-minute guide to extend malware/ML/DB rules |
-| [MCP Prompt Cookbook](docs/mcp-prompt-cookbook.md) | 8 example prompts for Argus MCP scans |
 | [Security Policy](SECURITY.md) | Report vulnerabilities |
 
 ---
