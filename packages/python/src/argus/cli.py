@@ -12,6 +12,7 @@ Usage:
     argus scan ansible /path/to/playbooks
     argus scan ml /path/to/ml-project
     argus scan malware /path/to/project
+    argus scan pci /path/to/project
     argus scan all /path/to/project
     argus scan dast http://localhost:3000
     argus scan container nginx:latest
@@ -151,6 +152,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Malware / backdoor / crypto-miner / BAT-PS1 heuristics (built-in, not antivirus)",
     )
     _add_common(malware_p)
+
+    pci_p = scan_sub.add_parser(
+        "pci",
+        help="PCI-DSS cardholder-data heuristics — CVV storage, PANs in logs, http:// card data (built-in)",
+    )
+    _add_common(pci_p)
 
     sca_p = scan_sub.add_parser("sca", help="Software Composition Analysis (dependencies)")
     _add_common(sca_p)
@@ -478,6 +485,11 @@ async def _dispatch_scan(
         from argus.tools.malware import run_malware_scan
 
         return [await run_malware_scan(target)]
+
+    if scan_type == "pci":
+        from argus.tools.pci import run_pci_scan
+
+        return [await run_pci_scan(target)]
 
     if scan_type == "sca":
         from argus.tools.sca import run_all_sca

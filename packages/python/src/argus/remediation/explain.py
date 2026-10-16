@@ -17,6 +17,7 @@ _GUIDANCE = {
     "container": "Review the affected image and dependency, then rebuild and rescan a corrected image.",
     "ml": "Review the model-loading or pipeline context before validating a targeted change.",
     "malware": "Investigate the flagged behaviour and provenance before deciding whether the file is malicious.",
+    "pci": "Confirm whether real cardholder data is stored, logged or sent, then remove or tokenize it and enforce HTTPS.",
 }
 
 

@@ -24,6 +24,7 @@ _SCAN_TOOLS = {
     "container": "scan_container",
     "ml": "scan_ml",
     "malware": "scan_malware",
+    "pci": "scan_pci",
 }
 
 

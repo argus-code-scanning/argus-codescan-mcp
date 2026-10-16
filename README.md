@@ -90,6 +90,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | `scan_ansible` | Ansible playbook & role security scan |
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
+| `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, http:// card data) |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
 | `review_code` | Local code review — secrets + SAST + malware on git-changed / staged files only |

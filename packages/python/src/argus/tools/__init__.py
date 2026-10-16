@@ -17,6 +17,7 @@ from argus.tools.iac import (
 )
 from argus.tools.malware import run_malware_scan
 from argus.tools.ml import run_ml_scan
+from argus.tools.pci import run_pci_scan
 from argus.tools.sast import run_all_sast, run_bandit, run_eslint_security, run_semgrep
 from argus.tools.sca import run_all_sca, run_npm_audit, run_pip_audit, run_safety, run_trivy_fs
 from argus.tools.secrets import run_all_secrets, run_detect_secrets, run_gitleaks, run_trufflehog
@@ -38,6 +39,7 @@ __all__ = [
     "run_native_languages",
     "run_ml_scan",
     "run_malware_scan",
+    "run_pci_scan",
     # SCA
     "run_trivy_fs",
     "run_safety",

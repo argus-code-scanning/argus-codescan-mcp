@@ -39,6 +39,7 @@ from argus.tools.iac import (
 )
 from argus.tools.malware import run_malware_scan
 from argus.tools.ml import run_ml_scan
+from argus.tools.pci import run_pci_scan
 from argus.tools.review import review_summary_lines, run_review
 from argus.tools.sast import (
     run_all_sast,
@@ -420,6 +421,35 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="scan_pci",
+            description=(
+                "Scan source for PCI-DSS cardholder-data exposure heuristics: CVV/CVC stored "
+                "after authorization, card numbers written to logs or console, and card data "
+                "sent over non-TLS http:// URLs. Built-in static rules — not a QSA assessment."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to project directory or file",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json", "sarif"],
+                        "description": "Output format (default: markdown)",
+                        "default": "markdown",
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Reserved for future external PCI scanners (default: 300)",
+                        "default": 300,
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="review_code",
             description=(
                 "Local code review: scan only git-changed (or staged) files with secrets, "
@@ -532,7 +562,7 @@ async def list_tools() -> list[types.Tool]:
                         "properties": {
                             "title": {"type": "string", "minLength": 1},
                             "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info", "unknown"]},
-                            "scan_type": {"type": "string", "enum": ["sast", "dast", "sca", "secrets", "iac", "container", "ml", "malware"]},
+                            "scan_type": {"type": "string", "enum": ["sast", "dast", "sca", "secrets", "iac", "container", "ml", "malware", "pci"]},
                             "tool": {"type": "string", "minLength": 1},
                         },
                     },
@@ -705,6 +735,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_scan_ml(arguments)
         elif name == "scan_malware":
             return await _handle_scan_malware(arguments)
+        elif name == "scan_pci":
+            return await _handle_scan_pci(arguments)
         elif name == "review_code":
             return await _handle_review_code(arguments)
         elif name == "scan_container":
@@ -1032,6 +1064,24 @@ async def _handle_scan_malware(args: dict[str, Any]) -> list[types.TextContent]:
     return await _finish_scan(
         report,
         scan_type="malware",
+        timer=timer,
+        fmt=fmt,
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+        target_path=target,
+    )
+
+
+async def _handle_scan_pci(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
+    target = args["target"]
+    fmt = args.get("format", "markdown")
+
+    result = await run_pci_scan(target)
+    report = AggregatedReport(target=target, results=[result])
+    return await _finish_scan(
+        report,
+        scan_type="pci",
         timer=timer,
         fmt=fmt,
         fail_on=args.get("fail_on"),
