@@ -163,6 +163,10 @@ def discover_files(target: Path) -> list[ScannedFile]:
         except OSError:
             return
         for entry in entries:
+            # Do not follow project symlinks: they can escape the scan root or
+            # create cycles, and relative-path reporting assumes files stay inside it.
+            if entry.is_symlink():
+                continue
             if should_skip_dir(entry, entry.name):
                 continue
             if entry.is_dir():

@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from argus.utils import refresh_report_summary
+
 POLICY_FILENAME = ".argus.yml"
 
 
@@ -141,6 +143,7 @@ def apply_policy(report_dict: dict[str, Any], policy: PolicyConfig) -> dict[str,
             filtered.append(finding)
         result["findings"] = filtered
 
+    refresh_report_summary(report)
     return report
 
 

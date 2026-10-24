@@ -3,18 +3,21 @@
 # Rules match one line at a time, so they flag likely issues for review, not proof.
 
 - id: pci-cvv-storage
+  classification: pci
   title: CVV/CVC/card security code stored or persisted (PCI-DSS 3.3 forbids storing it after authorization; heuristic)
   severity: high
   pattern: '(Column|Field|save|insert|create|persist|store|setItem|put)\b.{0,80}\b(cvv2?|cvc2?|card_?security_?code)\b|\b(cvv2?|cvc2?|card_?security_?code)\b.{0,40}\b(Column|Field)\b|insert\s+into\b.{0,120}\b(cvv2?|cvc2?)\b'
   flags: [i]
 
 - id: pci-pan-in-logs
+  classification: pci
   title: Card number variable written to a log or console (PCI-DSS 3.4; heuristic)
   severity: high
   pattern: '(log(ger)?\.\w+|logging\.\w+|console\.(log|info|warn|error|debug)|print(ln)?|System\.out\.print\w*)\s*\(.{0,120}\b(card_?number|cardnumber|card_?no|cc_?num(ber)?|credit_?card(_?number)?|primary_?account_?number)\b'
   flags: [i]
 
 - id: pci-http-card-data
+  classification: pci
   title: Card data sent over a non-TLS http:// URL (PCI-DSS 4.2; heuristic, localhost excluded)
   severity: high
   pattern: 'http://(?!localhost|127\.0\.0\.1|\[::1\])[^\s''"`]{0,200}\b(card_?number|cardnumber|cc_?num(ber)?|cvv2?|cvc2?)\b'

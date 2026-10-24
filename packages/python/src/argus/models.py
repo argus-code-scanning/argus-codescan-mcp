@@ -56,6 +56,7 @@ class Finding:
     cve: str = ""
     fix_guidance: str = ""
     rule_id: str = ""
+    data_classification: str = "unset"
     references: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -73,6 +74,7 @@ class Finding:
             "cve": self.cve,
             "fix_guidance": self.fix_guidance,
             "rule_id": self.rule_id,
+            "data_classification": self.data_classification,
             "references": self.references,
         }
 

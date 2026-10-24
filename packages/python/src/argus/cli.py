@@ -34,7 +34,18 @@ import sys
 from pathlib import Path
 
 from argus.models import AggregatedReport, ScanResult
-from argus.utils import format_markdown_report, is_tool_available
+from argus.utils import format_markdown_report, is_tool_available, refresh_report_summary
+
+_CLASSIFICATIONS = {"pii", "phi", "pci", "confidential", "public", "unset"}
+
+
+def _parse_classifications(value: str) -> str:
+    tags = {tag.strip().lower() for tag in value.split(",") if tag.strip()}
+    invalid = tags - _CLASSIFICATIONS
+    if not tags or invalid:
+        choices = ", ".join(sorted(_CLASSIFICATIONS))
+        raise argparse.ArgumentTypeError(f"expected comma-separated classifications: {choices}")
+    return ",".join(sorted(tags))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -98,6 +109,15 @@ def build_parser() -> argparse.ArgumentParser:
             choices=["critical", "high", "medium", "low", "info"],
             default="low",
             help="Only show findings at or above this severity (default: low)",
+        )
+        p.add_argument(
+            "--classification",
+            metavar="TAGS",
+            type=_parse_classifications,
+            help=(
+                "Only show findings with these comma-separated data classifications "
+                "(pii, phi, pci, confidential, public, unset)"
+            ),
         )
         p.add_argument(
             "--tools",
@@ -443,11 +463,36 @@ def _filter_severity(report_dict: dict, min_sev: str) -> dict:
     return report
 
 
-def _emit(report_dict: dict, fmt: str, output_file: str | None, min_sev: str, fail_on: str) -> int:
+def _filter_classification(report_dict: dict, classifications: str | None) -> dict:
+    """Keep findings matching any requested data classification."""
+    if not classifications:
+        return report_dict
+    allowed = {tag.strip().lower() for tag in classifications.split(",") if tag.strip()}
+    import copy
+
+    report = copy.deepcopy(report_dict)
+    for result in report.get("results", []):
+        result["findings"] = [
+            finding
+            for finding in result.get("findings", [])
+            if str(finding.get("data_classification", "unset")).lower() in allowed
+        ]
+    return report
+
+
+def _emit(
+    report_dict: dict,
+    fmt: str,
+    output_file: str | None,
+    min_sev: str,
+    fail_on: str,
+    classification: str | None = None,
+) -> int:
     """Render the report and return the exit code."""
     from argus.formatters.sarif import aggregated_report_to_sarif
 
-    filtered = _filter_severity(report_dict, min_sev)
+    filtered = _filter_classification(_filter_severity(report_dict, min_sev), classification)
+    refresh_report_summary(filtered)
 
     if fmt == "json":
         text = json.dumps(filtered, indent=2)
@@ -714,7 +759,7 @@ async def _run_scan(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Cloud upload failed: {exc}", file=sys.stderr)
 
-    return _emit(report_dict, fmt, out_file, min_sev, fail_on)
+    return _emit(report_dict, fmt, out_file, min_sev, fail_on, getattr(args, "classification", None))
 
 
 def _cmd_pr_paths(args: argparse.Namespace) -> int:
@@ -870,7 +915,7 @@ async def _run_review(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Cloud upload failed: {exc}", file=sys.stderr)
 
-    return _emit(report_dict, fmt, out_file, min_sev, fail_on)
+    return _emit(report_dict, fmt, out_file, min_sev, fail_on, getattr(args, "classification", None))
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:

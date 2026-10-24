@@ -3,8 +3,8 @@
  * Covers common issues in JS, TS, Python, Java, PHP, Go, Ruby without external tools.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { lstatSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, extname, join, relative } from "node:path";
 import type { Finding, ScanResult, Severity } from "./types.js";
 
 const SKIP_DIRS = new Set([
@@ -113,6 +113,17 @@ const RULES: Rule[] = [
 
 function walkFiles(dir: string, out: string[], depth = 0): void {
   if (depth > 14) return;
+  try {
+    const root = lstatSync(dir);
+    if (root.isSymbolicLink()) return;
+    if (!root.isDirectory()) {
+      const ext = extname(dir).toLowerCase();
+      if (EXT_LANG[ext]) out.push(dir);
+      return;
+    }
+  } catch {
+    return;
+  }
   let entries: string[];
   try {
     entries = readdirSync(dir);
@@ -124,10 +135,11 @@ function walkFiles(dir: string, out: string[], depth = 0): void {
     const full = join(dir, name);
     let st;
     try {
-      st = statSync(full);
+      st = lstatSync(full);
     } catch {
       continue;
     }
+    if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) {
       walkFiles(full, out, depth + 1);
     } else {
@@ -155,7 +167,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
   }
 
   for (const file of files) {
-    const ext = file.slice(file.lastIndexOf("."));
+    const ext = extname(file).toLowerCase();
     const lang = EXT_LANG[ext] ?? "unknown";
     let content: string;
     try {
@@ -164,7 +176,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
       continue;
     }
     const lines = content.split("\n");
-    const rel = relative(target, file);
+    const rel = relative(lstatSync(target).isDirectory() ? target : dirname(target), file);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];

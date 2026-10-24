@@ -497,6 +497,8 @@ SARIF export: `argus scan code . --format sarif -o argus.sarif`
 
 `argus scan sast`, `argus scan secrets`, and the other file-based scan commands accept `--paths-file`. Each line is scanned on its own and the findings are merged into one report. `argus ci pr-paths` builds that list from `git diff` and falls back to a full scan when the diff is larger than `--limit` (default 50).
 
+Findings include `data_classification` (`pii`, `phi`, `pci`, `confidential`, `public`, or `unset`). Existing scanner integrations default to `unset`. Built-in YAML rules can declare a `classification` value, which is included in JSON and SARIF rule tags. Filter displayed findings with a comma-separated classification list, for example `argus scan all . --classification pii,phi`; this filter does not change the CI exit decision from `--fail-on`.
+
 ```bash
 argus ci pr-paths --base "$BASE_SHA" --limit 50 -o scan-paths.txt
 argus scan sast . --paths-file scan-paths.txt --format sarif -o sast.sarif

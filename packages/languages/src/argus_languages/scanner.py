@@ -86,6 +86,7 @@ def _scan_content(
                         rule_id=rule.id,
                         description=f"Language: {language}",
                         language=language,
+                        data_classification=rule.data_classification,
                     )
                 )
     return findings

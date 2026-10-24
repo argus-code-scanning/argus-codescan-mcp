@@ -34,6 +34,7 @@ class Finding:
     rule_id: str = ""
     description: str = ""
     language: str = ""
+    data_classification: str = "unset"
 
     def to_dict(self) -> dict[str, Any]:
         sev = self.severity.value
@@ -48,6 +49,7 @@ class Finding:
             "rule_id": self.rule_id,
             "description": self.description,
             "language": self.language,
+            "data_classification": self.data_classification,
         }
 
 

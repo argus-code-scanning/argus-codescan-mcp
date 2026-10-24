@@ -1,4 +1,5 @@
 - id: db-connection-string
+  classification: confidential
   title: Hardcoded database connection string
   severity: high
   pattern: '(DATABASE_URL|DB_CONNECTION|jdbc:|postgres://|mysql://|mongodb(\+srv)?://)[^\s"'']+'

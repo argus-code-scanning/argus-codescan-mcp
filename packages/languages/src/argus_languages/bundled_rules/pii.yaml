@@ -1,8 +1,17 @@
 # PII (Personally Identifiable Information) detection rules
 
 - id: pii-email-in-logs
+  classification: pii
   title: Potential PII logged via logger (email address in log statement)
   severity: medium
   pattern: '(?:logger|log|logging)\.(?:debug|info|warning|error|exception|log)\s*\(\s*(?:f["''].*\{[^}]*email|.*(?:user\.email|account\.email|\bemail\b))'
+  flags: [i]
+  languages: [python, javascript, typescript]
+
+- id: hipaa-phi-in-logs
+  title: Potential protected health information logged
+  severity: high
+  classification: phi
+  pattern: '(?:(?:logger|log|logging)\.(?:debug|info|warning|error|exception|log)|console\.(?:log|info|warn|error|debug)|print)\s*\([^)]*\b(?:patient|medical_record|diagnosis|health_record|ssn|date_of_birth|dob)\b'
   flags: [i]
   languages: [python, javascript, typescript]

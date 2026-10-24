@@ -163,5 +163,5 @@ export function printScanReport(
     return 1;
   }
 
-  return report.summary.total > 0 ? 1 : 0;
+  return 0;
 }
