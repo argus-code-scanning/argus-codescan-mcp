@@ -64,7 +64,7 @@ Deleted files, symlinks, submodules and generated dependency directories are ski
 Selected files are copied into a temporary tree that is removed after the scanners
 finish, including when a scanner fails. Findings retain repository-relative paths.
 Existing scan output options apply, including automatic CSV output and `--no-csv`.
-Exit codes follow `scan`: zero for no findings and one for findings or a review error.
+Exit codes follow scan: 1 when findings meet the --fail-on threshold (default never) or on a review error, otherwise 0.
 
 Git must be installed and available on `PATH`. This command runs SAST and secrets
 scanners only; use `argus review` from the Python package for malware scanning and
