@@ -20,6 +20,7 @@ RULE_FILES = (
     "java.yaml",
     "php.yaml",
     "laravel.yaml",
+    "access-control.yaml",
     "composer.yaml",
     "terraform.yaml",
     "ansible.yaml",

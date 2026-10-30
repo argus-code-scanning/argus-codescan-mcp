@@ -1,0 +1,52 @@
+# Access-control rules for Python web code (Django, Django REST Framework, Flask-Login).
+# They flag places where authentication or authorization is explicitly switched off.
+# Patterns are line-oriented, so a list that is split over several lines is only
+# caught on the line that names the class (see python-drf-default-allowany).
+# Many of these are intentional (login and signup views must be public), so the
+# view-level findings say "review this" rather than "this is a bug".
+
+- id: python-drf-allowany-view
+  title: DRF view is open to everyone (AllowAny or empty permission_classes) — fine for login/signup, review anything else
+  severity: medium
+  pattern: '(\bpermission_classes\s*=\s*[\[(][^\])]*\bAllowAny\b|@permission_classes\(\s*[\[(][^\])]*\bAllowAny\b|\bpermission_classes\s*=\s*[\[(]\s*[\])]|@permission_classes\(\s*[\[(]\s*[\])]\s*\))'
+  languages: [python]
+  fix_guidance: >-
+    Use IsAuthenticated by default and opt specific public views (login, signup,
+    health checks) out explicitly, with a comment saying why they are public.
+
+- id: python-drf-empty-auth
+  title: DRF view has authentication switched off (empty authentication_classes)
+  severity: medium
+  pattern: '(\bauthentication_classes\s*=\s*[\[(]\s*[\])]|@authentication_classes\(\s*[\[(]\s*[\])]\s*\))'
+  languages: [python]
+  fix_guidance: >-
+    Keep an authentication class on the view (for example TokenAuthentication or
+    SessionAuthentication) so request.user is populated, and use permission_classes
+    to decide who may call it.
+
+- id: python-drf-default-allowany
+  title: AllowAny is set as a DRF default permission — every view is public unless it overrides it
+  severity: high
+  pattern: '[''"]rest_framework\.permissions\.AllowAny[''"]'
+  languages: [python]
+  fix_guidance: >-
+    Set DEFAULT_PERMISSION_CLASSES to rest_framework.permissions.IsAuthenticated and
+    opt individual public views out explicitly with permission_classes = [AllowAny].
+
+- id: python-django-csrf-exempt
+  title: CSRF protection turned off with csrf_exempt — make sure the view does not rely on cookie authentication
+  severity: medium
+  pattern: '^(?!\s*(from|import)\b)[^#]*\bcsrf_exempt\b'
+  languages: [python]
+  fix_guidance: >-
+    Remove csrf_exempt, or limit it to endpoints that authenticate every request some
+    other way (an API token or a signed webhook payload) and verify that signature.
+
+- id: python-flask-login-disabled
+  title: Flask-Login is disabled (LOGIN_DISABLED = True) — make sure this is a test-only setting
+  severity: high
+  pattern: '\bLOGIN_DISABLED\b[''"\]]*\s*=\s*True\b'
+  languages: [python]
+  fix_guidance: >-
+    Keep LOGIN_DISABLED out of production configuration. Enable it only in a test
+    config that cannot be selected by an environment variable in a deployed app.
