@@ -17,6 +17,7 @@ RULE_FILES = (
     "malware.yaml",
     "pci-dss.yaml",
     "pii.yaml",
+    "auth-jwt.yaml",
     "java.yaml",
     "php.yaml",
     "laravel.yaml",

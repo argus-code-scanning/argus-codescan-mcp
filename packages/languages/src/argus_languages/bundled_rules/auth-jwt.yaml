@@ -1,0 +1,80 @@
+# JWT rules: tokens that are decoded without checking their signature, or verified in a
+# way that lets an attacker forge them (PyJWT / python-jose, jsonwebtoken, jjwt, golang-jwt).
+# Patterns are line-oriented, so a call split over several lines is only caught when the
+# risky argument sits on the same line as the call.
+
+- id: python-jwt-verify-disabled
+  title: JWT decoded without verifying its signature — anyone can forge the token
+  severity: high
+  pattern: '(\bjwt\.decode\(.*\boptions\s*=\s*\{[^}]*[''"]verify_signature[''"]\s*:\s*False|\bjwt\.decode\(.*\bverify\s*=\s*False\b|\bjwt\.get_unverified_claims\()'
+  languages: [python]
+  fix_guidance: >-
+    Always pass the key and an explicit algorithm list so the signature is checked, for
+    example jwt.decode(token, key, algorithms=["RS256"]). Read unverified claims only for
+    non-security purposes such as picking a key by "kid".
+
+- id: python-jwt-alg-none
+  title: JWT accepts or issues the "none" algorithm — tokens need no signature at all
+  severity: critical
+  pattern: '(\balgorithms\s*=\s*\[[^\]]*[''"]none[''"]|\balgorithm\s*=\s*[''"]none[''"])'
+  flags: [i]
+  languages: [python]
+  fix_guidance: >-
+    Remove "none" from the algorithm list and name only the strong algorithms you use
+    (for example ["RS256"]). Never encode a token with algorithm="none".
+
+- id: js-jwt-decode-unverified
+  title: jwt.decode() does not verify the signature — make sure the token is verified with jwt.verify first
+  severity: high
+  pattern: '\bjwt\.decode\('
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Use jwt.verify(token, key, { algorithms: ["RS256"] }) for any authentication or
+    authorization decision. jwt.decode is fine only to read claims from a token that was
+    already verified.
+
+- id: js-jwt-alg-none
+  title: jsonwebtoken accepts the "none" algorithm — tokens need no signature at all
+  severity: critical
+  pattern: '\balgorithms?\s*:\s*(\[[^\]]*)?[''"]none[''"]'
+  flags: [i]
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Remove "none" and list only the algorithms you issue, for example
+    { algorithms: ["RS256"] }.
+
+- id: js-jwt-ignore-expiration
+  title: jsonwebtoken ignores token expiry (ignoreExpiration true) — stolen tokens never expire
+  severity: high
+  pattern: '\bignoreExpiration\s*:\s*true\b'
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Remove ignoreExpiration so expired tokens are rejected, and issue short-lived tokens
+    with a refresh flow where long sessions are needed.
+
+- id: java-jjwt-unsigned-parse
+  title: jjwt parses an unsigned token — anyone can forge it
+  severity: high
+  pattern: '\.(parseClaimsJwt|parsePlaintextJwt|parseUnsecuredClaims|parseUnsecuredContent)\s*\('
+  languages: [java]
+  fix_guidance: >-
+    Parse signed tokens only: parseSignedClaims (or parseClaimsJws on older jjwt) after
+    verifyWith(key) / setSigningKey(key).
+
+- id: go-jwt-none-allowed
+  title: golang-jwt allows the "none" signing method — tokens need no signature at all
+  severity: critical
+  pattern: '\bjwt\.(UnsafeAllowNoneSignatureType|SigningMethodNone)\b'
+  languages: [go]
+  fix_guidance: >-
+    Remove the none method and restrict parsing with
+    jwt.WithValidMethods([]string{"RS256"}).
+
+- id: go-jwt-parse-unverified
+  title: golang-jwt ParseUnverified skips signature verification — anyone can forge the token
+  severity: high
+  pattern: '\.ParseUnverified\('
+  languages: [go]
+  fix_guidance: >-
+    Use jwt.Parse(token, keyFunc, jwt.WithValidMethods([]string{"RS256"})) so the
+    signature is checked before any claim is trusted.
