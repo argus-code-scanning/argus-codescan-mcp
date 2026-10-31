@@ -22,7 +22,8 @@ def test_private_temp_dir_redirects_and_cleans_up(tmp_path, monkeypatch):
 
     with private_temp_dir(tmp_path / "arts") as run_dir:
         assert run_dir.parent == tmp_path / "arts"
-        assert stat.S_IMODE(run_dir.stat().st_mode) == 0o700
+        if os.name != "nt":  # Windows has no POSIX mode bits; mkdtemp still limits access
+            assert stat.S_IMODE(run_dir.stat().st_mode) == 0o700
         assert os.environ["TMPDIR"] == os.environ["TEMP"] == str(run_dir)
         assert tempfile.gettempdir() == str(run_dir)
         (run_dir / "leftover.json").write_text("{}")
