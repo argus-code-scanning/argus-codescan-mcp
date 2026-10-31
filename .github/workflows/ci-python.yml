@@ -44,7 +44,9 @@ jobs:
         run: mypy src --ignore-missing-imports
 
   test:
-    name: Test (Python ${{ matrix.python-version }})
+    # Include the OS so a failure on one platform isn't hidden behind a passing job
+    # with the same name in the PR checks summary.
+    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
