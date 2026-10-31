@@ -2,7 +2,7 @@
 
 Comprehensive security scanning directly in VS Code, powered by OWASP ZAP, Semgrep, Trivy, Bandit, Gitleaks, Checkov, and more.
 
-Website: [code-scan.arestechub.com](https://code-scan.arestechub.com/)
+Created by **Gabriel Okiri** · Website: [Arestechub Code Scan](https://code-scan.arestechub.com/)
 
 ## Features
 
