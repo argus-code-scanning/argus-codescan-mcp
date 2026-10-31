@@ -1,19 +1,21 @@
-# Argus Security Scanner — VS Code Extension
+# Argus Security Scanner - VS Code Extension
 
 Comprehensive security scanning directly in VS Code, powered by OWASP ZAP, Semgrep, Trivy, Bandit, Gitleaks, Checkov, and more.
 
+Created by Okiri Gabriel · Free and open source ([MIT](https://github.com/argus-code-scanning/argus-codescan-mcp/blob/main/LICENSE)) · Source: https://github.com/argus-code-scanning/argus-codescan-mcp · Website: https://code-scan.arestechub.com/
+
 ## Features
 
-- **SAST** — Static code analysis (Semgrep, Bandit, ESLint security)
-- **DAST** — Dynamic web app scanning (OWASP ZAP, Nikto)
-- **SCA** — Dependency vulnerability scanning (Trivy, Safety, pip-audit, npm audit)
-- **Secret Scanning** — Leaked credentials (Gitleaks, detect-secrets, TruffleHog)
-- **IaC Scanning** — Terraform, Kubernetes, Dockerfile misconfigs (Checkov, Trivy)
-- **Container Scanning** — Image CVE scanning (Trivy)
-- **Problems Panel** — Findings appear as VS Code diagnostics
-- **Fix on request** — Quick Fix actions to view guidance or apply an automated fix (never during scan)
-- **Scan Dashboard** — Interactive webview with full report
-- **Scan on Save** — Optional auto-scan when files change
+- **SAST** - Static code analysis (Semgrep, Bandit, ESLint security)
+- **DAST** - Dynamic web app scanning (OWASP ZAP, Nikto)
+- **SCA** - Dependency vulnerability scanning (Trivy, Safety, pip-audit, npm audit)
+- **Secret Scanning** - Leaked credentials (Gitleaks, detect-secrets, TruffleHog)
+- **IaC Scanning** - Terraform, Kubernetes, Dockerfile misconfigs (Checkov, Trivy)
+- **Container Scanning** - Image CVE scanning (Trivy)
+- **Problems Panel** - Findings appear as VS Code diagnostics
+- **Fix on request** - Quick Fix actions to view guidance or apply an automated fix (never during scan)
+- **Scan Dashboard** - Interactive webview with full report
+- **Scan on Save** - Optional auto-scan when files change
 
 ## Requirements
 
@@ -23,7 +25,7 @@ Install the Python server:
 pip install argus-scan
 ```
 
-Or use `uvx` (no install needed) — configure in settings.
+Or use `uvx` (no install needed) - configure in settings.
 
 ## Commands
 
