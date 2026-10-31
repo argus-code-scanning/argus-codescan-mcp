@@ -1,11 +1,11 @@
 {
   "name": "argus-scan",
   "displayName": "Argus Security Scanner",
-  "description": "Argus - open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP. Created by Gabriel Okiri.",
+  "description": "Argus - open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP. Created by Okiri Gabriel.",
   "version": "0.1.0",
-  "publisher": "GabrielOkiri",
+  "publisher": "Arestechub-Code-Scan",
   "author": {
-    "name": "Gabriel Okiri"
+    "name": "Okiri Gabriel"
   },
   "homepage": "https://code-scan.arestechub.com/",
   "bugs": {
