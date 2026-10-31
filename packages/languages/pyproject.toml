@@ -8,6 +8,7 @@ version = "0.2.0"
 description = "Built-in security scanner for Java, PHP, Flutter, Terraform, Ansible, Python, Go, and 20+ languages. No external tools. pip install && argus-languages scan ."
 readme = "README.md"
 license = { text = "MIT" }
+authors = [{ name = "Okiri Gabriel" }]
 requires-python = ">=3.10"
 keywords = [
     "argus", "security", "sast", "terraform", "ansible", "java", "php", "flutter", "dart",
