@@ -1,7 +1,7 @@
 {
   "name": "argus-codescan",
   "version": "0.6.0",
-  "description": "Security scanner for React, Next.js & Node — SCA, SAST, secrets. CSV reports. For malware/ML/SARIF/MCP use pip install argus-scan.",
+  "description": "Security scanner for React, Next.js & Node — SCA, SAST, secrets. CSV reports. For malware/ML/SARIF/MCP use pip install argus-scan. Open source (MIT).",
   "author": "Okiri Gabriel (https://github.com/OkiriGabriel)",
   "keywords": [
     "mcp",

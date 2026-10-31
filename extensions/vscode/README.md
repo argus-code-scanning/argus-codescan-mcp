@@ -2,7 +2,7 @@
 
 Comprehensive security scanning directly in VS Code, powered by OWASP ZAP, Semgrep, Trivy, Bandit, Gitleaks, Checkov, and more.
 
-Created by Okiri Gabriel · Website: https://code-scan.arestechub.com/
+Created by Okiri Gabriel · Free and open source ([MIT](https://github.com/argus-code-scanning/argus-codescan-mcp/blob/main/LICENSE)) · Source: https://github.com/argus-code-scanning/argus-codescan-mcp · Website: https://code-scan.arestechub.com/
 
 ## Features
 
