@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "argus-scan"
-version = "0.2.1"
+version = "0.3.0"
 description = "Argus — open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -28,7 +28,7 @@ classifiers = [
 dependencies = [
     "mcp>=1.0.0,<2",
     "anyio>=4.0.0",
-    "argus-languages>=0.1.4",
+    "argus-languages>=0.2.0",
     "pyyaml>=6.0",
 ]
 
