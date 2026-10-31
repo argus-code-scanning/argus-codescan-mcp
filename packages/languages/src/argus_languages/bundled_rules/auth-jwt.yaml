@@ -25,7 +25,9 @@
 
 - id: js-jwt-decode-unverified
   title: jwt.decode() does not verify the signature — make sure the token is verified with jwt.verify first
-  severity: high
+  # medium: jwt.decode is also used legitimately to read claims after jwt.verify, so
+  # this is a "review this" finding (see #120), unlike the definite bypasses below.
+  severity: medium
   pattern: '\bjwt\.decode\('
   languages: [javascript, typescript]
   fix_guidance: >-

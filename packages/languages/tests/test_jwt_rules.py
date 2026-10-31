@@ -74,12 +74,12 @@ def test_rule_pack_is_registered_and_complete() -> None:
             "critical",
         ),
         # jsonwebtoken (Node)
-        ("auth.js", "const claims = jwt.decode(token);", "js-jwt-decode-unverified", "high"),
+        ("auth.js", "const claims = jwt.decode(token);", "js-jwt-decode-unverified", "medium"),
         (
             "auth.ts",
             "const claims = jwt.decode(token, { complete: true });",
             "js-jwt-decode-unverified",
-            "high",
+            "medium",
         ),
         (
             "auth.js",
