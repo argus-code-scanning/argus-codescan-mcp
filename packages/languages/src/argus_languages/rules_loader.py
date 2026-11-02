@@ -25,6 +25,7 @@ RULE_FILES = (
     "composer.yaml",
     "terraform.yaml",
     "ansible.yaml",
+    "access-control-web.yaml",
     "dart.yaml",
     "flutter.yaml",
     "other.yaml",
