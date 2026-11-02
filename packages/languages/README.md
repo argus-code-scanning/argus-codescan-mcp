@@ -51,7 +51,7 @@ argus-languages scan ./src/components/Button.tsx
 ```
 
 | Scans | `.js` `.jsx` `.ts` `.tsx` `.mjs` `.vue` |
-| Checks | XSS, SQL injection patterns, eval/exec, weak crypto, hardcoded secrets, CORS wildcard, NoSQL injection |
+| Checks | XSS, SQL injection patterns, eval/exec, weak crypto, hardcoded secrets, CORS wildcard, NoSQL injection, JWT `none` algorithm, `jwt.decode` without `jwt.verify` (review), `ignoreExpiration` |
 
 > **React / Next.js projects:** use [argus-codescan](https://www.npmjs.com/package/argus-codescan) on npm instead — no Python needed.
 
@@ -65,7 +65,7 @@ argus-languages scan ./api/main.py
 ```
 
 | Scans | `.py` `.pyw` |
-| Checks | Debug mode, hardcoded Flask secret, Django `ALLOWED_HOSTS = *`, SQL injection, pickle/yaml deserialization, command injection |
+| Checks | Debug mode, hardcoded Flask secret, Django `ALLOWED_HOSTS = *`, SQL injection, pickle/yaml deserialization, command injection, Django REST Framework `AllowAny` / empty auth, `csrf_exempt`, Flask-Login `LOGIN_DISABLED`, JWT decoded without verification |
 
 ---
 
@@ -77,7 +77,7 @@ argus-languages scan ./android-app/src/main/java
 ```
 
 | Scans | `.java` `.jsp` `.kt` `.kts` `.scala` |
-| Checks | SQL concatenation, XXE parsers, LDAP injection, path traversal, Spring CSRF disabled, log injection |
+| Checks | SQL concatenation, XXE parsers, LDAP injection, path traversal, Spring CSRF disabled, log injection, Spring Security `permitAll` on everything, `web.ignoring()` on everything, `@PermitAll` (review), jjwt unsigned parse |
 
 ---
 
@@ -107,7 +107,7 @@ argus-languages scan ./main.go
 ```
 
 | Scans | `.go` |
-| Checks | SQL via `fmt.Sprintf`, TLS `InsecureSkipVerify`, command injection |
+| Checks | SQL via `fmt.Sprintf`, TLS `InsecureSkipVerify`, command injection, JWT `none` signing method, `ParseUnverified` |
 
 ---
 
@@ -133,7 +133,7 @@ argus-languages scan ./elixir-app      # .ex .exs
 
 | Language | Extensions | Example checks |
 |----------|------------|----------------|
-| C# | `.cs` | SQL concat, `BinaryFormatter` deserialization |
+| C# | `.cs` | SQL concat, `BinaryFormatter` deserialization, `[AllowAnonymous]` / `.AllowAnonymous()` (review) |
 | Rust | `.rs` | `unsafe` blocks, shell via `Command` |
 | Swift | `.swift` | Insecure credential storage |
 | Perl | `.pl` `.pm` | Open with user input |
