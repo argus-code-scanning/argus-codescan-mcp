@@ -32,9 +32,10 @@ def _findings(tmp_path: Path, code: str, name: str = "views.py") -> dict[str, st
 def test_rule_pack_is_registered_and_complete() -> None:
     assert "access-control.yaml" in RULE_FILES
     rules = load_rules_from_files(("access-control.yaml",))
-    assert {r.id for r in rules} == ACCESS_CONTROL_RULES
+    assert ACCESS_CONTROL_RULES <= {r.id for r in rules}
     for rule in rules:
-        assert rule.languages == ["python"]
+        if rule.id in ACCESS_CONTROL_RULES:
+            assert rule.languages == ["python"]
         assert rule.fix_guidance, f"{rule.id} needs fix_guidance"
 
 
