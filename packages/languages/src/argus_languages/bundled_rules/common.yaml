@@ -5,11 +5,15 @@
   languages: [javascript, typescript, python, java, ruby, perl, lua, vue]
 
 - id: sql-concat
-  title: Possible SQL injection — string concatenation in query
+  title: Possible SQL injection — variable interpolated or concatenated into a SQL value
   severity: high
-  pattern: '(SELECT|INSERT|UPDATE|DELETE|query\s*\+|f["''].*SELECT|Statement\.execute\s*\([^)]*\+)'
-  flags: [i]
-  languages: [javascript, typescript, python, java, ruby, csharp, go, kotlin, scala]
+  pattern: ("[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*#\{|\$"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*\{|\bs"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*\$\{?[A-Za-z_]|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(])
+  flags:
+  - i
+  languages:
+  - ruby
+  - csharp
+  - scala
 
 - id: command-injection
   title: Possible command injection — shell execution
