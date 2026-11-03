@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`scan sca` audits every npm project in a monorepo.** Every `package.json` with a
+  `package-lock.json` or `npm-shrinkwrap.json` is audited (skipping `node_modules`);
+  packages no lockfile covers are listed as notes. Findings are one per advisory
+  (GHSA id as the rule, the advisory's own severity) instead of one per package, and
+  each is marked `[runtime dependency]` or `[dev dependency]` using
+  `npm audit --omit=dev` (#110).
+
 ## 0.6.0
 
 ### Changed

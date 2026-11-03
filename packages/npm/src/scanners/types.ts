@@ -19,6 +19,8 @@ export interface ScanResult {
   target: string;
   findings: Finding[];
   errors: string[];
+  /** Project directories that were scanned successfully (SCA: one per lockfile). */
+  projects?: string[];
 }
 
 export interface ScanReport {
