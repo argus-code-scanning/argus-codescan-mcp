@@ -1,0 +1,68 @@
+# Access-control opt-outs in Ruby on Rails, Laravel and Node.js (Express cors, NestJS).
+# Each rule flags code that explicitly switches authentication, CSRF protection or origin
+# checks off. Patterns are line-oriented, so only the call on a single line is seen.
+# Many of these are intentional (login pages, webhooks, public APIs), so most findings
+# say "review this" rather than "this is a bug"; definite bypasses are high.
+
+- id: ruby-rails-skip-authentication
+  title: "Rails skips authentication for every action of this controller (skip_before_action :authenticate_...)"
+  severity: high
+  pattern: '^(?!\s*#)(?!.*\b(only|except)\s*:).*\bskip_before_(action|filter)\s+:authenticate_\w+!?'
+  languages: [ruby]
+  fix_guidance: >-
+    Keep before_action :authenticate_user! on the controller and skip it only for the
+    specific public actions with only: [:index, :show], with a comment saying why they are public.
+
+- id: ruby-rails-skip-authentication-some-actions
+  title: "Rails skips authentication for some actions (only:/except:) — review: are they meant to be public?"
+  severity: medium
+  pattern: '^(?!\s*#).*\bskip_before_(action|filter)\s+:authenticate_\w+!?.*\b(only|except)\s*:'
+  languages: [ruby]
+  fix_guidance: >-
+    Check that every listed action is public by design (login, signup, health check), and that
+    no action that changes data or shows private records is skipped.
+
+- id: ruby-rails-skip-csrf
+  title: "Rails turns CSRF protection off (skip_before_action :verify_authenticity_token) — review the endpoint"
+  severity: medium
+  pattern: '^(?!\s*#).*\bskip_before_(action|filter)\s+:verify_authenticity_token\b'
+  languages: [ruby]
+  fix_guidance: >-
+    Keep verify_authenticity_token for any action that uses session cookies. Skip it only for
+    token-authenticated API endpoints or signed webhooks, and verify the signature or token.
+
+- id: ruby-rails-csrf-null-session
+  title: "protect_from_forgery with null_session — fine for API controllers, review it in controllers that use cookies"
+  severity: low
+  pattern: '^(?!\s*#).*\bprotect_from_forgery\b.*:null_session\b'
+  languages: [ruby]
+  fix_guidance: >-
+    Use protect_from_forgery with: :exception in controllers that render pages or use session
+    cookies, and keep null_session for stateless token-authenticated APIs.
+
+- id: php-laravel-without-auth-middleware
+  title: "Laravel route or group removes the auth middleware (withoutMiddleware auth)"
+  severity: high
+  pattern: '^(?!\s*(//|#|\*)).*->withoutMiddleware\(\s*(\[[^\]]*)?[''"]auth(:[\w,]+)?[''"]'
+  languages: [php]
+  fix_guidance: >-
+    Remove withoutMiddleware('auth') and keep the route inside an auth group, or list only the
+    specific public routes outside that group, with a comment saying why they are public.
+
+- id: js-express-cors-reflect-origin-credentials
+  title: "cors() reflects any origin and allows credentials — any website can make authenticated requests"
+  severity: high
+  pattern: '^(?!\s*(//|\*)).*\bcors\(\s*\{(?=[^}]*\borigin\s*:\s*true\b)(?=[^}]*\bcredentials\s*:\s*true\b)'
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Allow-list the exact origins, for example cors({ origin: ['https://app.example.com'],
+    credentials: true }). Never combine origin: true with credentials: true.
+
+- id: js-nestjs-public-decorator
+  title: "NestJS @Public() / @SkipAuth() opens this controller or handler to everyone — review: is it meant to be public?"
+  severity: low
+  pattern: '^(?!\s*(import\b|//)).*@(Public|SkipAuth)\(\)'
+  languages: [typescript, javascript]
+  fix_guidance: >-
+    Keep the auth guard on the controller and mark only the handlers that are public by design
+    (login, health check) with @Public(), with a comment saying why.
