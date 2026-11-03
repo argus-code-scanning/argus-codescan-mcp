@@ -83,7 +83,9 @@ export async function runScanCli(args: string[]): Promise<number> {
   if (scanType === "sca") {
     console.error(`Running SCA scan (npm audit) on: ${target}`);
     const scaResult = await runNpmAuditSca(target);
-    if (scaResult.errors.length > 0 && scaResult.findings.length === 0) {
+    // Fatal only when no project could be audited; skipped packages without a
+    // lockfile are listed as notes in the report.
+    if (scaResult.findings.length === 0 && !scaResult.projects?.length) {
       for (const err of scaResult.errors) console.error(`Error: ${err}`);
       return 1;
     }
