@@ -116,7 +116,7 @@
 - id: ml-llm-output-exec-eval
   title: LLM response passed directly to exec/eval
   severity: high
-  pattern: '(exec|eval)\s*\([^)]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content\s*(\[\s*0\s*\])?\s*(\.text)?|\.text)\s*'
+  pattern: '\\b(exec|eval)\\s*\\([^)]*(\\.choices\\s*\\[\\s*0\\s*\\]\\.message\\.content|\\.content\\s*\\[\\s*0\\s*\\]\\.text\\b|\\.output_text\\b|\\.generations\\b|\\b(response|resp|completion|llm_\\w+|ai_\\w+|chat_\\w+|message)\\s*\\.\\s*(content|text)\\b)'
   languages: [python]
   fix_guidance: >-
     Treat model responses as untrusted data. Do not execute generated code; parse
@@ -135,27 +135,19 @@
 - id: ml-agent-os-system-command
   title: Agent-controlled command passed to os.system
   severity: high
-  pattern: 'os\.system\s*\(\s*(tool_args\s*\[|args\s*\[|\w+\.command)'
+  pattern: 'os\\.system\\s*\\(\\s*(tool_args\\s*\\[|tool_input\\b|action_input\\b|\\w+\\.command)'
   flags: [i]
   languages: [python]
   fix_guidance: >-
     Avoid executing agent-provided commands. Map approved actions to fixed operations,
     validate structured arguments against a schema and allow-list, and use least privilege.
 
-- id: ml-llm-output-sql-fstring
-  title: LLM response interpolated into SQL execution
-  severity: high
-  pattern: '(execute|executemany)\s*\(\s*f["''][^"'']*\{[^}]*\}[^"'']*["'']'
-  flags: [i]
-  languages: [python]
-  fix_guidance: >-
-    Never interpolate model output into SQL. Use parameterized queries and bind values
-    separately; validate identifiers against a strict allow-list.
+
 
 - id: ml-llm-output-eval-js
   title: LLM response passed directly to JavaScript eval
   severity: high
-  pattern: 'eval\s*\([^)]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content|\.text)\s*'
+  pattern: '\\beval\\s*\\([^)]*(\\.choices\\s*\\[\\s*0\\s*\\]\\.message\\.content|\\.content\\s*\\[\\s*0\\s*\\]\\.text\\b|\\.output_text\\b|\\.generations\\b|\\b(response|resp|completion|llm_\\w+|ai_\\w+|chat_\\w+|message)\\s*\\.\\s*(content|text)\\b)'
   flags: [i]
   languages: [javascript, typescript]
   fix_guidance: >-
@@ -165,7 +157,7 @@
 - id: ml-llm-output-html
   title: LLM response rendered as raw HTML
   severity: high
-  pattern: '(innerHTML\s*=|dangerouslySetInnerHTML\s*=)\s*[^;]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content|\.text)'
+  pattern: '(innerHTML\\s*=|dangerouslySetInnerHTML\\s*=)\\s*[^;]*(\\.choices\\s*\\[\\s*0\\s*\\]\\.message\\.content|\\.content\\s*\\[\\s*0\\s*\\]\\.text\\b|\\.output_text\\b|\\.generations\\b|\\b(response|resp|completion|llm_\\w+|ai_\\w+|chat_\\w+|message)\\s*\\.\\s*(content|text)\\b)'
   flags: [i]
   languages: [javascript, typescript]
   fix_guidance: >-
