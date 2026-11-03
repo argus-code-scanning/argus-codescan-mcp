@@ -12,6 +12,7 @@ from argus_languages.models import Severity
 
 RULE_FILES = (
     "common.yaml",
+    "sql-injection.yaml",
     "database.yaml",
     "ml.yaml",
     "malware.yaml",
