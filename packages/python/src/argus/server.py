@@ -1466,6 +1466,9 @@ async def _handle_apply_fix(args: dict[str, Any]) -> list[types.TextContent]:
 
 async def main() -> None:
     """Run the MCP server over stdio."""
+    from argus import __version__
+    from argus.branding import server_branding
+
     logger.info("Starting argus-scan server")
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
@@ -1473,11 +1476,12 @@ async def main() -> None:
             write_stream,
             InitializationOptions(
                 server_name="argus-scan",
-                server_version="0.1.0",
+                server_version=__version__,
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
                     experimental_capabilities={},
                 ),
+                **server_branding(),
             ),
         )
 

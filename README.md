@@ -522,6 +522,12 @@ argus-codescan-mcp/
 
 To claim an issue, comment "I'd like to work on this" with a short plan and a maintainer will assign it. Setup, code style and PR checklist: [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Author
+
+Created and maintained by **Okiri Gabriel** ([@OkiriGabriel](https://github.com/OkiriGabriel)) · Website: https://code-scan.arestechub.com/
+
+Argus is free and open source under the MIT license, built in the open with its contributors. Anyone can use, modify and redistribute it, and contributions are welcome (see [Contributing](#contributing)).
+
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT - see [LICENSE](LICENSE)

@@ -87,7 +87,7 @@ export class SecurityDiagnosticsProvider implements vscode.Disposable {
 
     const message = [
       finding.title,
-      finding.description ? ` — ${finding.description}` : "",
+      finding.description ? ` - ${finding.description}` : "",
     ]
       .join("")
       .slice(0, 200);
