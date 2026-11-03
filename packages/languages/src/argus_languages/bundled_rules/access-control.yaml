@@ -1,7 +1,8 @@
-# Access-control rules for Python web code (Django, Django REST Framework, Flask-Login).
+# Access-control rules for web code: Python (Django, Django REST Framework, Flask-Login),
+# Java / Kotlin (Spring Security, JSR-250) and C# (ASP.NET Core).
 # They flag places where authentication or authorization is explicitly switched off.
-# Patterns are line-oriented, so a list that is split over several lines is only
-# caught on the line that names the class (see python-drf-default-allowany).
+# Patterns are line-oriented, so a list or call chain that is split over several lines is only
+# caught on the line that names the risky call or class.
 # Many of these are intentional (login and signup views must be public), so the
 # view-level findings say "review this" rather than "this is a bug".
 
@@ -50,3 +51,48 @@
   fix_guidance: >-
     Keep LOGIN_DISABLED out of production configuration. Enable it only in a test
     config that cannot be selected by an environment variable in a deployed app.
+
+- id: java-spring-permitall-everything
+  title: Spring Security permits every request without authentication (permitAll on anyRequest or "/**")
+  severity: high
+  pattern: '(\.anyRequest\(\)\s*\.permitAll\(\)|\.(requestMatchers|antMatchers|mvcMatchers)\(\s*"/\*\*"\s*\)\s*\.permitAll\(\)|\bauthorize\(\s*anyRequest\s*,\s*permitAll\s*\))'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    End the rule chain with anyRequest().authenticated() and list only the paths that
+    really are public (for example "/login" or "/health") in their own requestMatchers.
+
+- id: java-spring-web-ignoring-everything
+  title: Spring Security ignores every request (web.ignoring on anyRequest or "/**") — no filters run at all
+  severity: high
+  pattern: '\.ignoring\(\)\s*\.(anyRequest\(\)|(requestMatchers|antMatchers|mvcMatchers)\(\s*"/\*\*"\s*\))'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Use web.ignoring() only for static assets (for example "/css/**" and "/images/**") and
+    keep every other request inside the security filter chain.
+
+- id: java-jsr250-permitall
+  title: "@PermitAll opens this controller or method to everyone — review: is it meant to be public?"
+  severity: medium
+  pattern: '^(?!\s*(import\b|//|\*)).*@PermitAll\b'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Prefer @PreAuthorize or @RolesAllowed on the endpoints that need protection, and keep
+    @PermitAll only for endpoints that are public by design, with a comment saying why.
+
+- id: dotnet-allowanonymous-attribute
+  title: "[AllowAnonymous] opens this controller or action to everyone — review: is it meant to be public?"
+  severity: medium
+  pattern: '^(?!\s*//).*\[[^\]]*\bAllowAnonymous\b[^\]]*\]'
+  languages: [csharp]
+  fix_guidance: >-
+    Keep [Authorize] on the controller and use [AllowAnonymous] only on endpoints that are
+    public by design (login, health checks), with a comment saying why.
+
+- id: dotnet-allowanonymous-endpoint
+  title: ".AllowAnonymous() opens this endpoint mapping to everyone — review: is it meant to be public?"
+  severity: medium
+  pattern: '^(?!\s*//).*\.AllowAnonymous\(\)'
+  languages: [csharp]
+  fix_guidance: >-
+    Use .RequireAuthorization() on the endpoint or group, and call .AllowAnonymous() only
+    for endpoints that are public by design.
