@@ -95,6 +95,11 @@ def _dotenv_language(name: str) -> LanguageId | None:
     return None
 
 
+def _is_spring_config(name: str) -> bool:
+    """application.properties, application-prod.yml, ... (Spring Boot externalised config)."""
+    return name.startswith("application") and name.endswith((".properties", ".yml", ".yaml"))
+
+
 def _is_generated_dart(name: str) -> bool:
     lower = name.lower()
     return any(lower.endswith(suffix) for suffix in GENERATED_DART_SUFFIXES)
@@ -133,10 +138,15 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
             return "ansible"
         if _is_kubernetes_yaml(rel, content):
             return "kubernetes"
+        if _is_spring_config(name):
+            return "spring-config"
         return None
 
     if ext == ".json" and _is_kubernetes_yaml(rel, content):
         return "kubernetes"
+
+    if ext == ".properties" and _is_spring_config(name):
+        return "spring-config"
 
     return EXT_MAP.get(ext)
 
@@ -221,5 +231,6 @@ SUPPORTED_LANGUAGES = sorted(
         "composer",
         "dotenv-production",
         "dotenv-example",
+        "spring-config",
     }
 )

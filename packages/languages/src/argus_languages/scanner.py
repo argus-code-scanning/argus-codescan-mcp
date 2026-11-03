@@ -21,6 +21,7 @@ COMMENT_PREFIX: dict[str, tuple[str, ...]] = {
     "composer": (),
     "dotenv-production": ("#",),
     "dotenv-example": ("#",),
+    "spring-config": ("#", "!"),
     "go": ("//",),
     "ruby": ("#",),
     "csharp": ("//", "/*"),
@@ -51,7 +52,9 @@ def _skip_line(line: str, language: str) -> bool:
 
 # Config files only get rules written for them; generic code rules would
 # misfire on JSON and KEY=value lines.
-CONFIG_LANGUAGES = frozenset({"composer", "dotenv-production", "dotenv-example"})
+CONFIG_LANGUAGES = frozenset(
+    {"composer", "dotenv-production", "dotenv-example", "spring-config"}
+)
 
 
 def _rule_applies(rule: LoadedRule, language: str) -> bool:
