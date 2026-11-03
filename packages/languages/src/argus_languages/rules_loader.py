@@ -28,6 +28,7 @@ RULE_FILES = (
     "dart.yaml",
     "flutter.yaml",
     "other.yaml",
+    "exposed-endpoints.yaml",
 )
 
 
