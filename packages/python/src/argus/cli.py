@@ -454,15 +454,47 @@ def _print_table(report_dict: dict) -> None:
     print()
 
 
-def _should_fail(report_dict: dict, fail_on: str) -> bool:
+def _count_failing(report_dict: dict, fail_on: str) -> int:
+    """Number of findings at or above the --fail-on threshold."""
     if fail_on == "never":
-        return False
+        return 0
     threshold = _SEV_ORDER.get(fail_on, 99)
-    for result in report_dict.get("results", []):
-        for f in result.get("findings", []):
-            if _SEV_ORDER.get(f.get("severity", "unknown"), 99) <= threshold:
-                return True
-    return False
+    return sum(
+        1
+        for result in report_dict.get("results", [])
+        for f in result.get("findings", [])
+        if _SEV_ORDER.get(f.get("severity", "unknown"), 99) <= threshold
+    )
+
+
+def _should_fail(report_dict: dict, fail_on: str) -> bool:
+    return _count_failing(report_dict, fail_on) > 0
+
+
+def _hidden_failure_message(
+    report_dict: dict,
+    by_severity: dict,
+    shown: dict,
+    fail_on: str,
+    min_sev: str,
+    classification: str | None,
+) -> str | None:
+    """Explain a failure caused by findings that the display filters hid (#113)."""
+    total = _count_failing(report_dict, fail_on)
+    hidden = total - _count_failing(shown, fail_on)
+    if total == 0 or hidden == 0:
+        return None
+    filters = []
+    if _count_failing(by_severity, fail_on) < total:
+        filters.append(f"--min-severity {min_sev}")
+    if classification and _count_failing(shown, fail_on) < _count_failing(by_severity, fail_on):
+        filters.append(f"--classification {classification}")
+    names = " and ".join(filters)
+    noun = "filters" if len(filters) > 1 else "filter"
+    return (
+        f"Failing: {hidden} finding(s) at or above '{fail_on}' are hidden by {names}. "
+        f"Re-run without the {noun} to see them."
+    )
 
 
 def _filter_severity(report_dict: dict, min_sev: str) -> dict:
@@ -508,7 +540,8 @@ def _emit(
     """Render the report and return the exit code."""
     from argus.formatters.sarif import aggregated_report_to_sarif
 
-    filtered = _filter_classification(_filter_severity(report_dict, min_sev), classification)
+    by_severity = _filter_severity(report_dict, min_sev)
+    filtered = _filter_classification(by_severity, classification)
     refresh_report_summary(filtered)
 
     if fmt == "json":
@@ -539,7 +572,14 @@ def _emit(
 
     # Fail against the full report so --min-severity display filtering
     # cannot hide findings that should still fail CI.
-    return 1 if _should_fail(report_dict, fail_on) else 0
+    if not _should_fail(report_dict, fail_on):
+        return 0
+    message = _hidden_failure_message(
+        report_dict, by_severity, filtered, fail_on, min_sev, classification
+    )
+    if message:
+        print(message, file=sys.stderr)
+    return 1
 
 
 # ── Scan runners ──────────────────────────────────────────────────────────────

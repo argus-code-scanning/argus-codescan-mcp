@@ -107,6 +107,60 @@ def test_classification_filter_does_not_change_fail_on(tmp_path, capsys):
     assert code == 1
 
 
+def test_fail_on_explains_findings_hidden_by_classification(tmp_path, capsys):
+    code = _emit(_report(), "json", str(tmp_path / "r.json"), "low", "high", classification="pii")
+
+    assert code == 1
+    err = capsys.readouterr().err
+    assert (
+        "Failing: 3 finding(s) at or above 'high' are hidden by --classification pii. "
+        "Re-run without the filter to see them."
+    ) in err
+
+
+def test_fail_on_explains_findings_hidden_by_min_severity(tmp_path, capsys):
+    report = _report()
+    report["results"][0]["findings"].append(_finding("rce", "critical"))
+
+    code = _emit(report, "json", str(tmp_path / "r.json"), "critical", "medium")
+
+    assert code == 1
+    assert "4 finding(s) at or above 'medium' are hidden by --min-severity critical." in (
+        capsys.readouterr().err
+    )
+
+
+def test_fail_on_names_both_filters_when_both_hide(tmp_path, capsys):
+    code = _emit(
+        _report(), "json", str(tmp_path / "r.json"), "high", "medium", classification="phi"
+    )
+
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "3 finding(s) at or above 'medium' are hidden by " in err
+    assert "--min-severity high and --classification phi" in err
+    assert "Re-run without the filters" in err
+
+
+@pytest.mark.parametrize(
+    ("classification", "fail_on", "expected_code"),
+    [
+        (None, "high", 1),  # nothing filtered: the failure is visible
+        ("phi,confidential,unset", "high", 1),  # every failing finding is shown
+        ("pii", "critical", 0),  # nothing fails at all
+    ],
+)
+def test_no_hidden_failure_message_when_nothing_failing_is_hidden(
+    tmp_path, capsys, classification, fail_on, expected_code
+):
+    code = _emit(
+        _report(), "json", str(tmp_path / "r.json"), "low", fail_on, classification=classification
+    )
+
+    assert code == expected_code
+    assert "Failing:" not in capsys.readouterr().err
+
+
 def test_sarif_carries_classification():
     sarif = aggregated_report_to_sarif(_report())
     run = sarif["runs"][0]
