@@ -116,7 +116,7 @@
 - id: ml-llm-output-exec-eval
   title: LLM response passed directly to exec/eval
   severity: high
-  pattern: '\\b(exec|eval)\\s*\\([^)]*(\\.choices\\s*\\[\\s*0\\s*\\]\\.message\\.content|\\.content\\s*\\[\\s*0\\s*\\]\\.text\\b|\\.output_text\\b|\\.generations\\b|\\b(response|resp|completion|llm_\\w+|ai_\\w+|chat_\\w+|message)\\s*\\.\\s*(content|text)\\b)'
+  pattern: '\b(exec|eval)\s*\([^)]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content\s*\[\s*0\s*\]\.text\b|\.output_text\b|\.generations\b|\b(response|resp|completion|llm_\w+|ai_\w+|chat_\w+|message)\s*\.\s*(content|text)\b)'
   languages: [python]
   fix_guidance: >-
     Treat model responses as untrusted data. Do not execute generated code; parse
