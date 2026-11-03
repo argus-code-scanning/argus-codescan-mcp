@@ -112,3 +112,62 @@
   pattern: 'onnx\.load\s*\(\s*(request\.|input\(|params\.|args\.|os\.environ)'
   flags: [i]
   languages: [python]
+
+- id: ml-llm-output-exec-eval
+  title: LLM response passed directly to exec/eval
+  severity: high
+  pattern: '(exec|eval)\s*\([^)]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content\s*(\[\s*0\s*\])?\s*(\.text)?|\.text)\s*'
+  languages: [python]
+  fix_guidance: >-
+    Treat model responses as untrusted data. Do not execute generated code; parse
+    structured output and validate it against a strict schema instead.
+
+- id: ml-llm-output-subprocess-shell
+  title: LLM response passed to subprocess with shell=True
+  severity: high
+  pattern: 'subprocess\.(run|Popen|call)\s*\((?=[^)]*(\.content|\.text|tool_args\s*\[))(?=[^)]*shell\s*=\s*True)[^)]*\)'
+  flags: [i]
+  languages: [python]
+  fix_guidance: >-
+    Never pass model output to a shell. Prefer subprocess calls with an argument list and
+    shell=False, validate arguments against an allow-list, and isolate required execution.
+
+- id: ml-agent-os-system-command
+  title: Agent-controlled command passed to os.system
+  severity: high
+  pattern: 'os\.system\s*\(\s*(tool_args\s*\[|args\s*\[|\w+\.command)'
+  flags: [i]
+  languages: [python]
+  fix_guidance: >-
+    Avoid executing agent-provided commands. Map approved actions to fixed operations,
+    validate structured arguments against a schema and allow-list, and use least privilege.
+
+- id: ml-llm-output-sql-fstring
+  title: LLM response interpolated into SQL execution
+  severity: high
+  pattern: '(execute|executemany)\s*\(\s*f["''][^"'']*\{[^}]*\}[^"'']*["'']'
+  flags: [i]
+  languages: [python]
+  fix_guidance: >-
+    Never interpolate model output into SQL. Use parameterized queries and bind values
+    separately; validate identifiers against a strict allow-list.
+
+- id: ml-llm-output-eval-js
+  title: LLM response passed directly to JavaScript eval
+  severity: high
+  pattern: 'eval\s*\([^)]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content|\.text)\s*'
+  flags: [i]
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Do not evaluate model-generated JavaScript. Parse structured output as data, validate
+    it against a schema, and dispatch only explicitly allow-listed operations.
+
+- id: ml-llm-output-html
+  title: LLM response rendered as raw HTML
+  severity: high
+  pattern: '(innerHTML\s*=|dangerouslySetInnerHTML\s*=)\s*[^;]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content|\.text)'
+  flags: [i]
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Render model output as text by default. If rich HTML is required, sanitize it with a
+    maintained HTML sanitizer and apply a restrictive Content Security Policy.
