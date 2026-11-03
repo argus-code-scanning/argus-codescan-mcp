@@ -135,7 +135,7 @@
 - id: ml-agent-os-system-command
   title: Agent-controlled command passed to os.system
   severity: high
-  pattern: 'os\\.system\\s*\\(\\s*(tool_args\\s*\\[|tool_input\\b|action_input\\b|\\w+\\.command)'
+  pattern: 'os\.system\s*\(\s*(tool_args\s*\[|tool_input\b|action_input\b|\w+\.command)'
   flags: [i]
   languages: [python]
   fix_guidance: >-
@@ -147,7 +147,7 @@
 - id: ml-llm-output-eval-js
   title: LLM response passed directly to JavaScript eval
   severity: high
-  pattern: '\\beval\\s*\\([^)]*(\\.choices\\s*\\[\\s*0\\s*\\]\\.message\\.content|\\.content\\s*\\[\\s*0\\s*\\]\\.text\\b|\\.output_text\\b|\\.generations\\b|\\b(response|resp|completion|llm_\\w+|ai_\\w+|chat_\\w+|message)\\s*\\.\\s*(content|text)\\b)'
+  pattern: '\beval\s*\([^)]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content\s*\[\s*0\s*\]\.text\b|\.output_text\b|\.generations\b|\b(response|resp|completion|llm_\w+|ai_\w+|chat_\w+|message)\s*\.\s*(content|text)\b)'
   flags: [i]
   languages: [javascript, typescript]
   fix_guidance: >-
@@ -157,7 +157,7 @@
 - id: ml-llm-output-html
   title: LLM response rendered as raw HTML
   severity: high
-  pattern: '(innerHTML\\s*=|dangerouslySetInnerHTML\\s*=)\\s*[^;]*(\\.choices\\s*\\[\\s*0\\s*\\]\\.message\\.content|\\.content\\s*\\[\\s*0\\s*\\]\\.text\\b|\\.output_text\\b|\\.generations\\b|\\b(response|resp|completion|llm_\\w+|ai_\\w+|chat_\\w+|message)\\s*\\.\\s*(content|text)\\b)'
+  pattern: '(innerHTML\s*=|dangerouslySetInnerHTML\s*=)\s*[^;]*(\.choices\s*\[\s*0\s*\]\.message\.content|\.content\s*\[\s*0\s*\]\.text\b|\.output_text\b|\.generations\b|\b(response|resp|completion|llm_\w+|ai_\w+|chat_\w+|message)\s*\.\s*(content|text)\b)'
   flags: [i]
   languages: [javascript, typescript]
   fix_guidance: >-
