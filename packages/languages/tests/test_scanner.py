@@ -9,7 +9,7 @@ def test_finds_java_sql_injection(tmp_path: Path) -> None:
     src = tmp_path / "App.java"
     src.write_text('Statement.execute("SELECT * FROM users WHERE id=" + userId);\n')
     result = scan_directory(tmp_path)
-    assert any(f.rule_id == "sql-concat" for f in result.findings)
+    assert any(f.rule_id == "java-sql-string-build" for f in result.findings)
 
 
 def test_finds_terraform_public_sg(tmp_path: Path) -> None:
