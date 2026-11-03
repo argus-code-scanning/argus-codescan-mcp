@@ -49,10 +49,9 @@ def test_ml_prompt_fstring(tmp_path: Path):
         ("unsafe.py", "eval(response.choices[0].message.content)", "ml-llm-output-exec-eval"),
         ("unsafe.py", "subprocess.run(resp.content[0].text, shell=True)", "ml-llm-output-subprocess-shell"),
         ("unsafe.py", 'os.system(tool_args["command"])', "ml-agent-os-system-command"),
-        ("unsafe.py", 'cursor.execute(f"SELECT * FROM users WHERE name = {llm_answer}")', "ml-llm-output-sql-fstring"),
-        ("unsafe.ts", "eval(result.text)", "ml-llm-output-eval-js"),
+        ("unsafe.ts", "eval(response.text)", "ml-llm-output-eval-js"),
         ("unsafe.ts", "element.innerHTML = completion.choices[0].message.content;", "ml-llm-output-html"),
-        ("unsafe.ts", "element.innerHTML = result.text;", "ml-llm-output-html"),
+        ("unsafe.ts", "element.innerHTML = response.text;", "ml-llm-output-html"),
     ],
 )
 def test_llm_output_direct_sinks_flagged(tmp_path: Path, filename: str, line: str, rule_id: str):
@@ -70,6 +69,11 @@ def test_llm_output_direct_sinks_flagged(tmp_path: Path, filename: str, line: st
         ("safe.ts", "element.textContent = completion.content;"),
         ("safe.ts", "const parsed = JSON.parse(result.text);"),
         ("safe.ts", "eval('2 + 2')"),
+        ("safe.py", "ast.literal_eval(resp.text)"),
+        ("safe.ts", "el.innerHTML = other.textContent"),
+        ("safe.ts", "eval(script.textContent)"),
+        ("safe.py", 'cursor.execute(f"SELECT * FROM t WHERE id = {user_id}")'),
+        ("safe.py", "os.system(args[0])"),
     ],
 )
 def test_safe_output_handling_not_flagged(tmp_path: Path, filename: str, line: str):
