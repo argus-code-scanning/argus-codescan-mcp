@@ -108,7 +108,7 @@ def _is_generated_dart(name: str) -> bool:
 
 
 def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
-    rel = str(path.relative_to(root))
+    rel = path.relative_to(root).as_posix()
     name = path.name.lower()
 
     if _is_generated_dart(name):
@@ -195,7 +195,7 @@ def discover_files(target: Path) -> list[ScannedFile]:
             out.append(
                 ScannedFile(
                     path=entry,
-                    relative=str(entry.relative_to(root)),
+                    relative=entry.relative_to(root).as_posix(),
                     language=language,
                 )
             )
