@@ -17,6 +17,7 @@
 ## Checklist
 
 ### For all PRs
+- [ ] I am assigned to the issue this PR fixes (linked below)
 - [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md)
 - [ ] My code follows the project style (ruff / gofmt / eslint clean)
 - [ ] I have added or updated tests for my changes
@@ -44,6 +45,10 @@
 paste output here
 ```
 
-## Related Issues
+## Related Issue
 
-Closes #___
+<!-- Required for contributors: the issue assigned to you. The "Issue assignment"
+     check blocks the merge until this PR references an issue assigned to its author.
+     Not assigned yet? Comment on the issue with a short plan and wait for a maintainer. -->
+
+Fixes #___
