@@ -95,6 +95,14 @@ def _dotenv_language(name: str) -> LanguageId | None:
     return None
 
 
+def _is_github_actions(rel: str, name: str) -> bool:
+    """.github/workflows/*.yml and action.yml (composite and JavaScript actions)."""
+    if not name.endswith((".yml", ".yaml")):
+        return False
+    posix = "/" + Path(rel).as_posix().lower()
+    return "/.github/workflows/" in posix or name in ("action.yml", "action.yaml")
+
+
 def _is_spring_config(name: str) -> bool:
     """application.properties, application-prod.yml, ... (Spring Boot externalised config)."""
     return name.startswith("application") and name.endswith((".properties", ".yml", ".yaml"))
@@ -134,6 +142,8 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
 
     ext = path.suffix.lower()
     if ext in (".yaml", ".yml"):
+        if _is_github_actions(rel, name):
+            return "github-actions"
         if _is_ansible_yaml(rel, content):
             return "ansible"
         if _is_kubernetes_yaml(rel, content):
@@ -158,6 +168,8 @@ def discover_files(target: Path) -> list[ScannedFile]:
     def should_skip_dir(entry: Path, name: str) -> bool:
         if name in SKIP_DIRS:
             return True
+        if name == ".github":
+            return False  # workflows live in .github/workflows
         if name.startswith(".") and not _dotenv_language(name.lower()):
             return True
         # Keep android/ but skip nested Gradle build dirs
@@ -232,5 +244,6 @@ SUPPORTED_LANGUAGES = sorted(
         "dotenv-production",
         "dotenv-example",
         "spring-config",
+        "github-actions",
     }
 )

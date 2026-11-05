@@ -30,6 +30,7 @@ RULE_FILES = (
     "dart.yaml",
     "flutter.yaml",
     "other.yaml",
+    "github-actions.yaml",
     "exposed-endpoints.yaml",
 )
 

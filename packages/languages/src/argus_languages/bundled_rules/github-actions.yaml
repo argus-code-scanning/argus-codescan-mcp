@@ -1,0 +1,62 @@
+# GitHub Actions supply-chain and injection rules for .github/workflows/*.yml and action.yml
+# (scanned as the "github-actions" file type). Patterns are line-oriented: the pull_request_target
+# plus checkout combination is reported on the two lines separately, and a `run: |` block is only
+# seen line by line. `KEY: ${{ ... }}` assignments (env, with, if) are not reported as injection,
+# which is the recommended mitigation.
+
+- id: gha-action-pinned-to-branch
+  title: GitHub Action is referenced by a branch (@main, @master, ...) — the code can change under you at any time
+  severity: high
+  pattern: ^\s*-?\s*uses:\s*['"]?(?!\./|docker://)[^@\s'\"]+@(?:main|master|dev|develop|development|trunk|latest|HEAD)\b
+  fix_guidance: 'Pin the action to the full 40-character commit SHA and keep the version as a comment, for example uses: owner/repo@a284dc1814e3fd07f2e34267fc8f81227ed29fb8 # v45.'
+  languages:
+  - github-actions
+- id: gha-third-party-action-not-pinned
+  title: Third-party GitHub Action is referenced by a tag, which can be moved to malicious code (tj-actions/changed-files, CVE-2025-30066)
+  severity: medium
+  pattern: ^\s*-?\s*uses:\s*['"]?(?!actions/|github/|\./|docker://)[^@\s'\"]+@(?![0-9a-f]{40}\b)(?!(?:main|master|dev|develop|development|trunk|latest|HEAD)\b)[^\s'\"#]+
+  fix_guidance: 'Pin the action to the full 40-character commit SHA and keep the tag as a comment, for example uses: owner/repo@<40-char-sha> # v45.'
+  languages:
+  - github-actions
+- id: gha-first-party-action-not-pinned
+  title: GitHub-owned action (actions/*, github/*) is referenced by a tag instead of a commit SHA — review; lower risk than third-party actions
+  severity: low
+  pattern: ^\s*-?\s*uses:\s*['"]?(?:actions|github)/[^@\s'\"]+@(?![0-9a-f]{40}\b)(?!(?:main|master|dev|develop|development|trunk|latest|HEAD)\b)[^\s'\"#]+
+  fix_guidance: Pin to the full commit SHA with the tag as a comment if you want immutable builds, or accept the tag for GitHub-owned actions.
+  languages:
+  - github-actions
+- id: gha-docker-action-not-pinned
+  title: Docker action image is referenced by a tag instead of a digest
+  severity: low
+  pattern: ^\s*-?\s*uses:\s*['"]?docker://(?![^\s'\"#]*@sha256:)[^\s'\"#]+
+  fix_guidance: 'Pin the image digest, for example uses: docker://alpine@sha256:<digest>.'
+  languages:
+  - github-actions
+- id: gha-script-injection
+  title: Untrusted GitHub context is expanded inside a script (script injection) — anyone who can open an issue, PR or comment can run commands
+  severity: high
+  pattern: ^(?!\s*#)(?!\s*(?!run\s*:|script\s*:)[\w.-]+\s*:\s*['"]?\$\{\{).*\$\{\{[^}]*(?:github\.event\.(?:issue|pull_request|comment|review|review_comment|discussion)\.(?:title|body)|github\.event\.pull_request\.head\.(?:ref|label)|github\.head_ref|github\.event\.commits\[[^\]]*\]\.message|github\.event\.head_commit\.(?:message|author\.(?:name|email)))[^}]*\}\}
+  fix_guidance: 'Pass the value through an environment variable and use it as a shell variable, for example env: TITLE: ${{ github.event.pull_request.title }} and then "$TITLE" in the script.'
+  languages:
+  - github-actions
+- id: gha-checkout-pr-head
+  title: Workflow checks out the pull request head — dangerous when the workflow runs on pull_request_target or workflow_run (pwn request)
+  severity: medium
+  pattern: ^\s*ref\s*:\s*['"]?\$\{\{\s*github\.event\.pull_request\.head\.(?:sha|ref)\s*\}\}
+  fix_guidance: Do not check out or run untrusted PR code in a workflow that has secrets or a write token. Build in a pull_request workflow, and pass only artifacts to a privileged workflow.
+  languages:
+  - github-actions
+- id: gha-pull-request-target-trigger
+  title: 'Workflow runs on pull_request_target (secrets and a write token for fork PRs) — review: never check out or run untrusted PR code here'
+  severity: low
+  pattern: ^\s*(?:on\s*:\s*)?(?:\[[^\]]*)?\bpull_request_target\b
+  fix_guidance: Use pull_request unless the workflow must comment or label on fork PRs, set minimal permissions, and never execute code from the PR.
+  languages:
+  - github-actions
+- id: gha-permissions-write-all
+  title: Workflow grants the token write-all permissions
+  severity: medium
+  pattern: ^\s*permissions\s*:\s*write-all\b
+  fix_guidance: 'Declare the minimum permissions per job, for example permissions: contents: read, and add write scopes only where needed.'
+  languages:
+  - github-actions
