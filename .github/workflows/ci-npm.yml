@@ -49,16 +49,23 @@ jobs:
     needs: build-and-test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment: npm
+    permissions:
+      contents: read
+      id-token: write   # npm trusted publishing (OIDC) and provenance
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: https://registry.npmjs.org
 
+      # Trusted publishing needs npm >= 11.5.1. Configure it on npmjs.com
+      # (package settings -> Trusted publisher: this repo, ci-npm.yml, environment npm).
+      # An NPM_TOKEN secret still works as a fallback.
+      - run: npm install -g npm@11
       - run: npm ci
       - run: npm run build
-      - run: npm publish
+      - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
