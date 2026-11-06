@@ -96,7 +96,7 @@ JSON
   "mcpServers": {
     "argus": {
       "command": "docker",
-      "args": ["run", "--rm", "-i", "-v", "${PWD}:/workspace", "ghcr.io/okirigabriel/argus-codescan-mcp:latest"]
+      "args": ["run", "--rm", "-i", "-v", "${PWD}:/workspace", "ghcr.io/argus-code-scanning/argus-codescan-mcp:latest"]
     }
   }
 }
