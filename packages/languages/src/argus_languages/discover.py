@@ -72,7 +72,9 @@ def _is_kubernetes_yaml(rel: str, content: str) -> bool:
     lower = rel.lower()
     if any(p in lower for p in ("/k8s/", "/kubernetes/", "/manifests/")):
         return True
-    return bool(re.search(r"^\s*apiVersion:", content, re.M) and re.search(r"^\s*kind:", content, re.M))
+    return bool(
+        re.search(r"^\s*apiVersion:", content, re.M) and re.search(r"^\s*kind:", content, re.M)
+    )
 
 
 def _is_flutter_pubspec(name: str, content: str) -> bool:
@@ -114,7 +116,7 @@ def _is_generated_dart(name: str) -> bool:
 
 
 def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
-    rel = str(path.relative_to(root))
+    rel = path.relative_to(root).as_posix()
     name = path.name.lower()
 
     if _is_generated_dart(name):
@@ -122,7 +124,8 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
 
     if name == "androidmanifest.xml":
         return "flutter"
-    if name == "info.plist" and ("ios" in rel.lower() or "macos" in rel.lower() or "CFBundle" in content):
+    apple_path = "ios" in rel.lower() or "macos" in rel.lower()
+    if name == "info.plist" and (apple_path or "CFBundle" in content):
         return "flutter"
     if _is_flutter_pubspec(name, content):
         return "flutter"
@@ -204,7 +207,7 @@ def discover_files(target: Path) -> list[ScannedFile]:
             out.append(
                 ScannedFile(
                     path=entry,
-                    relative=str(entry.relative_to(root)),
+                    relative=entry.relative_to(root).as_posix(),
                     language=language,
                 )
             )

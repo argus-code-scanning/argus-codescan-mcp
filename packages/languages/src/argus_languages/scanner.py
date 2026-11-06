@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from argus_languages.discover import SUPPORTED_LANGUAGES, discover_files
-from argus_languages.models import Finding, ScanResult, Severity
+from argus_languages.models import Finding, ScanResult
 from argus_languages.rules_loader import LoadedRule, load_rules_from_dir
 
 TOOL_NAME = "argus-languages"

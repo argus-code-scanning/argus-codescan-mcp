@@ -10,7 +10,10 @@ from argus_languages import __version__, scan_directory
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="argus-languages",
-        description="Built-in multi-language security pattern scanner (Java, PHP, Terraform, Ansible, …)",
+        description=(
+            "Built-in multi-language security pattern scanner "
+            "(Java, PHP, Terraform, Ansible, …)"
+        ),
     )
     parser.add_argument("--version", action="version", version=f"argus-languages {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
