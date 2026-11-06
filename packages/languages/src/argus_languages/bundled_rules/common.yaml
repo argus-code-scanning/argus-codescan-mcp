@@ -16,9 +16,10 @@
   - scala
 
 - id: command-injection
-  title: Possible command injection — shell execution
+  title: Possible command injection — dynamic shell execution
   severity: high
-  pattern: '(os\.system|subprocess\.(call|Popen|run)|shell_exec|exec\s*\(|passthru|system\s*\(|ProcessBuilder|child_process\.exec|Runtime\.getRuntime|os/exec\.Command)'
+  pattern: >-
+    ((?:os\.(?:system|popen)\s*\([^\n)]*(?:\+|%|f["'])|subprocess\.(?:call|Popen|run)\s*\([^\n)]*(?:shell\s*=\s*True|\+|%|f["'])|child_process\.(?:exec|execSync)\s*\([^\n)]*(?:\+|`[^`]*\$\{)|Runtime\.getRuntime\(\)\.exec\s*\([^\n)]*\+|exec\.Command\(\s*["'](?:sh|bash)["']\s*,\s*["']-c["']\s*,\s*[A-Za-z_$]))
   languages: [javascript, typescript, python, java, ruby, go, csharp, kotlin, scala, perl, shell]
 
 - id: weak-crypto
