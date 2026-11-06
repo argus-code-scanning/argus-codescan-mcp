@@ -49,9 +49,9 @@ const RULES: Rule[] = [
   },
   {
     id: "command-injection",
-    title: "Possible command injection — shell execution with user input",
+    title: "Possible command injection — dynamic shell execution",
     severity: "high",
-    pattern: /(os\.system|subprocess\.(call|Popen|run)|shell_exec|exec\s*\(|passthru|system\s*\(|ProcessBuilder|child_process\.exec)/,
+    pattern: /(?:os\.(?:system|popen)\s*\([^\n)]*(?:\+|%|f["'])|subprocess\.(?:call|Popen|run)\s*\([^\n)]*(?:shell\s*=\s*True|\+|%|f["'])|child_process\.(?:exec|execSync)\s*\([^\n)]*(?:\+|`[^`]*\$\{)|Runtime\.getRuntime\(\)\.exec\s*\([^\n)]*\+|exec\.Command\(\s*["'](?:sh|bash)["']\s*,\s*["']-c["']\s*,\s*[A-Za-z_$])/,
   },
   {
     id: "xss-innerhtml",
