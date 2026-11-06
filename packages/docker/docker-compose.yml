@@ -13,7 +13,7 @@
 
 services:
   argus:
-    image: ghcr.io/okirigabriel/argus-codescan-mcp:latest
+    image: ghcr.io/argus-code-scanning/argus-codescan-mcp:latest
     build:
       context: ../..
       dockerfile: packages/docker/Dockerfile
