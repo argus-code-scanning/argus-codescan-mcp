@@ -40,22 +40,26 @@
 - id: ml-llm-api-key-hardcoded
   title: Hardcoded LLM provider API key or token
   severity: critical
+  test_context: keep  # real provider keys leak from tests too
   pattern: '(OPENAI_API_KEY|ANTHROPIC_API_KEY|HUGGINGFACE_TOKEN|HF_TOKEN|REPLICATE_API_TOKEN|COHERE_API_KEY|GOOGLE_API_KEY|GEMINI_API_KEY|MISTRAL_API_KEY|TOGETHER_API_KEY|PINECONE_API_KEY|WANDB_API_KEY|LANGCHAIN_API_KEY)\s*=\s*["''][^"'']+["'']'
   flags: [i]
 
 - id: ml-openai-key-inline
   title: Inline OpenAI API key (sk-...)
   severity: critical
+  test_context: keep  # real provider keys leak from tests too
   pattern: 'sk-proj-[a-zA-Z0-9_-]{10,}|sk-[a-zA-Z0-9]{20,}'
 
 - id: ml-anthropic-key-inline
   title: Inline Anthropic API key (sk-ant-...)
   severity: critical
+  test_context: keep  # real provider keys leak from tests too
   pattern: 'sk-ant-[a-zA-Z0-9_-]{10,}'
 
 - id: ml-huggingface-token-inline
   title: Inline Hugging Face token (hf_...)
   severity: critical
+  test_context: keep  # real provider keys leak from tests too
   pattern: 'hf_[a-zA-Z0-9]{20,}'
 
 - id: ml-gradio-public-share
@@ -103,12 +107,14 @@
 - id: ml-vertex-credentials-inline
   title: GCP Vertex / service account credentials inline in code
   severity: critical
+  test_context: keep  # real provider keys leak from tests too
   pattern: '("type"\s*:\s*"service_account"|GOOGLE_APPLICATION_CREDENTIALS\s*=\s*["''][^"'']+["''])'
   flags: [i]
 
 - id: ml-onnx-external-data
   title: ONNX model load from external/untrusted path — verify provenance
   severity: moderate
+  confidence: low
   pattern: 'onnx\.load\s*\(\s*(request\.|input\(|params\.|args\.|os\.environ)'
   flags: [i]
   languages: [python]

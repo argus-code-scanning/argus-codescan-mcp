@@ -20,6 +20,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from argus.models import counts_toward_failure
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_API_URL = "http://localhost:4000/v1"
@@ -143,7 +145,7 @@ def scan_status(report_dict: dict[str, Any], fail_on: str) -> str:
     for result in report_dict.get("results", []):
         for finding in result.get("findings", []):
             sev = finding.get("severity", "unknown")
-            if _SEV_ORDER.get(sev, 99) <= threshold:
+            if _SEV_ORDER.get(sev, 99) <= threshold and counts_toward_failure(finding):
                 return "failed"
     return "passed"
 

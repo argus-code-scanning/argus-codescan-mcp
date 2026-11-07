@@ -55,6 +55,8 @@ async def run_pci_scan(target: str) -> ScanResult:
                 or "Heuristic PCI-DSS cardholder-data pattern (static analysis — not a QSA assessment)",
                 rule_id=item.rule_id,
                 data_classification=item.data_classification,
+                confidence=getattr(item, "confidence", ""),
+                context=getattr(item, "context", ""),
                 fix_guidance=(
                     "Remove or tokenize cardholder data. Never log PANs. Never store CVV/CVC "
                     "after authorization. Send card data only over HTTPS."

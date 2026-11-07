@@ -21,6 +21,7 @@
 - id: gha-first-party-action-not-pinned
   title: GitHub-owned action (actions/*, github/*) is referenced by a tag instead of a commit SHA — review; lower risk than third-party actions
   severity: low
+  confidence: low
   pattern: ^\s*-?\s*uses:\s*['"]?(?:actions|github)/[^@\s'\"]+@(?![0-9a-f]{40}\b)(?!(?:main|master|dev|develop|development|trunk|latest|HEAD)\b)[^\s'\"#]+
   fix_guidance: Pin to the full commit SHA with the tag as a comment if you want immutable builds, or accept the tag for GitHub-owned actions.
   languages:

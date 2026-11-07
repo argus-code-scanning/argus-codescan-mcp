@@ -31,5 +31,6 @@
 - id: java-log-injection
   title: Possible log injection — user input in log statement
   severity: low
+  confidence: low
   pattern: '(logger\.(info|warn|error|debug)\s*\([^)]*\+.*request\.|log\.(info|warn|error)\s*\([^)]*\+)'
   languages: [java, kotlin]
