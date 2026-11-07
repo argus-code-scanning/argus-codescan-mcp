@@ -133,6 +133,11 @@ def build_parser() -> argparse.ArgumentParser:
             help="Exit with code 1 if findings at this severity or above are found",
         )
         p.add_argument(
+            "--fail-on-low-confidence",
+            action="store_true",
+            help="Also let low-confidence rule matches trigger --fail-on (off by default)",
+        )
+        p.add_argument(
             "--upload",
             action="store_true",
             help="Upload results to Argus cloud dashboard (requires ARGUS_API_KEY)",
@@ -454,21 +459,27 @@ def _print_table(report_dict: dict) -> None:
     print()
 
 
-def _count_failing(report_dict: dict, fail_on: str) -> int:
-    """Number of findings at or above the --fail-on threshold."""
+def _count_failing(report_dict: dict, fail_on: str, include_low_confidence: bool = False) -> int:
+    """Number of findings at or above the --fail-on threshold.
+
+    Low-confidence rule matches are left out unless include_low_confidence is set.
+    """
     if fail_on == "never":
         return 0
+    from argus.models import counts_toward_failure
+
     threshold = _SEV_ORDER.get(fail_on, 99)
     return sum(
         1
         for result in report_dict.get("results", [])
         for f in result.get("findings", [])
         if _SEV_ORDER.get(f.get("severity", "unknown"), 99) <= threshold
+        and counts_toward_failure(f, include_low_confidence)
     )
 
 
-def _should_fail(report_dict: dict, fail_on: str) -> bool:
-    return _count_failing(report_dict, fail_on) > 0
+def _should_fail(report_dict: dict, fail_on: str, include_low_confidence: bool = False) -> bool:
+    return _count_failing(report_dict, fail_on, include_low_confidence) > 0
 
 
 def _hidden_failure_message(
@@ -536,6 +547,7 @@ def _emit(
     min_sev: str,
     fail_on: str,
     classification: str | None = None,
+    include_low_confidence: bool = False,
 ) -> int:
     """Render the report and return the exit code."""
     from argus.formatters.sarif import aggregated_report_to_sarif
@@ -572,7 +584,15 @@ def _emit(
 
     # Fail against the full report so --min-severity display filtering
     # cannot hide findings that should still fail CI.
-    if not _should_fail(report_dict, fail_on):
+    if not include_low_confidence:
+        skipped = _count_failing(report_dict, fail_on, True) - _count_failing(report_dict, fail_on)
+        if skipped:
+            print(
+                f"Note: {skipped} low-confidence finding(s) at or above '{fail_on}' are shown "
+                "but do not fail the run. Add --fail-on-low-confidence to count them.",
+                file=sys.stderr,
+            )
+    if not _should_fail(report_dict, fail_on, include_low_confidence):
         return 0
     message = _hidden_failure_message(
         report_dict, by_severity, filtered, fail_on, min_sev, classification
@@ -816,7 +836,16 @@ async def _run_scan(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Cloud upload failed: {exc}", file=sys.stderr)
 
-    return _emit(report_dict, fmt, out_file, min_sev, fail_on, getattr(args, "classification", None))
+    return _emit(
+        report_dict,
+        fmt,
+        out_file,
+        min_sev,
+        fail_on,
+        getattr(args, "classification", None),
+        include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
+        or policy.fail_on_low_confidence,
+    )
 
 
 def _cmd_pr_paths(args: argparse.Namespace) -> int:
@@ -972,7 +1001,16 @@ async def _run_review(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Cloud upload failed: {exc}", file=sys.stderr)
 
-    return _emit(report_dict, fmt, out_file, min_sev, fail_on, getattr(args, "classification", None))
+    return _emit(
+        report_dict,
+        fmt,
+        out_file,
+        min_sev,
+        fail_on,
+        getattr(args, "classification", None),
+        include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
+        or policy.fail_on_low_confidence,
+    )
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:

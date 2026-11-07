@@ -44,6 +44,8 @@ async def run_native_languages(target: str) -> ScanResult:
                 description=item.description or f"Language: {item.language}",
                 rule_id=item.rule_id,
                 data_classification=item.data_classification,
+                confidence=getattr(item, "confidence", ""),
+                context=getattr(item, "context", ""),
                 fix_guidance=item.fix_guidance,
             )
         )
