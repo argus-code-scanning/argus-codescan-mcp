@@ -17,6 +17,7 @@ OPTIONS:
   --output, -o FILE           CSV report path
   --no-csv                    Skip writing CSV file
   --fail-on critical|high|moderate|low|info|never
+  --fail-on-low-confidence   Let low-confidence rule matches trigger --fail-on too
 
 The path locates the repository; review covers its changed files.
 Without --staged or --base, review compares the working tree with HEAD
@@ -37,11 +38,13 @@ export async function runReviewCli(args: string[]): Promise<number> {
   let failOn: Severity | "never" = "never";
   let csvPath: string | undefined;
   let writeCsv = true;
+  let includeLowConfidence = false;
   try {
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       if (arg === "--staged") { staged = true; continue; }
       if (arg === "--no-csv") { writeCsv = false; continue; }
+      if (arg === "--fail-on-low-confidence") { includeLowConfidence = true; continue; }
       if (["--base", "--format", "--fail-on", "--output", "-o"].includes(arg)) {
         const value = args[++i];
         if (!value || value.startsWith("-")) throw new Error(`Missing value for ${arg}.`);
@@ -63,7 +66,7 @@ export async function runReviewCli(args: string[]): Promise<number> {
     const { report, files } = await runReview(target, { staged, base });
     console.error(`Changed files scanned: ${files.length}`);
     if (files.length === 0) console.error("No changed files to review.");
-    return printScanReport(report, format, failOn, { csvPath, writeCsv });
+    return printScanReport(report, format, failOn, { csvPath, writeCsv, includeLowConfidence });
   } catch (err) {
     console.error(`Review failed: ${err instanceof Error ? err.message : String(err)}`);
     return 1;
