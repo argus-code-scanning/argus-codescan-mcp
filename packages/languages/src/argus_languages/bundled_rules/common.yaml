@@ -15,8 +15,36 @@
   title: Possible command injection — dynamic shell execution
   severity: high
   pattern: >-
-    ((?:os\.(?:system|popen)\s*\([^\n)]*(?:\+|%|f["'])|subprocess\.(?:call|Popen|run)\s*\([^\n)]*(?:shell\s*=\s*True|\+|%|f["'])|child_process\.(?:exec|execSync)\s*\([^\n)]*(?:\+|`[^`]*\$\{)|Runtime\.getRuntime\(\)\.exec\s*\([^\n)]*\+|exec\.Command\(\s*["'](?:sh|bash)["']\s*,\s*["']-c["']\s*,\s*[A-Za-z_$]))
-  languages: [javascript, typescript, python, java, ruby, go, csharp, kotlin, scala, perl, shell]
+    (?x)(?:\bos\.(?:system|popen)\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\()|f["'][^"']*\{)|\bsubprocess\.(?:call|Popen|run)\s*\((?:[\s\S]{0,300}?\bshell\s*=\s*True\b|f["']|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\())))
+  languages: [python]
+
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    (?x)(?:(?:\b(?:child_process|childProcess|cp)\.)|(?<![\w$.]))exec(?:Sync)?\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|\.format\s*\()|`[^`]{0,160}\$\{))
+  languages: [javascript, typescript]
+
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    (?x)(?:Runtime\.getRuntime\(\)\.exec\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*\+)|new\s+ProcessBuilder\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+))
+  languages: [java, kotlin, scala]
+
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    (?x)exec\.Command\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+)
+  languages: [go]
+
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    (?x)(?:Process\.Start\s*\(\s*["'](?:cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*(?:["'][^"']{0,160}["']\s*\+|[A-Za-z_$][\w$]*)|\bsystem\s*\(\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}(?:#\{|\$[A-Za-z_])|["'][^"']{0,160}["']\s*\+)|\bsystem\s+\$[A-Za-z_][\w$]*|`[^`]{0,200}(?:#\{|\$[A-Za-z_])|%x.{0,200}(?:#\{|\$[A-Za-z_])|\b(?:sh|bash|zsh)\s+-c\s+["'][^"']{0,160}\$[A-Za-z_])
+  languages: [csharp, ruby, perl, shell]
 
 - id: weak-crypto
   title: Weak cryptography (MD5/SHA1/DES/ECB)

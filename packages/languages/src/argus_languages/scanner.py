@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from bisect import bisect_right
 from pathlib import Path
 
 from argus_languages.discover import SUPPORTED_LANGUAGES, discover_files
@@ -69,26 +70,42 @@ def _scan_content(
     rules: list[LoadedRule],
 ) -> list[Finding]:
     findings: list[Finding] = []
-    for i, line in enumerate(content.splitlines(), start=1):
-        if _skip_line(line, language):
+    lines = content.splitlines()
+    for rule in rules:
+        if not _rule_applies(rule, language):
             continue
-        for rule in rules:
-            if not _rule_applies(rule, language):
-                continue
-            if rule.pattern.search(line):
-                findings.append(
-                    Finding(
-                        title=rule.title,
-                        severity=rule.severity,
-                        tool=TOOL_NAME,
-                        file=relative,
-                        line=i,
-                        rule_id=rule.id,
-                        description=f"Language: {language}",
-                        language=language,
-                        data_classification=rule.data_classification,
-                    )
+
+        if rule.id == "command-injection":
+            source = "\n".join("" if _skip_line(line, language) else line for line in lines)
+            line_starts = [0]
+            line_starts.extend(
+                index + 1 for index, character in enumerate(source) if character == "\n"
+            )
+            matching_lines = {
+                bisect_right(line_starts, match.start())
+                for match in rule.pattern.finditer(source)
+            }
+        else:
+            matching_lines = {
+                i
+                for i, line in enumerate(lines, start=1)
+                if not _skip_line(line, language) and rule.pattern.search(line)
+            }
+
+        for i in sorted(matching_lines):
+            findings.append(
+                Finding(
+                    title=rule.title,
+                    severity=rule.severity,
+                    tool=TOOL_NAME,
+                    file=relative,
+                    line=i,
+                    rule_id=rule.id,
+                    description=f"Language: {language}",
+                    language=language,
+                    data_classification=rule.data_classification,
                 )
+            )
     return findings
 
 

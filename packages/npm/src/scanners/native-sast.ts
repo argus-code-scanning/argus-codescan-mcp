@@ -15,7 +15,8 @@ const SKIP_DIRS = new Set([
 const EXT_LANG: Record<string, string> = {
   ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
   ".py": "python", ".java": "java", ".php": "php", ".go": "go", ".rb": "ruby",
-  ".cs": "csharp", ".kt": "kotlin", ".swift": "swift",
+  ".cs": "csharp", ".kt": "kotlin", ".swift": "swift", ".pl": "perl",
+  ".sh": "shell", ".bash": "shell", ".zsh": "shell",
 };
 
 interface Rule {
@@ -51,7 +52,36 @@ const RULES: Rule[] = [
     id: "command-injection",
     title: "Possible command injection — dynamic shell execution",
     severity: "high",
-    pattern: /(?:os\.(?:system|popen)\s*\([^\n)]*(?:\+|%|f["'])|subprocess\.(?:call|Popen|run)\s*\([^\n)]*(?:shell\s*=\s*True|\+|%|f["'])|child_process\.(?:exec|execSync)\s*\([^\n)]*(?:\+|`[^`]*\$\{)|Runtime\.getRuntime\(\)\.exec\s*\([^\n)]*\+|exec\.Command\(\s*["'](?:sh|bash)["']\s*,\s*["']-c["']\s*,\s*[A-Za-z_$])/,
+    pattern: /\bos\.(?:system|popen)\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\()|f["'][^"']*\{)|\bsubprocess\.(?:call|Popen|run)\s*\((?:[\s\S]{0,300}?\bshell\s*=\s*True\b|f["']|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\()))/,
+    languages: ["python"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /(?:(?:\b(?:child_process|childProcess|cp)\.)|(?<![\w$.]))exec(?:Sync)?\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|\.format\s*\()|`[^`]{0,160}\$\{)/,
+    languages: ["javascript", "typescript"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /(?:Runtime\.getRuntime\(\)\.exec\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*\+)|new\s+ProcessBuilder\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|\/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+))/,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /exec\.Command\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|\/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+)/,
+    languages: ["go"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /(?:Process\.Start\s*\(\s*["'](?:cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*(?:["'][^"']{0,160}["']\s*\+|[A-Za-z_$][\w$]*)|\bsystem\s*\(\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}(?:#\{|\$[A-Za-z_])|["'][^"']{0,160}["']\s*\+)|\bsystem\s+\$[A-Za-z_][\w$]*|`[^`]{0,200}(?:#\{|\$[A-Za-z_])|%x.{0,200}(?:#\{|\$[A-Za-z_])|\b(?:sh|bash|zsh)\s+-c\s+["'][^"']{0,160}\$[A-Za-z_])/,
+    languages: ["csharp", "ruby", "perl", "shell"],
   },
   {
     id: "xss-innerhtml",
@@ -176,14 +206,44 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
       continue;
     }
     const lines = content.split("\n");
+    const scanSource = lines.map((line) =>
+      line.trim().startsWith("//") || line.trim().startsWith("#") ? "" : line,
+    ).join("\n");
     const rel = relative(lstatSync(target).isDirectory() ? target : dirname(target), file);
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.trim().startsWith("//") || line.trim().startsWith("#")) continue;
+    for (const rule of RULES) {
+      if (rule.languages && !rule.languages.includes(lang)) continue;
 
-      for (const rule of RULES) {
-        if (rule.languages && !rule.languages.includes(lang)) continue;
+      if (rule.id === "command-injection") {
+        const globalPattern = new RegExp(rule.pattern.source, `${rule.pattern.flags}g`);
+        const matchedLines = new Set<number>();
+        let sourceOffset = 0;
+        let lineNumber = 1;
+        for (const match of scanSource.matchAll(globalPattern)) {
+          const index = match.index ?? 0;
+          while (sourceOffset < index) {
+            if (scanSource[sourceOffset] === "\n") lineNumber++;
+            sourceOffset++;
+          }
+          matchedLines.add(lineNumber);
+        }
+        for (const lineNumber of matchedLines) {
+          result.findings.push({
+            title: rule.title,
+            severity: rule.severity,
+            tool: "argus-native",
+            file: rel,
+            line: lineNumber,
+            ruleId: rule.id,
+            description: `Language: ${lang}`,
+          });
+        }
+        continue;
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim().startsWith("//") || line.trim().startsWith("#")) continue;
         if (rule.pattern.test(line)) {
           result.findings.push({
             title: rule.title,
