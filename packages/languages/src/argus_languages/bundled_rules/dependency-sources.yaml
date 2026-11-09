@@ -1,0 +1,24 @@
+# Structured manifest checks: patterns match a parsed source's risk category,
+# not arbitrary text. This avoids flagging package metadata and homepage URLs.
+- id: dependency-http-source
+  title: Dependency fetched over plain HTTP
+  severity: high
+  pattern: 'http'
+  languages: [dependency-source]
+  confidence: high
+  fix_guidance: Use a trusted registry or an HTTPS source with verified integrity.
+
+- id: dependency-https-archive
+  title: Dependency fetched from a remote HTTPS archive
+  severity: medium
+  pattern: 'https'
+  languages: [dependency-source]
+  fix_guidance: Review the publisher and source, and lock the archive with an integrity hash.
+
+- id: dependency-unpinned-git
+  title: Git dependency is not pinned to an immutable commit
+  severity: low
+  pattern: 'git-unpinned'
+  languages: [dependency-source]
+  confidence: high
+  fix_guidance: Pin the Git source to a full commit hash rather than a branch or tag.
