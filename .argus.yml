@@ -1,0 +1,13 @@
+# Test fixtures intentionally include suspicious samples for the triage tests.
+exclude_paths:
+  - "**/tests/**"
+  - "**/test_*.py"
+  - "**/fixtures/**"
+
+# This call invokes git with a fixed executable and an argv list; it does not
+# construct or execute a shell command. Keep the exception narrow and review it.
+suppressions:
+  - rule_id: command-injection
+    path: "packages/python/src/argus/tools/malware.py"
+    reason: "Git is invoked with a fixed executable and argv list; shell execution is disabled."
+    expires: "2027-01-31"

@@ -84,7 +84,7 @@ jobs:
         if: always() && hashFiles('argus-results/sast.sarif') != ''
         with:
           sarif_file: argus-results/sast.sarif
-          category: argus-sast
+          category: argus
 
       - name: Upload secrets SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
