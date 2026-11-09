@@ -74,7 +74,7 @@ For Cursor MCP with Podman, use `"command": "podman"` in `~/.cursor/mcp.json` in
 ## Pull
 
 ```bash
-docker pull ghcr.io/okirigabriel/argus-codescan-mcp:latest
+docker pull ghcr.io/argus-code-scanning/argus-codescan-mcp:latest
 ```
 
 ## Build Locally
@@ -120,7 +120,7 @@ Add to your MCP client config (`~/.cursor/mcp.json`):
       "args": [
         "run", "--rm", "-i",
         "-v", "${workspaceFolder}:/workspace",
-        "ghcr.io/okirigabriel/argus-codescan-mcp:latest"
+        "ghcr.io/argus-code-scanning/argus-codescan-mcp:latest"
       ]
     }
   }
@@ -135,22 +135,22 @@ The same image works as a one-shot scanner. Mount your project at `/workspace` a
 
 ```bash
 # List installed scanners
-docker run --rm ghcr.io/okirigabriel/argus-codescan-mcp tools
+docker run --rm ghcr.io/argus-code-scanning/argus-codescan-mcp tools
 
 # Full security audit
-docker run --rm -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp \
+docker run --rm -v "$(pwd):/workspace" ghcr.io/argus-code-scanning/argus-codescan-mcp \
   scan all /workspace
 
 # SAST only
-docker run --rm -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp \
+docker run --rm -v "$(pwd):/workspace" ghcr.io/argus-code-scanning/argus-codescan-mcp \
   scan sast /workspace
 
 # Terraform / IaC
-docker run --rm -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp \
+docker run --rm -v "$(pwd):/workspace" ghcr.io/argus-code-scanning/argus-codescan-mcp \
   scan terraform /workspace
 
 # Fail CI on high+ findings
-docker run --rm -v "$(pwd):/workspace" ghcr.io/okirigabriel/argus-codescan-mcp \
+docker run --rm -v "$(pwd):/workspace" ghcr.io/argus-code-scanning/argus-codescan-mcp \
   scan all /workspace --fail-on high
 ```
 
@@ -192,7 +192,7 @@ Nikto is bundled and works inside the container. For ZAP, pick one:
   run: |
     docker run --rm \
       -v "${{ github.workspace }}:/workspace" \
-      ghcr.io/okirigabriel/argus-codescan-mcp:latest \
+      ghcr.io/argus-code-scanning/argus-codescan-mcp:latest \
       scan all /workspace --fail-on high --format json --output /workspace/argus-report.json
 ```
 

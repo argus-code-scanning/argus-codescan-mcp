@@ -30,6 +30,7 @@ RULE_FILES = (
     "dart.yaml",
     "flutter.yaml",
     "other.yaml",
+    "github-actions.yaml",
     "exposed-endpoints.yaml",
 )
 
@@ -44,6 +45,18 @@ class LoadedRule:
     exclude_languages: list[str] | None = None
     data_classification: str = "unset"
     fix_guidance: str = ""
+    confidence: str = "medium"
+    # Lower the severity one level for matches in tests, docs, examples and generated files.
+    context_sensitive: bool = True
+    # Honour `argus-ignore` comments in the scanned code.
+    allow_inline_ignore: bool = True
+
+
+CONFIDENCE_LEVELS = ("high", "medium", "low")
+
+# Malware rules look at code that may be hostile: the author of that code must not be
+# able to silence them with a comment or by putting the payload under tests/.
+_UNTRUSTED_SOURCE_FILES = frozenset({"malware.yaml"})
 
 
 def _compile_pattern(raw: str, flags: list[str] | None) -> re.Pattern[str]:
@@ -56,13 +69,20 @@ def _compile_pattern(raw: str, flags: list[str] | None) -> re.Pattern[str]:
     return re.compile(raw, flag_bits)
 
 
-def _parse_yaml_rules(data: Any) -> list[LoadedRule]:
+def _parse_yaml_rules(data: Any, source: str = "") -> list[LoadedRule]:
     if not isinstance(data, list):
         return []
+    hostile = source in _UNTRUSTED_SOURCE_FILES
     out: list[LoadedRule] = []
     for item in data:
         if not isinstance(item, dict):
             continue
+        confidence = str(item.get("confidence", "medium")).lower()
+        if confidence not in CONFIDENCE_LEVELS:
+            raise ValueError(
+                f"Rule {item.get('id')!r}: confidence must be one of {CONFIDENCE_LEVELS}, "
+                f"got {confidence!r}"
+            )
         out.append(
             LoadedRule(
                 id=str(item["id"]),
@@ -77,6 +97,11 @@ def _parse_yaml_rules(data: Any) -> list[LoadedRule]:
                 ),
                 data_classification=str(item.get("classification", "unset")).lower(),
                 fix_guidance=str(item.get("fix_guidance", "")).strip(),
+                confidence=confidence,
+                context_sensitive=(
+                    False if hostile else str(item.get("test_context", "downgrade")) != "keep"
+                ),
+                allow_inline_ignore=False if hostile else bool(item.get("inline_ignore", True)),
             )
         )
     return out
@@ -87,7 +112,7 @@ def load_rules_from_dir(rules_dir: Path | None = None) -> list[LoadedRule]:
     if rules_dir is not None:
         for path in sorted(rules_dir.glob("*.y*ml")):
             data = yaml.safe_load(path.read_text(encoding="utf-8"))
-            rules.extend(_parse_yaml_rules(data))
+            rules.extend(_parse_yaml_rules(data, path.name))
         return rules
 
     base = resources.files("argus_languages").joinpath("bundled_rules")
@@ -97,7 +122,7 @@ def load_rules_from_dir(rules_dir: Path | None = None) -> list[LoadedRule]:
             text = resource.read_text(encoding="utf-8")
         except (FileNotFoundError, OSError, AttributeError):
             continue
-        rules.extend(_parse_yaml_rules(yaml.safe_load(text)))
+        rules.extend(_parse_yaml_rules(yaml.safe_load(text), name))
     return rules
 
 
@@ -111,5 +136,5 @@ def load_rules_from_files(names: tuple[str, ...]) -> list[LoadedRule]:
             text = resource.read_text(encoding="utf-8")
         except (FileNotFoundError, OSError, AttributeError):
             continue
-        rules.extend(_parse_yaml_rules(yaml.safe_load(text)))
+        rules.extend(_parse_yaml_rules(yaml.safe_load(text), name))
     return rules

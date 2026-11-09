@@ -21,12 +21,14 @@
 - id: db-django-raw-query
   title: Django raw() or extra() with string formatting
   severity: high
+  confidence: low
   pattern: '(\.raw\s*\(|\.extra\s*\(|RawSQL\s*\()'
   languages: [python]
 
 - id: db-prisma-raw-query
   title: Prisma $queryRaw / $executeRaw — verify parameterization
   severity: moderate
+  confidence: low
   pattern: '\$(queryRaw|executeRaw)\s*\('
   languages: [javascript, typescript]
 
@@ -40,6 +42,7 @@
 - id: db-knex-raw
   title: Knex raw() query — verify parameterization
   severity: moderate
+  confidence: low
   pattern: '\.raw\s*\(\s*[`"'']'
   languages: [javascript, typescript]
 
@@ -52,6 +55,7 @@
 - id: db-entity-framework-raw
   title: Entity Framework raw SQL — verify parameterization
   severity: moderate
+  confidence: low
   pattern: '(FromSqlRaw|ExecuteSqlRaw|SqlQuery)\s*\('
   languages: [csharp]
 

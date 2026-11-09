@@ -16,6 +16,7 @@
 - id: ruby-rails-skip-authentication-some-actions
   title: "Rails skips authentication for some actions (only:/except:) — review: are they meant to be public?"
   severity: medium
+  confidence: low
   pattern: '^(?!\s*#).*\bskip_before_(action|filter)\s+:authenticate_\w+!?.*\b(only|except)\s*:'
   languages: [ruby]
   fix_guidance: >-
@@ -34,6 +35,7 @@
 - id: ruby-rails-csrf-null-session
   title: "protect_from_forgery with null_session — fine for API controllers, review it in controllers that use cookies"
   severity: low
+  confidence: low
   pattern: '^(?!\s*#).*\bprotect_from_forgery\b.*:null_session\b'
   languages: [ruby]
   fix_guidance: >-
@@ -61,6 +63,7 @@
 - id: js-nestjs-public-decorator
   title: "NestJS @Public() / @SkipAuth() opens this controller or handler to everyone — review: is it meant to be public?"
   severity: low
+  confidence: low
   pattern: '^(?!\s*(import\b|//)).*@(Public|SkipAuth)\(\)'
   languages: [typescript, javascript]
   fix_guidance: >-

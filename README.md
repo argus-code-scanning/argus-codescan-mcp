@@ -177,6 +177,24 @@ suppressions:
 
 Argus auto-discovers `.argus.yml` when scanning. Override with `--policy path/to/.argus.yml`.
 
+### Cutting false positives
+
+The built-in rule packs match code line by line, so some matches are not real issues. Argus reduces the noise in three ways:
+
+- **Ignore one finding in the code.** Put `argus-ignore` in a comment on the line, or on the line just above it. A reason is required. Without one, the finding stays and says why.
+
+  ```python
+  conn.execute(text(QUERY))  # argus-ignore[python-sql-string-build]: QUERY is a module constant
+  # argus-ignore: placeholder, replaced at deploy time
+  password = "changeme"
+  ```
+
+  `argus-ignore[rule-a, rule-b]: reason` covers only those rules; `argus-ignore: reason` covers every rule on that line. Suppressed findings are listed in the report metadata (`suppressed`, `suppressed_count`). For whole files or folders, use `suppressions` in `.argus.yml`.
+- **Tests, docs and generated files count less.** Findings under `tests/`, `__tests__/`, `fixtures/`, `testdata/`, `docs/`, `examples/` and the like, in test files (`test_*.py`, `*_test.go`, `*.spec.ts`, `*Test.java`, …) and in minified bundles (`*.min.js`, `*.bundle.js`) are lowered one severity level and tagged `context: test`, `docs` or `generated`. Real provider keys are not lowered, because they leak from tests too.
+- **Rule confidence.** Rules that flag a risky API without evidence of untrusted input (for example `knex.raw()`, `[AllowAnonymous]`, `unsafe {}`) are `confidence: low`. They are still reported, but do not trigger `--fail-on` unless you pass `--fail-on-low-confidence` or set `fail_on_low_confidence: true` in `.argus.yml`.
+
+Malware rules are exempt from all three: code under review must not be able to hide itself with a comment or by sitting in a `tests/` folder.
+
 ### Baseline diff (PR-only new findings)
 
 ```bash

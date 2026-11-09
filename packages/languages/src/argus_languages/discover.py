@@ -72,7 +72,9 @@ def _is_kubernetes_yaml(rel: str, content: str) -> bool:
     lower = rel.lower()
     if any(p in lower for p in ("/k8s/", "/kubernetes/", "/manifests/")):
         return True
-    return bool(re.search(r"^\s*apiVersion:", content, re.M) and re.search(r"^\s*kind:", content, re.M))
+    return bool(
+        re.search(r"^\s*apiVersion:", content, re.M) and re.search(r"^\s*kind:", content, re.M)
+    )
 
 
 def _is_flutter_pubspec(name: str, content: str) -> bool:
@@ -95,6 +97,14 @@ def _dotenv_language(name: str) -> LanguageId | None:
     return None
 
 
+def _is_github_actions(rel: str, name: str) -> bool:
+    """.github/workflows/*.yml and action.yml (composite and JavaScript actions)."""
+    if not name.endswith((".yml", ".yaml")):
+        return False
+    posix = "/" + Path(rel).as_posix().lower()
+    return "/.github/workflows/" in posix or name in ("action.yml", "action.yaml")
+
+
 def _is_spring_config(name: str) -> bool:
     """application.properties, application-prod.yml, ... (Spring Boot externalised config)."""
     return name.startswith("application") and name.endswith((".properties", ".yml", ".yaml"))
@@ -106,7 +116,7 @@ def _is_generated_dart(name: str) -> bool:
 
 
 def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
-    rel = str(path.relative_to(root))
+    rel = path.relative_to(root).as_posix()
     name = path.name.lower()
 
     if _is_generated_dart(name):
@@ -114,7 +124,8 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
 
     if name == "androidmanifest.xml":
         return "flutter"
-    if name == "info.plist" and ("ios" in rel.lower() or "macos" in rel.lower() or "CFBundle" in content):
+    apple_path = "ios" in rel.lower() or "macos" in rel.lower()
+    if name == "info.plist" and (apple_path or "CFBundle" in content):
         return "flutter"
     if _is_flutter_pubspec(name, content):
         return "flutter"
@@ -134,6 +145,8 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
 
     ext = path.suffix.lower()
     if ext in (".yaml", ".yml"):
+        if _is_github_actions(rel, name):
+            return "github-actions"
         if _is_ansible_yaml(rel, content):
             return "ansible"
         if _is_kubernetes_yaml(rel, content):
@@ -158,6 +171,8 @@ def discover_files(target: Path) -> list[ScannedFile]:
     def should_skip_dir(entry: Path, name: str) -> bool:
         if name in SKIP_DIRS:
             return True
+        if name == ".github":
+            return False  # workflows live in .github/workflows
         if name.startswith(".") and not _dotenv_language(name.lower()):
             return True
         # Keep android/ but skip nested Gradle build dirs
@@ -192,7 +207,7 @@ def discover_files(target: Path) -> list[ScannedFile]:
             out.append(
                 ScannedFile(
                     path=entry,
-                    relative=str(entry.relative_to(root)),
+                    relative=entry.relative_to(root).as_posix(),
                     language=language,
                 )
             )
@@ -232,5 +247,6 @@ SUPPORTED_LANGUAGES = sorted(
         "dotenv-production",
         "dotenv-example",
         "spring-config",
+        "github-actions",
     }
 )

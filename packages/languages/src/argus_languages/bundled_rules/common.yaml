@@ -15,9 +15,11 @@
   - csharp
   - scala
 
+# Low confidence until the pattern is narrowed to shell execution with dynamic input (#109).
 - id: command-injection
   title: Possible command injection — shell execution
   severity: high
+  confidence: low
   pattern: '(os\.system|subprocess\.(call|Popen|run)|shell_exec|exec\s*\(|passthru|system\s*\(|ProcessBuilder|child_process\.exec|Runtime\.getRuntime|os/exec\.Command)'
   languages: [javascript, typescript, python, java, ruby, go, csharp, kotlin, scala, perl, shell]
 

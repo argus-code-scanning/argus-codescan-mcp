@@ -5,7 +5,15 @@
 
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, extname, join, relative } from "node:path";
-import type { Finding, ScanResult, Severity } from "./types.js";
+import {
+  IGNORE_HINT,
+  type IgnoreMarker,
+  downgrade,
+  markerCovers,
+  parseIgnore,
+  pathContext,
+} from "./noise.js";
+import type { Confidence, Finding, ScanResult, Severity } from "./types.js";
 
 const SKIP_DIRS = new Set([
   "node_modules", ".git", "dist", "build", ".next", "coverage", "vendor",
@@ -24,6 +32,8 @@ interface Rule {
   severity: Severity;
   pattern: RegExp;
   languages?: string[];
+  /** Default "medium". "low" = risky API without evidence of untrusted input. */
+  confidence?: Confidence;
 }
 
 const RULES: Rule[] = [
@@ -31,7 +41,8 @@ const RULES: Rule[] = [
     id: "injection-eval",
     title: "Dynamic code execution (eval/exec) — injection risk",
     severity: "high",
-    pattern: /\beval\s*\(|\bexec\s*\(|\bFunction\s*\(|Runtime\.getRuntime\(\)\.exec/,
+    // `.exec(` is a method call (RegExp#exec, db.exec), not eval-style execution.
+    pattern: /\beval\s*\(|(?<![.\w])exec\s*\(|\bFunction\s*\(|Runtime\.getRuntime\(\)\.exec/,
   },
   {
     id: "sql-concat",
@@ -52,6 +63,8 @@ const RULES: Rule[] = [
     title: "Possible command injection — shell execution with user input",
     severity: "high",
     pattern: /(os\.system|subprocess\.(call|Popen|run)|shell_exec|exec\s*\(|passthru|system\s*\(|ProcessBuilder|child_process\.exec)/,
+    // Matches any process API; low until narrowed to shell execution with input (#109).
+    confidence: "low",
   },
   {
     id: "xss-innerhtml",
@@ -177,24 +190,47 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
     }
     const lines = content.split("\n");
     const rel = relative(lstatSync(target).isDirectory() ? target : dirname(target), file);
+    const context = pathContext(rel);
+    let pending: IgnoreMarker | undefined; // from a comment-only line just above
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (line.trim().startsWith("//") || line.trim().startsWith("#")) continue;
+      const trimmed = line.trim();
+      if (trimmed.startsWith("//") || trimmed.startsWith("#")) {
+        pending = parseIgnore(line);
+        continue;
+      }
+      const marker = parseIgnore(line) ?? pending;
+      pending = undefined;
 
       for (const rule of RULES) {
         if (rule.languages && !rule.languages.includes(lang)) continue;
-        if (rule.pattern.test(line)) {
-          result.findings.push({
-            title: rule.title,
-            severity: rule.severity,
-            tool: "argus-native",
-            file: rel,
-            line: i + 1,
-            ruleId: rule.id,
-            description: `Language: ${lang}`,
-          });
+        if (!rule.pattern.test(line)) continue;
+        let description = `Language: ${lang}`;
+        if (marker && markerCovers(marker, rule.id)) {
+          if (marker.reason) {
+            (result.suppressed ??= []).push({
+              ruleId: rule.id,
+              file: rel,
+              line: i + 1,
+              reason: marker.reason,
+            });
+            continue;
+          }
+          description += IGNORE_HINT(rule.id);
         }
+        const finding: Finding = {
+          title: rule.title,
+          severity: context ? downgrade(rule.severity) : rule.severity,
+          tool: "argus-native",
+          file: rel,
+          line: i + 1,
+          ruleId: rule.id,
+          description,
+          confidence: rule.confidence ?? "medium",
+        };
+        if (context) finding.context = context;
+        result.findings.push(finding);
       }
     }
   }

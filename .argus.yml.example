@@ -8,6 +8,9 @@ fail_on: high
 # Only show findings at or above this severity
 min_severity: low
 
+# Let low-confidence rule matches (e.g. knex.raw(), [AllowAnonymous]) trigger fail_on too
+# fail_on_low_confidence: false
+
 # Fail only on findings not present in baseline (requires baseline file)
 # fail_on_new_only: true
 # baseline: .argus/baseline.json
