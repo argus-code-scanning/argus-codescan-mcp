@@ -101,6 +101,7 @@
 - id: rust-unsafe-block
   title: Unsafe Rust block — review memory safety
   severity: low
+  confidence: low
   pattern: '\bunsafe\s*\{'
   languages: [rust]
 

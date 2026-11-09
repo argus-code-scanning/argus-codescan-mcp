@@ -3,6 +3,7 @@ name: VS Code Extension CI
 on:
   push:
     branches: [main, dev]
+    tags: ['v*']
     paths:
       - 'extensions/vscode/**'
       - '.github/workflows/ci-vscode.yml'
@@ -49,6 +50,8 @@ jobs:
     needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment: vscode-marketplace
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,6 +59,11 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run build
-      - run: npx vsce publish
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish --no-dependencies
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      # Cursor, VSCodium and Windsurf install from Open VSX. Skipped until OVSX_PAT is set.
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx@0.10.1 publish --no-dependencies -p "$OVSX_PAT"

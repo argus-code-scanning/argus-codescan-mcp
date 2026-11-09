@@ -26,8 +26,25 @@ See [AGENT-UPLOAD.md](AGENT-UPLOAD.md) for cloud upload env vars and behavior.
 ## Scan artifacts on disk
 
 - CLI `-o report.json` writes files where you specify.
-- Temp files may be created by subprocess scanners; see your OS temp directory.
-- Planned: `--no-persist` and retention policy ([#60](https://github.com/argus-code-scanning/argus-codescan-mcp/issues/60)).
+- During a scan, Argus and the scanners it runs write temp files (for example the raw gitleaks report, which contains the secret values). Argus deletes its own; external scanners don't always clean up theirs, and by default both go to the shared system temp directory.
+
+Two `argus scan …` / `argus review` flags control this:
+
+| Flag | Effect |
+|------|--------|
+| `--no-persist` | Leave nothing on disk: the report goes to stdout only (`--output` is rejected), and all temp files from Argus **and** the scanners it launches go to a private `0700` directory that is deleted when the run ends, even if a scanner fails. |
+| `--artifacts-dir DIR` | Put that private run directory under `DIR` (for example an encrypted volume) instead of the system temp directory. Can be used on its own to keep `-o` output while still cleaning up temp files. |
+
+This works by pointing `TMPDIR`/`TMP`/`TEMP` at the run directory, which scanners inherit. Caches that tools keep in your home directory (for example Trivy's vulnerability database or Semgrep's rule cache) are not affected.
+
+**CI best practices**
+
+- Prefer ephemeral runners (GitHub-hosted, autoscaled containers): nothing survives the job.
+- On self-hosted or shared runners, use `--no-persist`, or `--artifacts-dir "$RUNNER_TEMP"` when you need `-o` for a SARIF upload.
+- Upload SARIF/JSON reports as short-lived artifacts (`retention-days`) rather than committing them.
+- Keep `ARGUS_API_KEY` in CI secrets so it is masked in logs.
+
+Retention policies in `.argus.yml` are planned ([#60](https://github.com/argus-code-scanning/argus-codescan-mcp/issues/60), [#54](https://github.com/argus-code-scanning/argus-codescan-mcp/issues/54)).
 
 ## Secrets and PII in reports
 

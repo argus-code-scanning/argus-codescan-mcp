@@ -1,0 +1,54 @@
+# SQL built from strings. A rule fires only on a SQL statement shape (SELECT ... FROM,
+# INSERT INTO, UPDATE ... SET, DELETE FROM) where a variable lands in a value position (after
+# =, <, >, LIKE, IN (, VALUES () through formatting, interpolation or concatenation.
+# Parameterised queries (execute("... = %s", (x,)), query("... = $1", [x])) and table or column
+# names built from variables are not flagged. Patterns are line-oriented.
+# Ruby, C# and Scala keep the generic sql-concat id (see common.yaml), now with the same shape check.
+
+- id: python-sql-string-build
+  title: Possible SQL injection — variable formatted or concatenated into a SQL value
+  severity: high
+  pattern: (\bf"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*\{|\bf'[^']*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^']*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*["(%]*\{|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*%s[^"]*"\s*%\s*[\w(\[]|'[^']*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^']*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*["(%]*%s[^']*'\s*%\s*[\w(\[]|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*\{[^}]*\}[^"]*"\s*\.format\(|'[^']*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^']*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*["(%]*\{[^}]*\}[^']*'\s*\.format\(|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(]|'[^']*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^']*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*["(%]*'\s*\+\s*[\w(])
+  flags:
+  - i
+  languages:
+  - python
+  fix_guidance: 'Pass values as parameters instead of building the string, for example cursor.execute("... WHERE id = %s", (user_id,)) or session.execute(text("... WHERE id = :id"), {"id": user_id}).'
+- id: js-sql-string-build
+  title: Possible SQL injection — variable interpolated or concatenated into a SQL value
+  severity: high
+  pattern: ((?<![\w$])`[^`]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^`]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*[\'"(%]*\$\{|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(]|'[^']*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^']*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*["(%]*'\s*\+\s*[\w(])
+  flags:
+  - i
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: Use placeholders and pass the values separately, for example db.query("... WHERE id = $1", [id]) or a tagged-template client such as sql`... WHERE id = ${id}`, which parameterises automatically.
+- id: java-sql-string-build
+  title: Possible SQL injection — variable concatenated or formatted into a SQL value
+  severity: high
+  pattern: ("[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(]|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*%[sd][^"]*"\s*\.formatted\(|\bString\.format\(\s*"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*%[sd])
+  flags:
+  - i
+  languages:
+  - java
+  - kotlin
+  fix_guidance: Use a PreparedStatement with ? placeholders and set the values with setString / setInt, or named parameters in JPA / JdbcTemplate.
+- id: kotlin-sql-string-template
+  title: Possible SQL injection — variable interpolated into a SQL value with a string template
+  severity: high
+  pattern: '"[^"]*?(?:SELECT\b[^"\''`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\''`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*[''(%]*\$\{?[A-Za-z_]'
+  flags:
+  - i
+  languages:
+  - kotlin
+  fix_guidance: Use a prepared statement with ? placeholders (or named parameters) instead of $variable inside the SQL string.
+- id: go-sql-string-build
+  title: Possible SQL injection — variable formatted or concatenated into a SQL value
+  severity: high
+  pattern: (\bSprintf\(\s*"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*%[sdvq]|\bSprintf\(\s*`[^`]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^`]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(]*%[sdvq]|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(]|`[^`]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^`]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*`\s*\+\s*[\w(])
+  flags:
+  - i
+  languages:
+  - go
+  fix_guidance: Use placeholders and pass the values as arguments, for example db.Query("... WHERE id = $1", id) (or ? for MySQL), never fmt.Sprintf or + into the SQL string.

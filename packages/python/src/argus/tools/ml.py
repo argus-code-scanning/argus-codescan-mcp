@@ -48,6 +48,8 @@ async def run_ml_scan(target: str) -> ScanResult:
                 description=item.description or f"Language: {item.language}",
                 rule_id=item.rule_id,
                 data_classification=item.data_classification,
+                confidence=getattr(item, "confidence", ""),
+                context=getattr(item, "context", ""),
             )
         )
 

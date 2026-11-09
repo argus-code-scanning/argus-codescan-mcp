@@ -35,6 +35,12 @@ class Finding:
     description: str = ""
     language: str = ""
     data_classification: str = "unset"
+    fix_guidance: str = ""
+    # How likely a match is a real issue: "high", "medium" or "low" (see rules_loader).
+    confidence: str = "medium"
+    # "" for normal source, or "test" / "docs" / "generated" when the path suggests the
+    # code does not ship (the severity has then been lowered one level).
+    context: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         sev = self.severity.value
@@ -50,6 +56,9 @@ class Finding:
             "description": self.description,
             "language": self.language,
             "data_classification": self.data_classification,
+            "fix_guidance": self.fix_guidance,
+            "confidence": self.confidence,
+            "context": self.context,
         }
 
 

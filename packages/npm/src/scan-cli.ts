@@ -27,6 +27,12 @@ OPTIONS:
   --output, -o FILE           CSV file path (default: argus-<type>-<timestamp>.csv in cwd)
   --no-csv                    Skip writing CSV file
   --fail-on critical|high|moderate
+  --fail-on-low-confidence    Let low-confidence rule matches trigger --fail-on too
+
+FALSE POSITIVES:
+  Add  // argus-ignore[rule-id]: reason  on the line (or the line above) to silence
+  one finding. Findings in tests/, fixtures/, docs/, examples/ and *.min.js are
+  lowered one severity level.
 
 EXAMPLES:
   argus-codescan scan all .
@@ -41,11 +47,13 @@ function parseScanArgs(args: string[]): {
   target: string;
   csvPath?: string;
   writeCsv: boolean;
+  includeLowConfidence: boolean;
 } {
   let format: "json" | "table" | "csv" = "table";
   let failOn: Severity | "never" = "never";
   let csvPath: string | undefined;
   let writeCsv = true;
+  let includeLowConfidence = false;
   const positional: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -56,6 +64,8 @@ function parseScanArgs(args: string[]): {
       csvPath = resolve(args[++i]);
     } else if (arg === "--no-csv") {
       writeCsv = false;
+    } else if (arg === "--fail-on-low-confidence") {
+      includeLowConfidence = true;
     } else if (arg === "--fail-on" && args[i + 1]) {
       failOn = args[++i] as Severity | "never";
     } else if (!arg.startsWith("-")) {
@@ -63,7 +73,14 @@ function parseScanArgs(args: string[]): {
     }
   }
 
-  return { format, failOn, target: resolve(positional[0] ?? "."), csvPath, writeCsv };
+  return {
+    format,
+    failOn,
+    target: resolve(positional[0] ?? "."),
+    csvPath,
+    writeCsv,
+    includeLowConfidence,
+  };
 }
 
 export async function runScanCli(args: string[]): Promise<number> {
@@ -77,13 +94,17 @@ export async function runScanCli(args: string[]): Promise<number> {
   }
 
   const scanType = args[0];
-  const { format, failOn, target, csvPath, writeCsv } = parseScanArgs(args.slice(1));
-  const reportOpts = { csvPath, writeCsv };
+  const { format, failOn, target, csvPath, writeCsv, includeLowConfidence } = parseScanArgs(
+    args.slice(1),
+  );
+  const reportOpts = { csvPath, writeCsv, includeLowConfidence };
 
   if (scanType === "sca") {
     console.error(`Running SCA scan (npm audit) on: ${target}`);
     const scaResult = await runNpmAuditSca(target);
-    if (scaResult.errors.length > 0 && scaResult.findings.length === 0) {
+    // Fatal only when no project could be audited; skipped packages without a
+    // lockfile are listed as notes in the report.
+    if (scaResult.findings.length === 0 && !scaResult.projects?.length) {
       for (const err of scaResult.errors) console.error(`Error: ${err}`);
       return 1;
     }

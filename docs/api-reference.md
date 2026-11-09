@@ -505,6 +505,15 @@ argus scan sast . --paths-file scan-paths.txt --format sarif -o sast.sarif
 argus scan secrets . --paths-file scan-paths.txt --format sarif -o secrets.sarif
 ```
 
+### Temp files and `--no-persist`
+
+`argus scan …` and `argus review` accept `--no-persist` (report to stdout only; `--output` is rejected) and `--artifacts-dir DIR`. Either one keeps the temp files of Argus and of every scanner it launches in a private `0700` directory, which is deleted after the run. See [privacy-and-data.md](privacy-and-data.md#scan-artifacts-on-disk).
+
+```bash
+argus scan secrets . --no-persist --format json | jq '.summary'
+argus scan sast . --artifacts-dir "$RUNNER_TEMP" --format sarif -o sast.sarif
+```
+
 ### Pull request comment
 
 `argus ci pr-comment` turns those SARIF files into a Markdown comment: a severity table per tool, links to the CI run and cloud dashboard, the top fix suggestions (same order as `fix_plan`), and a collapsible prompt for an AI assistant. Missing SARIF files are skipped and called out in the comment.

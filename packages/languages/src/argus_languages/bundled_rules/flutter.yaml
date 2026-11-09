@@ -21,6 +21,7 @@
 - id: flutter-android-backup
   title: Android allowBackup enabled — may expose app data
   severity: moderate
+  confidence: low
   pattern: 'android:allowBackup\s*=\s*["'']true["'']'
   languages: [flutter]
 

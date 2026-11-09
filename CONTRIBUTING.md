@@ -20,25 +20,38 @@ Thank you for helping make security tooling more accessible! Contributions of al
 
 ---
 
+## Finding Something to Work On
+
+1. Browse [good first issues](https://github.com/argus-code-scanning/argus-codescan-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) (small, self-contained) or [help wanted](https://github.com/argus-code-scanning/argus-codescan-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) (bigger features).
+2. Comment on the issue with "I'd like to work on this" and a 2–3 line plan. A maintainer will assign it to you.
+   **Wait for the assignment before opening a PR.** Every PR from a contributor must reference an issue that is assigned to its author (`Fixes #123` in the description); an automated "Issue assignment" check blocks the merge until it does. This keeps two people from building the same thing and lets us agree on the approach first.
+3. Work on one issue at a time. If you need to step away, say so on the issue so someone else can pick it up.
+
+Have an idea that isn't an issue yet? Open one first so we can agree on the approach before you write code.
+
+---
+
 ## Development Setup
 
 ### Python core
 
 ```bash
 git clone https://github.com/argus-code-scanning/argus-codescan-mcp
-cd argus-scan/packages/python
+cd argus-codescan-mcp/packages/python
 
 python3 -m venv .venv
 source .venv/bin/activate
 
-pip install -e ".[dev]"
+# argus-languages (built-in rules) is installed from the repo so rule changes take effect
+pip install -e ../languages -e ".[dev]"
 
 # Run tests
 pytest
+pytest ../languages/tests   # if you changed rules or packages/languages
 
 # Lint
 ruff check src tests
-mypy src
+mypy src --ignore-missing-imports
 ```
 
 ### npm package
@@ -131,14 +144,14 @@ go test ./...
    git checkout -b feat/add-grype-scanner
    ```
 
-2. Make your changes following the guidelines below.
+2. Make your changes following the guidelines below. Keep the PR to **one change**: unrelated fixes, even good ones, go in their own PR so each can be reviewed and reverted on its own.
 
-3. Run the test suite and linters:
+3. Add tests for new behaviour, then run the test suite and linters:
    ```bash
-   cd packages/python && pytest && ruff check src tests
+   cd packages/python && pytest && ruff check src tests && mypy src --ignore-missing-imports
    ```
 
-4. Push and open a PR against `main`. Fill out the PR template.
+4. Push and open a PR against `main`. Put `Fixes #<issue>` (the issue assigned to you) in the description, and fill out the PR template, including **Testing Done** (the commands you ran and what they showed). Call out any change in behaviour users depend on (exit codes, output formats, defaults), since it can break their CI.
 
 5. A maintainer will review within a few days.
 

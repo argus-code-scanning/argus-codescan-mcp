@@ -31,6 +31,7 @@ import argparse
 import asyncio
 import json
 import sys
+from collections.abc import Callable, Coroutine
 from pathlib import Path
 
 from argus.models import AggregatedReport, ScanResult
@@ -132,6 +133,11 @@ def build_parser() -> argparse.ArgumentParser:
             help="Exit with code 1 if findings at this severity or above are found",
         )
         p.add_argument(
+            "--fail-on-low-confidence",
+            action="store_true",
+            help="Also let low-confidence rule matches trigger --fail-on (off by default)",
+        )
+        p.add_argument(
             "--upload",
             action="store_true",
             help="Upload results to Argus cloud dashboard (requires ARGUS_API_KEY)",
@@ -150,6 +156,22 @@ def build_parser() -> argparse.ArgumentParser:
             "--baseline",
             metavar="FILE",
             help="Baseline scan JSON — only report new findings (overrides policy baseline)",
+        )
+        p.add_argument(
+            "--no-persist",
+            action="store_true",
+            help=(
+                "Leave nothing on disk: print the report to stdout only (no --output) and "
+                "delete all scanner temp files after the run"
+            ),
+        )
+        p.add_argument(
+            "--artifacts-dir",
+            metavar="DIR",
+            help=(
+                "Keep this run's temp files (Argus and scanners) in a private directory "
+                "under DIR, deleted after the run"
+            ),
         )
 
     sast_p = scan_sub.add_parser("sast", help="Static Application Security Testing")
@@ -437,15 +459,53 @@ def _print_table(report_dict: dict) -> None:
     print()
 
 
-def _should_fail(report_dict: dict, fail_on: str) -> bool:
+def _count_failing(report_dict: dict, fail_on: str, include_low_confidence: bool = False) -> int:
+    """Number of findings at or above the --fail-on threshold.
+
+    Low-confidence rule matches are left out unless include_low_confidence is set.
+    """
     if fail_on == "never":
-        return False
+        return 0
+    from argus.models import counts_toward_failure
+
     threshold = _SEV_ORDER.get(fail_on, 99)
-    for result in report_dict.get("results", []):
-        for f in result.get("findings", []):
-            if _SEV_ORDER.get(f.get("severity", "unknown"), 99) <= threshold:
-                return True
-    return False
+    return sum(
+        1
+        for result in report_dict.get("results", [])
+        for f in result.get("findings", [])
+        if _SEV_ORDER.get(f.get("severity", "unknown"), 99) <= threshold
+        and counts_toward_failure(f, include_low_confidence)
+    )
+
+
+def _should_fail(report_dict: dict, fail_on: str, include_low_confidence: bool = False) -> bool:
+    return _count_failing(report_dict, fail_on, include_low_confidence) > 0
+
+
+def _hidden_failure_message(
+    report_dict: dict,
+    by_severity: dict,
+    shown: dict,
+    fail_on: str,
+    min_sev: str,
+    classification: str | None,
+) -> str | None:
+    """Explain a failure caused by findings that the display filters hid (#113)."""
+    total = _count_failing(report_dict, fail_on)
+    hidden = total - _count_failing(shown, fail_on)
+    if total == 0 or hidden == 0:
+        return None
+    filters = []
+    if _count_failing(by_severity, fail_on) < total:
+        filters.append(f"--min-severity {min_sev}")
+    if classification and _count_failing(shown, fail_on) < _count_failing(by_severity, fail_on):
+        filters.append(f"--classification {classification}")
+    names = " and ".join(filters)
+    noun = "filters" if len(filters) > 1 else "filter"
+    return (
+        f"Failing: {hidden} finding(s) at or above '{fail_on}' are hidden by {names}. "
+        f"Re-run without the {noun} to see them."
+    )
 
 
 def _filter_severity(report_dict: dict, min_sev: str) -> dict:
@@ -487,11 +547,13 @@ def _emit(
     min_sev: str,
     fail_on: str,
     classification: str | None = None,
+    include_low_confidence: bool = False,
 ) -> int:
     """Render the report and return the exit code."""
     from argus.formatters.sarif import aggregated_report_to_sarif
 
-    filtered = _filter_classification(_filter_severity(report_dict, min_sev), classification)
+    by_severity = _filter_severity(report_dict, min_sev)
+    filtered = _filter_classification(by_severity, classification)
     refresh_report_summary(filtered)
 
     if fmt == "json":
@@ -522,7 +584,22 @@ def _emit(
 
     # Fail against the full report so --min-severity display filtering
     # cannot hide findings that should still fail CI.
-    return 1 if _should_fail(report_dict, fail_on) else 0
+    if not include_low_confidence:
+        skipped = _count_failing(report_dict, fail_on, True) - _count_failing(report_dict, fail_on)
+        if skipped:
+            print(
+                f"Note: {skipped} low-confidence finding(s) at or above '{fail_on}' are shown "
+                "but do not fail the run. Add --fail-on-low-confidence to count them.",
+                file=sys.stderr,
+            )
+    if not _should_fail(report_dict, fail_on, include_low_confidence):
+        return 0
+    message = _hidden_failure_message(
+        report_dict, by_severity, filtered, fail_on, min_sev, classification
+    )
+    if message:
+        print(message, file=sys.stderr)
+    return 1
 
 
 # ── Scan runners ──────────────────────────────────────────────────────────────
@@ -759,7 +836,16 @@ async def _run_scan(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Cloud upload failed: {exc}", file=sys.stderr)
 
-    return _emit(report_dict, fmt, out_file, min_sev, fail_on, getattr(args, "classification", None))
+    return _emit(
+        report_dict,
+        fmt,
+        out_file,
+        min_sev,
+        fail_on,
+        getattr(args, "classification", None),
+        include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
+        or policy.fail_on_low_confidence,
+    )
 
 
 def _cmd_pr_paths(args: argparse.Namespace) -> int:
@@ -915,7 +1001,16 @@ async def _run_review(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Cloud upload failed: {exc}", file=sys.stderr)
 
-    return _emit(report_dict, fmt, out_file, min_sev, fail_on, getattr(args, "classification", None))
+    return _emit(
+        report_dict,
+        fmt,
+        out_file,
+        min_sev,
+        fail_on,
+        getattr(args, "classification", None),
+        include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
+        or policy.fail_on_low_confidence,
+    )
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:
@@ -1026,6 +1121,25 @@ def _cmd_tools() -> None:
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 
+def _run_with_artifact_policy(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    run: Callable[[argparse.Namespace], Coroutine[object, object, int]],
+) -> int:
+    """Run a scan, keeping temp files in a private directory when asked to (#60)."""
+    no_persist = getattr(args, "no_persist", False)
+    artifacts_dir = getattr(args, "artifacts_dir", None)
+    if no_persist and getattr(args, "output", None):
+        parser.error("--no-persist cannot be combined with --output; the report goes to stdout")
+    if not (no_persist or artifacts_dir):
+        return asyncio.run(run(args))
+
+    from argus.artifacts import private_temp_dir
+
+    with private_temp_dir(artifacts_dir):
+        return asyncio.run(run(args))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -1069,13 +1183,13 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_compare(args)
 
     if args.command == "review":
-        return asyncio.run(_run_review(args))
+        return _run_with_artifact_policy(parser, args, _run_review)
 
     if args.command == "scan":
         if args.scan_type is None:
             parser.parse_args(["scan", "--help"])
             return 0
-        return asyncio.run(_run_scan(args))
+        return _run_with_artifact_policy(parser, args, _run_scan)
 
     parser.print_help()
     return 0

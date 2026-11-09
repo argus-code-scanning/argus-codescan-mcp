@@ -1,17 +1,82 @@
-# PII (Personally Identifiable Information) detection rules
+# PII (Personally Identifiable Information) detection rules.
+#
+# Logging/error-handling rules (#62) fire only when a PII field is used as a
+# value: an attribute (user.email), an interpolation ({ssn}, ${phone}), a
+# bare argument (", dob)"), a dict key lookup (["email"]) or a Java getter
+# (getEmail()). The same words in plain message text ("Sending email") are
+# not flagged. Rules match one line at a time, so calls split across lines
+# are not covered.
 
 - id: pii-email-in-logs
   classification: pii
-  title: Potential PII logged via logger (email address in log statement)
+  title: Email address written to logs
   severity: medium
-  pattern: '(?:logger|log|logging)\.(?:debug|info|warning|error|exception|log)\s*\(\s*(?:f["''].*\{[^}]*email|.*(?:user\.email|account\.email|\bemail\b))'
+  pattern: '\b(?:logger|logging|log|slog|logrus|sugar|console)\.(?:debug|info|warn|warning|error|exception|critical|fatal|trace|log|printf?|println|debugf|infof|warnf|errorf|fatalf)\s*\([^;]*?(?:[\w\])]\.e_?mail(?:_?address)?\b(?!\s*\()|\$?\{\s*e_?mail(?:_?address)?\b|[(,+]\s*e_?mail(?:_?address)?\s*(?=[,)+])|\[\s*["'']e_?mail(?:_?address)?["'']|\.gete_?mail(?:address)?\s*\()'
+  flags: [i]
+  languages: [python, javascript, typescript, java, go]
+  fix_guidance: >-
+    Log a stable user id instead of the email, or mask it (j***@example.com).
+    Use structured logging with an allowlist of fields so new PII is not logged by accident.
+
+- id: pii-in-logs
+  classification: pii
+  title: PII (phone, SSN, date of birth, name, address or ID number) written to logs
+  severity: medium
+  pattern: '\b(?:logger|logging|log|slog|logrus|sugar|console)\.(?:debug|info|warn|warning|error|exception|critical|fatal|trace|log|printf?|println|debugf|infof|warnf|errorf|fatalf)\s*\([^;]*?(?:[\w\])]\.(?:phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\b(?!\s*\()|\$?\{\s*(?:phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\b|[(,+]\s*(?:phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\s*(?=[,)+])|\[\s*["''](?:phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)["'']|\.get(?:phone(?:number)?|ssn|socialsecuritynumber|dateofbirth|dob|birthdate|passportnumber|nationalid|taxid|fullname|firstname|lastname|homeaddress|streetaddress)\s*\()'
+  flags: [i]
+  languages: [python, javascript, typescript, java, go]
+  fix_guidance: >-
+    Remove the field or log a non-identifying reference (user id, last 4 digits, a hash).
+    Configure the logger with a field allowlist or a redaction filter for PII keys.
+
+- id: pii-print-debug
+  classification: pii
+  title: PII printed to stdout (debug print)
+  severity: medium
+  pattern: '(?:(?<![\w.])print(?:ln|f)?|\bfmt\.Print(?:f|ln)?|\bSystem\.(?:out|err)\.print(?:ln|f)?)\s*\([^;]*?(?:[\w\])]\.(?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\b(?!\s*\()|\{\s*(?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\b|[(,+]\s*(?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\s*(?=[,)+])|\.get(?:e_?mail|phone(?:number)?|ssn|dateofbirth|dob|fullname|firstname|lastname)\s*\()'
+  flags: [i]
+  languages: [python, java, go]
+  fix_guidance: >-
+    Remove debug prints before committing; stdout usually ends up in container and CI logs.
+    Use the application logger at debug level with PII redaction instead.
+
+- id: pii-exception-message
+  classification: pii
+  title: PII included in an exception or error message
+  severity: medium
+  pattern: '(?:\braise\s+[\w.]+\(|\bthrow\s+new\s+\w+\(|\bnew\s+\w*(?:Exception|Error)\(|\berrors\.New\(|\bfmt\.Errorf\()[^;]*?(?:[\w\])]\.(?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\b(?!\s*\()|\$?\{\s*(?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\b|[(,+]\s*(?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|passport(?:_?(?:no|number))?|national_?id|tax_?id|full_?name|first_?name|last_?name|home_?address|street_?address)\s*(?=[,)+])|\.get(?:e_?mail|phone(?:number)?|ssn|dateofbirth|dob|fullname|firstname|lastname)\s*\()'
+  flags: [i]
+  languages: [python, javascript, typescript, java, go]
+  fix_guidance: >-
+    Exception messages end up in logs, error trackers and API responses. Put a user id or
+    request id in the message and keep PII out; attach details only where access is controlled.
+
+- id: pii-third-party-context
+  classification: pii
+  title: PII sent to an error-tracking or monitoring service
+  severity: high
+  pattern: '(?:\bsentry_sdk\.(?:set_user|set_extra|set_context|set_tag)|\bSentry\.(?:setUser|setExtra|setExtras|setContext|setTag)|\bscope\.(?:set_user|setUser|set_extra|setExtra|set_context|setContext)|\b[Bb]ugsnag\.(?:setUser|addMetadata)|\bnewrelic\.(?:add_custom_attribute|addCustomAttribute))\s*\([^;]*?(?:["''](?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|social_?security(?:_?number)?|date_?of_?birth|dob|birth_?date|full_?name|first_?name|last_?name|home_?address|street_?address|ip_?address)["'']|[\w\])]\.(?:e_?mail(?:_?address)?|phone(?:_?number)?|ssn|date_?of_?birth|dob|full_?name|first_?name|last_?name)\b(?!\s*\())'
+  flags: [i]
+  languages: [python, javascript, typescript, java, go]
+  fix_guidance: >-
+    Send only an opaque user id to third-party services. In Sentry, keep send_default_pii off
+    and scrub fields in before_send; record the processor in your GDPR records if PII is needed.
+
+- id: pii-request-dump-in-logs
+  classification: pii
+  title: Whole request payload written to logs (form/body/query may contain PII and passwords)
+  severity: high
+  pattern: '\b(?:logger|logging|log|slog|logrus|sugar|console)\.(?:debug|info|warn|warning|error|exception|critical|fatal|trace|log|printf?|println|debugf|infof|warnf|errorf|fatalf)\s*\([^;]*?(?:\brequest\.(?:form|POST|GET|data|json|body|args|values)(?![\w\[.]|\s*\[)|\brequest\.get_json\(\)(?!\s*[\[.])|\breq\.(?:body|query|params)(?![\w\[.]|\s*\[))'
   flags: [i]
   languages: [python, javascript, typescript]
+  fix_guidance: >-
+    Log the specific, non-sensitive fields you need (or the request id), never the full
+    form/body. Request payloads routinely contain passwords, tokens and personal data.
 
 - id: hipaa-phi-in-logs
   title: Potential protected health information logged
   severity: high
   classification: phi
-  pattern: '(?:(?:logger|log|logging)\.(?:debug|info|warning|error|exception|log)|console\.(?:log|info|warn|error|debug)|print)\s*\([^)]*\b(?:patient|medical_record|diagnosis|health_record|ssn|date_of_birth|dob)\b'
+  pattern: '(?:\b(?:logger|log|logging)\.(?:debug|info|warning|error|exception|log)|\bconsole\.(?:log|info|warn|error|debug)|(?<![\w.])print)\s*\([^)]*\b(?:patient|medical_record|diagnosis|health_record)\b'
   flags: [i]
   languages: [python, javascript, typescript]
