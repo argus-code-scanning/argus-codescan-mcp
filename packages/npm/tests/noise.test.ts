@@ -112,10 +112,10 @@ describe("argus-native false-positive controls", () => {
     expect(hits.map((f) => f.file?.split("\\").join("/"))).toEqual(["src/b.py"]);
   });
 
-  it("marks command-injection as low confidence", async () => {
+  it("does not flag subprocess argv without shell execution", async () => {
     await write("src/run.py", "subprocess.run(cmd)\n");
     const { hits } = await findings("command-injection");
-    expect(hits[0].confidence).toBe("low");
+    expect(hits).toHaveLength(0);
   });
 });
 
