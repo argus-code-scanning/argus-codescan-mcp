@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from bisect import bisect_right
 from pathlib import Path
 
 from argus_languages.discover import SUPPORTED_LANGUAGES, discover_files
@@ -82,19 +83,41 @@ def _scan_content(
     suppressed: list[dict[str, object]] | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
+    lines = content.splitlines()
     context = path_context(relative)
     pending: IgnoreMarker | None = None  # from a comment-only line just above
-    for i, line in enumerate(content.splitlines(), start=1):
+    markers: list[IgnoreMarker | None] = []
+    for line in lines:
         if _skip_line(line, language):
             pending = parse_ignore(line)
+            markers.append(None)
             continue
-        marker = parse_ignore(line) or pending
+        markers.append(parse_ignore(line) or pending)
         pending = None
-        for rule in rules:
-            if not _rule_applies(rule, language):
-                continue
-            if not rule.pattern.search(line):
-                continue
+
+    for rule in rules:
+        if not _rule_applies(rule, language):
+            continue
+
+        if rule.multiline:
+            source = "\n".join("" if _skip_line(line, language) else line for line in lines)
+            line_starts = [0]
+            line_starts.extend(
+                index + 1 for index, character in enumerate(source) if character == "\n"
+            )
+            matching_lines = {
+                bisect_right(line_starts, match.start())
+                for match in rule.pattern.finditer(source)
+            }
+        else:
+            matching_lines = {
+                i
+                for i, line in enumerate(lines, start=1)
+                if not _skip_line(line, language) and rule.pattern.search(line)
+            }
+
+        for i in sorted(matching_lines):
+            marker = markers[i - 1]
             description = f"Language: {language}"
             if marker is not None and rule.allow_inline_ignore and marker.covers(rule.id):
                 if marker.reason:
@@ -109,6 +132,7 @@ def _scan_content(
                         )
                     continue
                 description += _IGNORE_HINT.format(rule=rule.id)
+
             severity = rule.severity
             finding_context = ""
             if context and rule.context_sensitive:

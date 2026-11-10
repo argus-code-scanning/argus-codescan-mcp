@@ -23,7 +23,8 @@ const SKIP_DIRS = new Set([
 const EXT_LANG: Record<string, string> = {
   ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
   ".py": "python", ".java": "java", ".php": "php", ".go": "go", ".rb": "ruby",
-  ".cs": "csharp", ".kt": "kotlin", ".swift": "swift",
+  ".cs": "csharp", ".kt": "kotlin", ".swift": "swift", ".pl": "perl",
+  ".sh": "shell", ".bash": "shell", ".zsh": "shell",
 };
 
 interface Rule {
@@ -32,6 +33,7 @@ interface Rule {
   severity: Severity;
   pattern: RegExp;
   languages?: string[];
+  multiline?: boolean;
   /** Default "medium". "low" = risky API without evidence of untrusted input. */
   confidence?: Confidence;
 }
@@ -60,11 +62,43 @@ const RULES: Rule[] = [
   },
   {
     id: "command-injection",
-    title: "Possible command injection — shell execution with user input",
+    title: "Possible command injection — dynamic shell execution",
     severity: "high",
-    pattern: /(os\.system|subprocess\.(call|Popen|run)|shell_exec|exec\s*\(|passthru|system\s*\(|ProcessBuilder|child_process\.exec)/,
-    // Matches any process API; low until narrowed to shell execution with input (#109).
-    confidence: "low",
+    pattern: /\bos\.(?:system|popen)\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\()|f["'][^"']*\{)|\bsubprocess\.(?:call|Popen|run)\s*\((?:[\s\S]{0,300}?\bshell\s*=\s*True\b|f["']|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\())/,
+    multiline: true,
+    languages: ["python"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /(?:(?:\b(?:child_process|childProcess|cp)\.)|(?<![\w$.]))exec(?:Sync)?\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|\.format\s*\()|`[^`]{0,160}\$\{)/,
+    multiline: true,
+    languages: ["javascript", "typescript"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /(?:Runtime\.getRuntime\(\)\.exec\s*\(\s*(?!new\s+String\s*\[\s*\])(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*\+)|new\s+ProcessBuilder\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|\/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+))/,
+    multiline: true,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /exec\.Command\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|\/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+)/,
+    multiline: true,
+    languages: ["go"],
+  },
+  {
+    id: "command-injection",
+    title: "Possible command injection — dynamic shell execution",
+    severity: "high",
+    pattern: /(?:Process\.Start\s*\(\s*["'](?:cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*(?:["'][^"']{0,160}["']\s*\+|[A-Za-z_$][\w$]*)|\bsystem\s*\(\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}(?:#\{|\$[A-Za-z_])|["'][^"']{0,160}["']\s*\+)|\bsystem\s+\$[A-Za-z_][\w$]*|`[^`]{0,200}(?:#\{|\$[A-Za-z_])|%x.{0,200}(?:#\{|\$[A-Za-z_])|\b(?:sh|bash|zsh)\s+-c\s+["'][^"']{0,160}\$[A-Za-z_])/,
+    multiline: true,
+    languages: ["csharp", "ruby", "perl", "shell"],
   },
   {
     id: "xss-innerhtml",
@@ -189,30 +223,58 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
       continue;
     }
     const lines = content.split("\n");
+    const scanSource = lines.map((line) =>
+      line.trim().startsWith("//") || line.trim().startsWith("#") ? "" : line,
+    ).join("\n");
     const rel = relative(lstatSync(target).isDirectory() ? target : dirname(target), file);
     const context = pathContext(rel);
     let pending: IgnoreMarker | undefined; // from a comment-only line just above
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+    const markers: Array<IgnoreMarker | undefined> = [];
+    for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.startsWith("//") || trimmed.startsWith("#")) {
         pending = parseIgnore(line);
+        markers.push(undefined);
         continue;
       }
-      const marker = parseIgnore(line) ?? pending;
+      markers.push(parseIgnore(line) ?? pending);
       pending = undefined;
+    }
 
-      for (const rule of RULES) {
-        if (rule.languages && !rule.languages.includes(lang)) continue;
-        if (!rule.pattern.test(line)) continue;
+    for (const rule of RULES) {
+      if (rule.languages && !rule.languages.includes(lang)) continue;
+
+      const matchedLines = new Set<number>();
+      if (rule.multiline) {
+        const globalPattern = new RegExp(rule.pattern.source, `${rule.pattern.flags}g`);
+        let sourceOffset = 0;
+        let lineNumber = 1;
+        for (const match of scanSource.matchAll(globalPattern)) {
+          const index = match.index ?? 0;
+          while (sourceOffset < index) {
+            if (scanSource[sourceOffset] === "\n") lineNumber++;
+            sourceOffset++;
+          }
+          matchedLines.add(lineNumber);
+        }
+      } else {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.trim().startsWith("//") || line.trim().startsWith("#")) continue;
+          if (rule.pattern.test(line)) matchedLines.add(i + 1);
+        }
+      }
+
+      for (const lineNumber of [...matchedLines].sort((a, b) => a - b)) {
+        const marker = markers[lineNumber - 1];
         let description = `Language: ${lang}`;
         if (marker && markerCovers(marker, rule.id)) {
           if (marker.reason) {
             (result.suppressed ??= []).push({
               ruleId: rule.id,
               file: rel,
-              line: i + 1,
+              line: lineNumber,
               reason: marker.reason,
             });
             continue;
@@ -224,7 +286,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
           severity: context ? downgrade(rule.severity) : rule.severity,
           tool: "argus-native",
           file: rel,
-          line: i + 1,
+          line: lineNumber,
           ruleId: rule.id,
           description,
           confidence: rule.confidence ?? "medium",

@@ -50,6 +50,8 @@ class LoadedRule:
     context_sensitive: bool = True
     # Honour `argus-ignore` comments in the scanned code.
     allow_inline_ignore: bool = True
+    # Match across source lines while reporting the match's first line.
+    multiline: bool = False
 
 
 CONFIDENCE_LEVELS = ("high", "medium", "low")
@@ -102,6 +104,7 @@ def _parse_yaml_rules(data: Any, source: str = "") -> list[LoadedRule]:
                     False if hostile else str(item.get("test_context", "downgrade")) != "keep"
                 ),
                 allow_inline_ignore=False if hostile else bool(item.get("inline_ignore", True)),
+                multiline=bool(item.get("multiline", False)),
             )
         )
     return out
