@@ -5,17 +5,56 @@
   languages: [javascript, typescript, python, java, ruby, perl, lua, vue]
 
 - id: sql-concat
-  title: Possible SQL injection — string concatenation in query
+  title: Possible SQL injection — variable interpolated or concatenated into a SQL value
   severity: high
-  pattern: '(SELECT|INSERT|UPDATE|DELETE|query\s*\+|f["''].*SELECT|Statement\.execute\s*\([^)]*\+)'
-  flags: [i]
-  languages: [javascript, typescript, python, java, ruby, csharp, go, kotlin, scala]
+  pattern: ("[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*#\{|\$"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*\{|\bs"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*\$\{?[A-Za-z_]|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(])
+  flags:
+  - i
+  languages:
+  - ruby
+  - csharp
+  - scala
+
+# Detect shell execution with dynamic input (#109).
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    (?:\bos\.(?:system|popen)\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\()|f["'][^"']*\{)|\bsubprocess\.(?:call|Popen|run)\s*\((?:[\s\S]{0,300}?\bshell\s*=\s*True\b|f["']|["'][^"']{0,160}["']\s*(?:\+|%|\.format\s*\()))
+  multiline: true
+  languages: [python]
 
 - id: command-injection
-  title: Possible command injection — shell execution
+  title: Possible command injection — dynamic shell execution
   severity: high
-  pattern: '(os\.system|subprocess\.(call|Popen|run)|shell_exec|exec\s*\(|passthru|system\s*\(|ProcessBuilder|child_process\.exec|Runtime\.getRuntime|os/exec\.Command)'
-  languages: [javascript, typescript, python, java, ruby, go, csharp, kotlin, scala, perl, shell]
+  pattern: >-
+    (?:(?:\b(?:child_process|childProcess|cp)\.)|(?<![\w$.]))exec(?:Sync)?\s*\(\s*(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*(?:\+|\.format\s*\()|`[^`]{0,160}\$\{)
+  multiline: true
+  languages: [javascript, typescript]
+
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    (?:Runtime\.getRuntime\(\)\.exec\s*\(\s*(?!new\s+String\s*\[\s*\])(?:[A-Za-z_$][\w$]*(?:\s*\([^)]{0,120}\))?|["'][^"']{0,160}["']\s*\+)|new\s+ProcessBuilder\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+))
+  multiline: true
+  languages: [java, kotlin, scala]
+
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    exec\.Command\s*\(\s*["'](?:sh|bash|cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*["'](?:-c|/c|--command)["']\s*,\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}["']\s*\+)
+  multiline: true
+  languages: [go]
+
+- id: command-injection
+  title: Possible command injection — dynamic shell execution
+  severity: high
+  pattern: >-
+    (?:Process\.Start\s*\(\s*["'](?:cmd(?:\.exe)?|powershell(?:\.exe)?)["']\s*,\s*(?:["'][^"']{0,160}["']\s*\+|[A-Za-z_$][\w$]*)|\bsystem\s*\(\s*(?:[A-Za-z_$][\w$]*|["'][^"']{0,160}(?:#\{|\$[A-Za-z_])|["'][^"']{0,160}["']\s*\+)|\bsystem\s+\$[A-Za-z_][\w$]*|`[^`]{0,200}(?:#\{|\$[A-Za-z_])|%x.{0,200}(?:#\{|\$[A-Za-z_])|\b(?:sh|bash|zsh)\s+-c\s+["'][^"']{0,160}\$[A-Za-z_])
+  multiline: true
+  languages: [csharp, ruby, perl, shell]
 
 - id: weak-crypto
   title: Weak cryptography (MD5/SHA1/DES/ECB)

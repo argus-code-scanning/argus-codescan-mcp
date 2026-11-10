@@ -1,7 +1,7 @@
 import { execa } from "execa";
-import { readFileSync, readdirSync, statSync, unlinkSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, dirname, extname, join, relative } from "node:path";
 import { mapGitleaksSeverity } from "./severity.js";
 import { isToolAvailable } from "./tools.js";
 import type { Finding, ScanResult } from "./types.js";
@@ -48,6 +48,18 @@ interface GitleaksFinding {
 
 function walkFiles(dir: string, base: string, out: string[], depth = 0): void {
   if (depth > 12) return;
+  try {
+    const root = lstatSync(dir);
+    if (root.isSymbolicLink()) return;
+    if (!root.isDirectory()) {
+      const name = basename(dir);
+      const ext = extname(name).toLowerCase();
+      if (SCAN_EXTENSIONS.has(ext) || name === ".env") out.push(dir);
+      return;
+    }
+  } catch {
+    return;
+  }
   let entries: string[];
   try {
     entries = readdirSync(dir);
@@ -59,14 +71,15 @@ function walkFiles(dir: string, base: string, out: string[], depth = 0): void {
     const full = join(dir, name);
     let st;
     try {
-      st = statSync(full);
+      st = lstatSync(full);
     } catch {
       continue;
     }
+    if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) {
       walkFiles(full, base, out, depth + 1);
     } else {
-      const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
+      const ext = extname(name).toLowerCase();
       if (SCAN_EXTENSIONS.has(ext) || name === ".env") {
         out.push(full);
       }
@@ -93,7 +106,7 @@ async function runPatternSecrets(target: string): Promise<ScanResult> {
     } catch {
       continue;
     }
-    const rel = relative(target, file);
+    const rel = relative(lstatSync(target).isDirectory() ? target : dirname(target), file);
     const lines = content.split("\n");
     for (let i = 0; i < lines.length; i++) {
       for (const { name, pattern, severity } of SECRET_PATTERNS) {

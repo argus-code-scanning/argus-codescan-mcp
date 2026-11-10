@@ -45,6 +45,8 @@ A rule typically contains the following fields:
 * **`flags`**: Optional matching flags. For example, `i` enables case-insensitive matching and `m` enables multiline mode.
 * **`languages`**: An optional list of languages to which the rule applies. Omit it to use the default behavior supported by the rule loader.
 * **`exclude_languages`**: Optional. Languages a rule without `languages` should skip, for example when a language-specific pack covers the case more precisely (`weak-crypto` skips `php` because `php.yaml` flags password hashing and weak ciphers instead).
+* **`classification`**: Optional data classification for findings (`pii`, `phi`, `pci`, `confidential`, `public`). Defaults to `unset`.
+* **`fix_guidance`**: Optional. One or two sentences telling the developer how to fix the issue; shown in reports as the finding's fix guidance. Use a YAML folded block (`>-`) for longer text.
 
 Config file types (`composer`, `dotenv-production`, `dotenv-example`) only receive rules that list them in `languages`; rules without `languages` are not applied to them.
 

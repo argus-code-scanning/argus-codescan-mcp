@@ -1,0 +1,43 @@
+# Admin, debug and management endpoints that are exposed without protection:
+# Spring Boot Actuator and the H2 console (application*.properties / application*.yml, scanned as
+# the "spring-config" file type), Go net/http/pprof, Apollo introspection and playground, and an
+# Express /admin mount. Patterns are line-oriented, so a nested YAML key is only caught when the
+# whole setting is on one line (include: "*"). Most findings are "review this" for that reason.
+
+- id: spring-actuator-exposure-all
+  title: Spring Boot Actuator exposes every endpoint over HTTP (exposure.include = *) — /env, /heapdump and /threaddump included
+  severity: high
+  pattern: ^\s*(management\.endpoints\.web\.exposure\.include\s*[=:]\s*['"]?\*|include\s*:\s*['"]\*['"]\s*(#.*)?$)
+  languages:
+  - spring-config
+  fix_guidance: 'List only the endpoints you need, for example include: health,info,metrics, and put the rest behind authentication on a separate management port.'
+- id: spring-h2-console-enabled
+  title: H2 web console is enabled (spring.h2.console.enabled) — make sure this is a dev-only profile
+  severity: medium
+  pattern: ^\s*spring\.h2\.console\.enabled\s*[=:]\s*['"]?true\b
+  languages:
+  - spring-config
+  fix_guidance: Enable the H2 console only in a local or dev profile (application-dev.properties) and never in a deployable profile, where it gives database access in the browser.
+- id: go-pprof-import
+  title: net/http/pprof is imported — /debug/pprof is served on http.DefaultServeMux; make sure it is not on the public server
+  severity: medium
+  pattern: ^\s*(import\s+)?_\s+"net/http/pprof"
+  languages:
+  - go
+  fix_guidance: Serve pprof on a separate localhost-only listener with its own mux, or behind authentication, instead of registering it on the public http.DefaultServeMux.
+- id: js-apollo-introspection-playground
+  title: Apollo introspection or playground is switched on with a literal true — make sure it is disabled in production
+  severity: medium
+  pattern: ^(?!\s*(//|\*)).*\b(introspection|playground)\s*:\s*true\b
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: 'Derive it from the environment, for example introspection: process.env.NODE_ENV !== ''production'', and turn the playground off in production.'
+- id: js-express-admin-no-auth
+  title: 'Express mounts /admin with a single handler and no middleware in the same call — review: is it protected elsewhere?'
+  severity: low
+  pattern: ^(?!\s*(//|\*)).*\bapp\.use\(\s*['"]/admin[^'"]*['"]\s*,\s*(?:[\w.]+|require\([^)]*\))\s*\)
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: Put an authentication and authorisation middleware in front of the admin router in the same call, for example app.use('/admin', requireAdmin, adminRouter).

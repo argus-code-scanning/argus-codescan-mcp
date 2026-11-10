@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from argus.utils import refresh_report_summary
+
 POLICY_FILENAME = ".argus.yml"
 
 
@@ -49,6 +51,7 @@ class PolicyConfig:
     semgrep_config: str = "auto"
     baseline: str | None = None
     fail_on_new_only: bool = False
+    fail_on_low_confidence: bool = False
     suppressions: list[Suppression] = field(default_factory=list)
     scans: list[str] | None = None
 
@@ -74,6 +77,7 @@ class PolicyConfig:
             semgrep_config=str(semgrep.get("config", data.get("semgrep_config", "auto"))),
             baseline=data.get("baseline"),
             fail_on_new_only=bool(data.get("fail_on_new_only", False)),
+            fail_on_low_confidence=bool(data.get("fail_on_low_confidence", False)),
             suppressions=suppressions,
             scans=[str(s) for s in data["scans"]] if data.get("scans") else None,
         )
@@ -141,6 +145,7 @@ def apply_policy(report_dict: dict[str, Any], policy: PolicyConfig) -> dict[str,
             filtered.append(finding)
         result["findings"] = filtered
 
+    refresh_report_summary(report)
     return report
 
 

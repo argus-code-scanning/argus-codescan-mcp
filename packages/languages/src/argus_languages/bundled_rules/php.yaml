@@ -19,6 +19,7 @@
 - id: php-include-variable-path
   title: include/require builds its path from a variable — make sure it is not user-controlled
   severity: medium
+  confidence: low
   pattern: '(?<!@)\b(include|require)(_once)?\b\s*\(?\s*\$\w+\s*\.'
   languages: [php]
 

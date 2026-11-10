@@ -127,7 +127,7 @@ export class ScanDashboardPanel implements vscode.Disposable {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Security Report — ${escapeHtml(target)}</title>
+  <title>Security Report - ${escapeHtml(target)}</title>
   <style>
     body {
       font-family: var(--vscode-font-family);
@@ -183,7 +183,7 @@ export class ScanDashboardPanel implements vscode.Disposable {
           <td>${escapeHtml(r.scan_type)}</td>
           <td>${r.tool_available ? "✅" : "❌ Not installed"}</td>
           <td>${r.findings.length}</td>
-          <td>${r.errors.length > 0 ? `⚠ ${escapeHtml(r.errors[0].slice(0, 60))}` : "—"}</td>
+          <td>${r.errors.length > 0 ? `⚠ ${escapeHtml(r.errors[0].slice(0, 60))}` : "-"}</td>
         </tr>`
       )
       .join("");

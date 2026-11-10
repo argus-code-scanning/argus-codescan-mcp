@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from bisect import bisect_right
 from pathlib import Path
 
 from argus_languages.discover import SUPPORTED_LANGUAGES, discover_files
-from argus_languages.models import Finding, ScanResult, Severity
+from argus_languages.models import Finding, ScanResult
+from argus_languages.noise import IgnoreMarker, downgrade, parse_ignore, path_context
 from argus_languages.rules_loader import LoadedRule, load_rules_from_dir
 
 TOOL_NAME = "argus-languages"
@@ -21,6 +23,8 @@ COMMENT_PREFIX: dict[str, tuple[str, ...]] = {
     "composer": (),
     "dotenv-production": ("#",),
     "dotenv-example": ("#",),
+    "spring-config": ("#", "!"),
+    "github-actions": ("#",),
     "go": ("//",),
     "ruby": ("#",),
     "csharp": ("//", "/*"),
@@ -51,7 +55,9 @@ def _skip_line(line: str, language: str) -> bool:
 
 # Config files only get rules written for them; generic code rules would
 # misfire on JSON and KEY=value lines.
-CONFIG_LANGUAGES = frozenset({"composer", "dotenv-production", "dotenv-example"})
+CONFIG_LANGUAGES = frozenset(
+    {"composer", "dotenv-production", "dotenv-example", "spring-config", "github-actions"}
+)
 
 
 def _rule_applies(rule: LoadedRule, language: str) -> bool:
@@ -62,32 +68,92 @@ def _rule_applies(rule: LoadedRule, language: str) -> bool:
     return language in rule.languages
 
 
+_IGNORE_HINT = (
+    " (an argus-ignore comment here was not applied: add a reason, "
+    "e.g. `argus-ignore[{rule}]: why this is safe`)"
+)
+_MAX_SUPPRESSED_LISTED = 500
+
+
 def _scan_content(
     relative: str,
     language: str,
     content: str,
     rules: list[LoadedRule],
+    suppressed: list[dict[str, object]] | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
-    for i, line in enumerate(content.splitlines(), start=1):
+    lines = content.splitlines()
+    context = path_context(relative)
+    pending: IgnoreMarker | None = None  # from a comment-only line just above
+    markers: list[IgnoreMarker | None] = []
+    for line in lines:
         if _skip_line(line, language):
+            pending = parse_ignore(line)
+            markers.append(None)
             continue
-        for rule in rules:
-            if not _rule_applies(rule, language):
-                continue
-            if rule.pattern.search(line):
-                findings.append(
-                    Finding(
-                        title=rule.title,
-                        severity=rule.severity,
-                        tool=TOOL_NAME,
-                        file=relative,
-                        line=i,
-                        rule_id=rule.id,
-                        description=f"Language: {language}",
-                        language=language,
-                    )
+        markers.append(parse_ignore(line) or pending)
+        pending = None
+
+    for rule in rules:
+        if not _rule_applies(rule, language):
+            continue
+
+        if rule.multiline:
+            source = "\n".join("" if _skip_line(line, language) else line for line in lines)
+            line_starts = [0]
+            line_starts.extend(
+                index + 1 for index, character in enumerate(source) if character == "\n"
+            )
+            matching_lines = {
+                bisect_right(line_starts, match.start())
+                for match in rule.pattern.finditer(source)
+            }
+        else:
+            matching_lines = {
+                i
+                for i, line in enumerate(lines, start=1)
+                if not _skip_line(line, language) and rule.pattern.search(line)
+            }
+
+        for i in sorted(matching_lines):
+            marker = markers[i - 1]
+            description = f"Language: {language}"
+            if marker is not None and rule.allow_inline_ignore and marker.covers(rule.id):
+                if marker.reason:
+                    if suppressed is not None:
+                        suppressed.append(
+                            {
+                                "rule_id": rule.id,
+                                "file": relative,
+                                "line": i,
+                                "reason": marker.reason,
+                            }
+                        )
+                    continue
+                description += _IGNORE_HINT.format(rule=rule.id)
+
+            severity = rule.severity
+            finding_context = ""
+            if context and rule.context_sensitive:
+                severity = downgrade(severity)
+                finding_context = context
+            findings.append(
+                Finding(
+                    title=rule.title,
+                    severity=severity,
+                    tool=TOOL_NAME,
+                    file=relative,
+                    line=i,
+                    rule_id=rule.id,
+                    description=description,
+                    language=language,
+                    data_classification=rule.data_classification,
+                    fix_guidance=rule.fix_guidance,
+                    confidence=rule.confidence,
+                    context=finding_context,
                 )
+            )
     return findings
 
 
@@ -107,15 +173,21 @@ def scan_path(target: str | Path, rules: list[LoadedRule] | None = None) -> Scan
         return result
 
     lang_counts: dict[str, int] = {}
+    suppressed: list[dict[str, object]] = []
     for scanned in files:
         lang_counts[scanned.language] = lang_counts.get(scanned.language, 0) + 1
         try:
             content = scanned.path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        result.findings.extend(_scan_content(scanned.relative, scanned.language, content, loaded))
+        result.findings.extend(
+            _scan_content(scanned.relative, scanned.language, content, loaded, suppressed)
+        )
 
     result.metadata["files_scanned"] = len(files)
+    if suppressed:
+        result.metadata["suppressed_count"] = len(suppressed)
+        result.metadata["suppressed"] = suppressed[:_MAX_SUPPRESSED_LISTED]
     result.metadata["languages"] = lang_counts
     return result
 

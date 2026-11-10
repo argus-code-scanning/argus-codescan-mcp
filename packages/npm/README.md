@@ -64,7 +64,7 @@ Deleted files, symlinks, submodules and generated dependency directories are ski
 Selected files are copied into a temporary tree that is removed after the scanners
 finish, including when a scanner fails. Findings retain repository-relative paths.
 Existing scan output options apply, including automatic CSV output and `--no-csv`.
-Exit codes follow `scan`: zero for no findings and one for findings or a review error.
+Exit codes follow scan: 1 when findings meet the --fail-on threshold (default never) or on a review error, otherwise 0.
 
 Git must be installed and available on `PATH`. This command runs SAST and secrets
 scanners only; use `argus review` from the Python package for malware scanning and
@@ -168,6 +168,7 @@ Add `reports/` to `.gitignore` if you don't want CSV files committed.
 | `--format json` | Print JSON to terminal instead of table |
 | `--format csv` | Print CSV to terminal |
 | `--fail-on high` | Exit code 1 if high+ findings (for CI/CD) |
+| `--fail-on-low-confidence` | Also let low-confidence rule matches trigger `--fail-on` |
 
 Examples:
 
@@ -176,6 +177,20 @@ npx argus-codescan scan all . --format json
 npx argus-codescan scan sast . --no-csv
 npx argus-codescan scan sca . --fail-on moderate
 ```
+
+### Cutting false positives
+
+- **Ignore one finding** with a comment on the line, or on the line above. A reason is required:
+
+  ```js
+  const password = "changeme"; // argus-ignore[hardcoded-password]: local dev default
+  ```
+
+  `argus-ignore: reason` (no rule list) covers every rule on that line. Suppressed findings are listed under `suppressed` in the JSON report. ESLint and Opengrep findings use their own `eslint-disable-next-line` and `nosemgrep` comments.
+- **Tests, docs and bundles count less.** Findings under `tests/`, `__tests__/`, `fixtures/`, `docs/`, `examples/`, in `*.test.ts` / `*.spec.js` files and in `*.min.js` bundles are lowered one severity level and tagged `in test`, `in docs` or `in generated`.
+- **Low-confidence rules** (such as the broad `command-injection` rule) are still reported but don't fail `--fail-on` unless you add `--fail-on-low-confidence`.
+
+The CSV report has `confidence` and `context` columns.
 
 ---
 

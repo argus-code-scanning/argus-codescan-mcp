@@ -1,5 +1,8 @@
+import { lstatSync } from "node:fs";
+import { dirname } from "node:path";
 import { runBundledEslint } from "./eslint-runner.js";
 import { runNativeSast } from "./native-sast.js";
+import { applyPathContext } from "./noise.js";
 import { runSemgrepSast } from "./semgrep.js";
 import type { ScanResult } from "./types.js";
 
@@ -14,5 +17,6 @@ export async function runAllSast(target: string): Promise<ScanResult[]> {
     runBundledEslint(target),
     runSemgrepSast(target),
   ]);
-  return [native, eslint, semgrep];
+  const root = lstatSync(target).isDirectory() ? target : dirname(target);
+  return [native, applyPathContext(eslint, root), applyPathContext(semgrep, root)];
 }

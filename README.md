@@ -177,6 +177,24 @@ suppressions:
 
 Argus auto-discovers `.argus.yml` when scanning. Override with `--policy path/to/.argus.yml`.
 
+### Cutting false positives
+
+The built-in rule packs match code line by line, so some matches are not real issues. Argus reduces the noise in three ways:
+
+- **Ignore one finding in the code.** Put `argus-ignore` in a comment on the line, or on the line just above it. A reason is required. Without one, the finding stays and says why.
+
+  ```python
+  conn.execute(text(QUERY))  # argus-ignore[python-sql-string-build]: QUERY is a module constant
+  # argus-ignore: placeholder, replaced at deploy time
+  password = "changeme"
+  ```
+
+  `argus-ignore[rule-a, rule-b]: reason` covers only those rules; `argus-ignore: reason` covers every rule on that line. Suppressed findings are listed in the report metadata (`suppressed`, `suppressed_count`). For whole files or folders, use `suppressions` in `.argus.yml`.
+- **Tests, docs and generated files count less.** Findings under `tests/`, `__tests__/`, `fixtures/`, `testdata/`, `docs/`, `examples/` and the like, in test files (`test_*.py`, `*_test.go`, `*.spec.ts`, `*Test.java`, …) and in minified bundles (`*.min.js`, `*.bundle.js`) are lowered one severity level and tagged `context: test`, `docs` or `generated`. Real provider keys are not lowered, because they leak from tests too.
+- **Rule confidence.** Rules that flag a risky API without evidence of untrusted input (for example `knex.raw()`, `[AllowAnonymous]`, `unsafe {}`) are `confidence: low`. They are still reported, but do not trigger `--fail-on` unless you pass `--fail-on-low-confidence` or set `fail_on_low_confidence: true` in `.argus.yml`.
+
+Malware rules are exempt from all three: code under review must not be able to hide itself with a comment or by sitting in a `tests/` folder.
+
 ### Baseline diff (PR-only new findings)
 
 ```bash
@@ -512,10 +530,22 @@ argus-codescan-mcp/
 
 ## Contributing
 
-All contributions welcome — new scanners, new language clients, bug fixes, docs.
-Easiest start: [add a YAML security rule](docs/contributing-rules.md) (good first issues welcome).
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+**Everyone is welcome to contribute**, whether it's your first open-source PR or your hundredth. Start with the pinned **[👋 Contributors welcome](https://github.com/argus-code-scanning/argus-codescan-mcp/issues/103)** issue.
+
+| | |
+|---|---|
+| 🟢 [Good first issues](https://github.com/argus-code-scanning/argus-codescan-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) | Small, self-contained tasks: docs, YAML rules, CI workflows |
+| 🙋 [Help wanted](https://github.com/argus-code-scanning/argus-codescan-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) | Bigger features: scanners, privacy controls, integrations |
+| ⚡ [Add a YAML rule](docs/contributing-rules.md) | Fastest first PR: one detection rule plus a test |
+
+To claim an issue, comment "I'd like to work on this" with a short plan and a maintainer will assign it. Setup, code style and PR checklist: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Author
+
+Created and maintained by **Okiri Gabriel** ([@OkiriGabriel](https://github.com/OkiriGabriel)) · Website: https://code-scan.arestechub.com/
+
+Argus is free and open source under the MIT license, built in the open with its contributors. Anyone can use, modify and redistribute it, and contributions are welcome (see [Contributing](#contributing)).
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT - see [LICENSE](LICENSE)

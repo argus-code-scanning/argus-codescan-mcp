@@ -110,5 +110,6 @@
 - id: laravel-app-key-committed
   title: Real APP_KEY committed in an environment file — rotate it
   severity: high
+  test_context: keep  # real provider keys leak from tests too
   pattern: '^\s*APP_KEY\s*=\s*["'']?base64:[A-Za-z0-9+/]{40,}'
   languages: [dotenv-example, dotenv-production]

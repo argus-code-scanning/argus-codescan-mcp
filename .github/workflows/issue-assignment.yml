@@ -1,0 +1,170 @@
+name: Issue assignment
+
+# Contributors must be assigned to an issue before their PR can be merged
+# (CONTRIBUTING.md, "Finding Something to Work On"). This sets a commit status
+# named "Issue assignment" on each PR; make it a required check on main to
+# enforce it. Maintainers (owners, members, collaborators) and bots pass.
+#
+# Security: pull_request_target runs with the base repo's token, so this
+# workflow never checks out or runs code from the PR. It only reads PR and
+# issue metadata through the API.
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+  issues:
+    types: [assigned, unassigned]
+
+permissions: {}
+
+concurrency:
+  group: issue-assignment-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check linked issue is assigned to the PR author
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # comment on the PR (PR comments use the issues API)
+      pull-requests: read
+      statuses: write # set the "Issue assignment" status on the PR head commit
+    steps:
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const STATUS = "Issue assignment";
+            const MARKER = "<!-- argus-issue-assignment -->";
+            const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+            const CONTRIBUTING =
+              `https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md#finding-something-to-work-on`;
+
+            /** Issue numbers written in the PR description: #123 or a link to this repo's issue. */
+            function referencedNumbers(body) {
+              const text = (body || "").replace(/<!--[\s\S]*?-->/g, "");
+              const nums = new Set();
+              for (const m of text.matchAll(/(?:^|[^\w&/])#(\d+)\b/g)) nums.add(Number(m[1]));
+              const url = new RegExp(`github\\.com/${owner}/${repo}/issues/(\\d+)`, "gi");
+              for (const m of text.matchAll(url)) nums.add(Number(m[1]));
+              return [...nums].slice(0, 20);
+            }
+
+            /** Issues linked in the PR's "Development" sidebar. */
+            async function linkedNumbers(prNumber) {
+              try {
+                const data = await github.graphql(
+                  `query($owner: String!, $repo: String!, $n: Int!) {
+                     repository(owner: $owner, name: $repo) {
+                       pullRequest(number: $n) { closingIssuesReferences(first: 10) { nodes { number } } }
+                     }
+                   }`,
+                  { owner, repo, n: prNumber },
+                );
+                return data.repository.pullRequest.closingIssuesReferences.nodes.map((n) => n.number);
+              } catch (err) {
+                core.warning(`Could not read linked issues: ${err.message}`);
+                return [];
+              }
+            }
+
+            async function upsertComment(prNumber, body) {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: prNumber, per_page: 100,
+              });
+              const existing = comments.find(
+                (c) => c.user?.type === "Bot" && c.body?.includes(MARKER),
+              );
+              if (existing) {
+                if (existing.body !== body) {
+                  await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                }
+              } else if (!body.includes("✅")) {
+                // Only start a conversation when something needs fixing.
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+              }
+            }
+
+            async function checkPr(pr) {
+              const author = pr.user.login;
+              let state = "failure";
+              let description;
+              let comment = null;
+
+              if (pr.user.type === "Bot" || TRUSTED.has(pr.author_association)) {
+                state = "success";
+                description = "Maintainer or bot PR: no assigned issue needed";
+              } else {
+                const numbers = [
+                  ...new Set([...(await linkedNumbers(pr.number)), ...referencedNumbers(pr.body)]),
+                ].filter((n) => n !== pr.number);
+                const notes = [];
+                let match = null;
+                for (const n of numbers) {
+                  let issue;
+                  try {
+                    ({ data: issue } = await github.rest.issues.get({ owner, repo, issue_number: n }));
+                  } catch {
+                    notes.push(`#${n}: not found`);
+                    continue;
+                  }
+                  if (issue.pull_request) {
+                    notes.push(`#${n}: is a pull request, not an issue`);
+                    continue;
+                  }
+                  const assignees = (issue.assignees || []).map((a) => a.login);
+                  if (assignees.some((a) => a.toLowerCase() === author.toLowerCase())) {
+                    match = n;
+                    break;
+                  }
+                  notes.push(
+                    assignees.length
+                      ? `#${n}: assigned to ${assignees.map((a) => `\`${a}\``).join(", ")}, not you`
+                      : `#${n}: not assigned to anyone yet`,
+                  );
+                }
+
+                if (match !== null) {
+                  state = "success";
+                  description = `Linked to #${match}, assigned to @${author}`;
+                  comment = `${MARKER}\n✅ Thanks @${author}: this PR is linked to #${match}, which is assigned to you.`;
+                } else {
+                  description = "Link an issue assigned to you (Fixes #123) before this can merge";
+                  const found = notes.length
+                    ? `\n\nIssues referenced in this PR:\n${notes.map((n) => `- ${n}`).join("\n")}`
+                    : "\n\nThis PR doesn't reference any issue yet.";
+                  comment =
+                    `${MARKER}\n👋 Thanks for the PR, @${author}!\n\n` +
+                    `Argus asks contributors to be **assigned to an issue before opening a PR**, ` +
+                    `so two people don't build the same thing and the approach is agreed first ` +
+                    `([CONTRIBUTING.md](${CONTRIBUTING})).${found}\n\n` +
+                    `**To fix this:**\n` +
+                    `1. Find the issue for this change (or open one), comment with a 2–3 line plan, ` +
+                    `and wait for a maintainer to assign it to you.\n` +
+                    `2. Add \`Fixes #<number>\` (or \`Refs #<number>\`) to this PR's description.\n\n` +
+                    `This check runs again when you edit the description, push, or get assigned. ` +
+                    `Until then the PR can't be merged.`;
+                }
+              }
+
+              await github.rest.repos.createCommitStatus({
+                owner, repo, sha: pr.head.sha, state, context: STATUS,
+                description: description.slice(0, 140),
+                target_url: CONTRIBUTING,
+              });
+              if (comment) await upsertComment(pr.number, comment);
+              core.info(`#${pr.number} by ${author}: ${state} (${description})`);
+            }
+
+            if (context.eventName === "pull_request_target") {
+              await checkPr(context.payload.pull_request);
+            } else {
+              // An issue was (un)assigned: re-check open contributor PRs.
+              const prs = await github.paginate(github.rest.pulls.list, {
+                owner, repo, state: "open", per_page: 100,
+              });
+              for (const pr of prs) {
+                if (pr.user.type === "Bot" || TRUSTED.has(pr.author_association)) continue;
+                await checkPr(pr);
+              }
+            }

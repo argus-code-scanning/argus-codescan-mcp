@@ -105,9 +105,13 @@ async def apply_finding_fix(
     timeout: int = 120,
 ) -> dict[str, Any]:
     """Return fix guidance, or apply an automated fix when ``apply=True``."""
+    target_path = Path(target).resolve()
     file_path = Path(file)
     if not file_path.is_absolute():
-        file_path = Path(target) / file
+        if target_path.is_file() and file_path.name == target_path.name:
+            file_path = target_path
+        else:
+            file_path = target_path / file_path
     resolved_file = str(file_path.resolve())
 
     autofix = _autofix_available(tool, scan_type)
@@ -123,6 +127,14 @@ async def apply_finding_fix(
         "applied": False,
         "message": "",
     }
+
+    # Findings should only authorize fixes inside the scan target. Resolve
+    # symlinks before checking so a project link cannot redirect an autofix out.
+    try:
+        Path(resolved_file).relative_to(target_path)
+    except ValueError:
+        result["message"] = "Refusing to fix a file outside the scan target."
+        return result
 
     if scan_type == "secrets":
         guidance = fix_guidance or format_fix_guidance(rule_id, tool=tool)

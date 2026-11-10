@@ -1,4 +1,5 @@
 - id: db-connection-string
+  classification: confidential
   title: Hardcoded database connection string
   severity: high
   pattern: '(DATABASE_URL|DB_CONNECTION|jdbc:|postgres://|mysql://|mongodb(\+srv)?://)[^\s"'']+'
@@ -20,12 +21,14 @@
 - id: db-django-raw-query
   title: Django raw() or extra() with string formatting
   severity: high
+  confidence: low
   pattern: '(\.raw\s*\(|\.extra\s*\(|RawSQL\s*\()'
   languages: [python]
 
 - id: db-prisma-raw-query
   title: Prisma $queryRaw / $executeRaw — verify parameterization
   severity: moderate
+  confidence: low
   pattern: '\$(queryRaw|executeRaw)\s*\('
   languages: [javascript, typescript]
 
@@ -39,6 +42,7 @@
 - id: db-knex-raw
   title: Knex raw() query — verify parameterization
   severity: moderate
+  confidence: low
   pattern: '\.raw\s*\(\s*[`"'']'
   languages: [javascript, typescript]
 
@@ -51,6 +55,7 @@
 - id: db-entity-framework-raw
   title: Entity Framework raw SQL — verify parameterization
   severity: moderate
+  confidence: low
   pattern: '(FromSqlRaw|ExecuteSqlRaw|SqlQuery)\s*\('
   languages: [csharp]
 
@@ -82,11 +87,20 @@
   flags: [i]
   languages: [sql]
 
+# Only Redis KEYS calls: a pattern string argument, a Redis-named client, Go's
+# rdb.Keys(ctx, ...), or a raw "KEYS ..." command. Plain .keys() / .keys(obj)
+# (dict.keys(), Object.keys(obj), Map.keys(), Hash#keys) is not Redis.
 - id: db-redis-keys-prod
   title: Redis KEYS command — blocks server in production
   severity: moderate
-  pattern: '\.keys\s*\(|KEYS\s+\*'
+  pattern: >-
+    (?<!Object)(?<!Reflect)(?:\.|->)\s*keys\s*\(\s*["'`]|(?:\b|\$)\w*(?:[Rr]edis|REDIS|rdb|[Jj]edis|[Vv]alkey)\w*\s*(?:\.|->|::)\s*keys\s*\(|(?:\b|\$)(?:r|rc|client|conn|cache)\s*(?:\.|->)\s*keys\s*\(\s*[^\s)]|\.Keys\s*\(\s*ctx\s*,|["'`]KEYS\s+\S|[(\[]\s*["'`]KEYS["'`]
   languages: [python, javascript, typescript, java, go, ruby, php]
+  fix_guidance: >-
+    KEYS walks the whole keyspace and blocks Redis while it runs. Use SCAN with a MATCH
+    pattern and a COUNT (scan_iter in redis-py, scanStream / scanIterator in Node,
+    ScanOptions in Jedis and Spring Data Redis, rdb.Scan in go-redis), or keep the keys you
+    need in a set.
 
 - id: db-mongo-where-js
   title: MongoDB $where with JavaScript — injection risk

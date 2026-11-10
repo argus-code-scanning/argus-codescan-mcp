@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ScanReport, ScanResult, Severity } from "./types.js";
+import { countsTowardFailure } from "./noise.js";
 
 function countBySeverity(results: ScanResult[]) {
   const counts = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };
@@ -59,7 +60,13 @@ export function formatTable(report: ScanReport): string {
         ? `${f.file}${f.line ? `:${f.line}` : ""}`.slice(0, 26).padEnd(26)
         : (f.package ?? f.tool).slice(0, 26).padEnd(26);
       lines.push(`${sev} ${loc} ${f.title.slice(0, 42)}`);
-      if (f.ruleId) lines.push(`         [${f.tool}] ${f.ruleId}`);
+      if (f.ruleId) {
+        const tags = [
+          f.confidence === "low" ? "low confidence" : "",
+          f.context ? `in ${f.context}` : "",
+        ].filter(Boolean);
+        lines.push(`         [${f.tool}] ${f.ruleId}${tags.length ? ` (${tags.join(", ")})` : ""}`);
+      }
       if (f.url) lines.push(`         ${f.url}`);
       if (f.description) lines.push(`         ${f.description}`);
     }
@@ -68,15 +75,32 @@ export function formatTable(report: ScanReport): string {
   return lines.join("\n");
 }
 
-export function shouldFail(report: ScanReport, failOn: Severity): boolean {
-  const order: Severity[] = ["critical", "high", "moderate", "low", "info"];
-  const threshold = order.indexOf(failOn);
-  if (threshold < 0) return false;
+const SEVERITY_ORDER: Severity[] = ["critical", "high", "moderate", "low", "info"];
 
-  for (const sev of order.slice(0, threshold + 1)) {
-    if (report.summary[sev] > 0) return true;
+/** Findings at or above failOn; low-confidence ones only when includeLowConfidence. */
+export function countFailing(
+  report: ScanReport,
+  failOn: Severity,
+  includeLowConfidence = false,
+): number {
+  const threshold = SEVERITY_ORDER.indexOf(failOn);
+  if (threshold < 0) return 0;
+  let count = 0;
+  for (const result of report.results) {
+    for (const f of result.findings) {
+      const rank = SEVERITY_ORDER.indexOf(f.severity);
+      if (rank >= 0 && rank <= threshold && countsTowardFailure(f, includeLowConfidence)) count++;
+    }
   }
-  return false;
+  return count;
+}
+
+export function shouldFail(
+  report: ScanReport,
+  failOn: Severity,
+  includeLowConfidence = false,
+): boolean {
+  return countFailing(report, failOn, includeLowConfidence) > 0;
 }
 
 function csvCell(value: string | number | undefined): string {
@@ -100,6 +124,8 @@ export function formatCsv(report: ScanReport): string {
     "package",
     "version",
     "url",
+    "confidence",
+    "context",
   ];
   const rows = [headers.join(",")];
 
@@ -118,6 +144,8 @@ export function formatCsv(report: ScanReport): string {
           csvCell(f.package),
           csvCell(f.version),
           csvCell(f.url),
+          csvCell(f.confidence),
+          csvCell(f.context),
         ].join(","),
       );
     }
@@ -140,7 +168,7 @@ export function printScanReport(
   report: ScanReport,
   format: "json" | "table" | "csv",
   failOn: Severity | "never",
-  options: { csvPath?: string; writeCsv?: boolean } = {},
+  options: { csvPath?: string; writeCsv?: boolean; includeLowConfidence?: boolean } = {},
 ): number {
   const writeCsv = options.writeCsv !== false;
   const csvPath = options.csvPath ?? defaultCsvPath(report);
@@ -158,10 +186,20 @@ export function printScanReport(
     console.log(formatTable(report));
   }
 
-  if (failOn !== "never" && shouldFail(report, failOn)) {
+  const includeLow = options.includeLowConfidence === true;
+  if (failOn !== "never" && !includeLow) {
+    const skipped = countFailing(report, failOn, true) - countFailing(report, failOn);
+    if (skipped > 0) {
+      console.error(
+        `Note: ${skipped} low-confidence finding(s) at or above '${failOn}' are shown but do ` +
+          "not fail the run. Add --fail-on-low-confidence to count them.",
+      );
+    }
+  }
+  if (failOn !== "never" && shouldFail(report, failOn, includeLow)) {
     console.error(`Failed: findings at or above '${failOn}' severity`);
     return 1;
   }
 
-  return report.summary.total > 0 ? 1 : 0;
+  return 0;
 }

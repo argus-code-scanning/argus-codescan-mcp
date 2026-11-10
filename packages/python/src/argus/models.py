@@ -56,8 +56,13 @@ class Finding:
     cve: str = ""
     fix_guidance: str = ""
     rule_id: str = ""
+    data_classification: str = "unset"
     references: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
+    # Set by the built-in rule packs: "high" / "medium" / "low", and "test" / "docs" /
+    # "generated" when the file probably does not ship (severity already lowered).
+    confidence: str = ""
+    context: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -73,7 +78,10 @@ class Finding:
             "cve": self.cve,
             "fix_guidance": self.fix_guidance,
             "rule_id": self.rule_id,
+            "data_classification": self.data_classification,
             "references": self.references,
+            "confidence": self.confidence,
+            "context": self.context,
         }
 
 
@@ -144,3 +152,8 @@ class AggregatedReport:
             "summary": self.summary,
             "results": [r.to_dict() for r in self.results],
         }
+
+
+def counts_toward_failure(finding: dict[str, Any], include_low_confidence: bool = False) -> bool:
+    """Low-confidence rule matches are shown but do not fail --fail-on unless asked."""
+    return include_low_confidence or finding.get("confidence") != "low"

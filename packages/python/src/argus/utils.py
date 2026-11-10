@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from argus.models import ScanResult
+from argus.models import ScanResult, ScanType, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,9 @@ def find_scan_files(root: Path, *patterns: str) -> list[Path]:
         except OSError:
             return
         for entry in entries:
+            # Keep recursive scanner discovery inside the requested project tree.
+            if entry.is_symlink():
+                continue
             if entry.is_dir():
                 if entry.name in SKIP_SCAN_DIRS:
                     continue
@@ -83,6 +86,53 @@ def collect_scan_results(
         elif isinstance(item, BaseException):
             logger.exception("%s raised an exception: %s", label, item)
     return final
+
+
+def refresh_report_summary(report: dict[str, Any]) -> None:
+    """Recompute report and per-tool counts after a finding filter."""
+    by_severity = {severity.value: 0 for severity in Severity}
+    by_scan_type = {scan_type.value: 0 for scan_type in ScanType}
+    by_tool: dict[str, int] = {}
+    total = 0
+
+    for result in report.get("results", []):
+        result_counts = {severity.value: 0 for severity in Severity}
+        findings = result.get("findings", [])
+        for finding in findings:
+            severity = finding.get("severity", Severity.UNKNOWN.value)
+            if severity not in result_counts:
+                severity = Severity.UNKNOWN.value
+            result_counts[severity] += 1
+            by_severity[severity] += 1
+
+            scan_type = finding.get("scan_type", result.get("scan_type", ""))
+            if scan_type not in by_scan_type:
+                by_scan_type[scan_type] = 0
+            by_scan_type[scan_type] += 1
+
+            tool = finding.get("tool", result.get("tool", ""))
+            by_tool[tool] = by_tool.get(tool, 0) + 1
+            total += 1
+
+        result["summary"] = {**result_counts, "total": len(findings)}
+
+    old_summary = report.get("summary", {})
+    report["summary"] = {
+        "total_findings": total,
+        "by_severity": by_severity,
+        "by_scan_type": by_scan_type,
+        "by_tool": by_tool,
+        "tools_run": [result.get("tool", "") for result in report.get("results", [])],
+        "tools_unavailable": [
+            result.get("tool", "")
+            for result in report.get("results", [])
+            if not result.get("tool_available", True)
+        ],
+    }
+    # Preserve summary metadata this helper does not own.
+    for key, value in old_summary.items():
+        if key not in report["summary"]:
+            report["summary"][key] = value
 
 
 def is_tool_available(name: str) -> bool:
@@ -137,22 +187,17 @@ def parse_json_output(output: str) -> Any:
     try:
         return json.loads(output)
     except json.JSONDecodeError:
-        # Try to find the first JSON object/array in mixed output
-        for start_char, end_char in (("{", "}"), ("[", "]")):
-            start = output.find(start_char)
-            if start != -1:
-                # Find matching end
-                depth = 0
-                for i, ch in enumerate(output[start:], start):
-                    if ch == start_char:
-                        depth += 1
-                    elif ch == end_char:
-                        depth -= 1
-                        if depth == 0:
-                            try:
-                                return json.loads(output[start : i + 1])
-                            except json.JSONDecodeError:
-                                break
+        # raw_decode handles nested containers and delimiter characters inside strings.
+        decoder = json.JSONDecoder()
+        for start, char in enumerate(output):
+            if char not in "[{":
+                continue
+            try:
+                value, _ = decoder.raw_decode(output, start)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, (dict, list)):
+                return value
         return None
 
 

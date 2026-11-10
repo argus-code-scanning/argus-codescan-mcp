@@ -64,6 +64,11 @@ def aggregated_report_to_sarif(report_dict: dict[str, Any]) -> dict[str, Any]:
                         tags.append(extra)
                 if finding.get("cwe"):
                     rules[key]["properties"]["tags"].append(finding["cwe"])
+                classification = finding.get("data_classification", "unset")
+                if classification and classification != "unset":
+                    if classification not in rules[key]["properties"]["tags"]:
+                        rules[key]["properties"]["tags"].append(classification)
+                    rules[key]["properties"]["data_classification"] = classification
 
             location: dict[str, Any] = {}
             file_path = finding.get("file", "")
@@ -96,6 +101,9 @@ def aggregated_report_to_sarif(report_dict: dict[str, Any]) -> dict[str, Any]:
                 result_entry["properties"]["cwe"] = finding["cwe"]
             if finding.get("cve"):
                 result_entry["properties"]["cve"] = finding["cve"]
+            classification = finding.get("data_classification", "unset")
+            if classification and classification != "unset":
+                result_entry["properties"]["data_classification"] = classification
 
             results.append(result_entry)
 
