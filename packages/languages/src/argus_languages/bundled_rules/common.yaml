@@ -1,7 +1,9 @@
 - id: injection-eval
   title: Dynamic code execution (eval/exec) — injection risk
   severity: high
-  pattern: '\beval\s*\(|\bexec\s*\(|\bFunction\s*\(|Runtime\.getRuntime\(\)\.exec'
+  # `.eval(` / `.exec(` are method calls (redis.eval of a Lua script, RegExp#exec, db.exec),
+  # not eval-style execution; window/globalThis/self/global.eval( still is.
+  pattern: '(?<![.\w$])eval\s*\(|\b(?:window|globalThis|self|global)\.eval\s*\(|(?<![.\w$])exec\s*\(|\bFunction\s*\(|Runtime\.getRuntime\(\)\.exec'
   languages: [javascript, typescript, python, java, ruby, perl, lua, vue]
 
 - id: sql-concat

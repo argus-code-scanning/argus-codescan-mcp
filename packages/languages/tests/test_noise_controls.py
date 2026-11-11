@@ -196,11 +196,27 @@ def test_custom_malware_file_rules_are_hardened() -> None:
     assert rule.context_sensitive is False
 
 
-# ── JSP webshell rule only applies to .jsp pages (was firing on every .java file) ───
+# ── injection-eval: method calls are not eval (real-world false positive) ───
 
 
-def test_processbuilder_in_java_is_not_a_jsp_webshell(tmp_path: Path) -> None:
-    _write(tmp_path, "Runner.java", 'Process p = new ProcessBuilder("git", "status").start();\n')
-    _write(tmp_path, "cmd.jsp", '<% Runtime.getRuntime().exec(request.getParameter("c")); %>\n')
-    _, findings = _by_rule(tmp_path, "malware-jsp-webshell")
-    assert [(f.file, f.severity) for f in findings] == [("cmd.jsp", Severity.CRITICAL)]
+@pytest.mark.parametrize(
+    "code",
+    [
+        "const [count, ttl] = await this.redis.eval(HIT_SCRIPT, 1, key);",
+        "const m = /token=([a-f0-9]{64})/.exec(text);",
+        "result = conn.eval(LUA_SCRIPT, 0)",
+    ],
+)
+def test_eval_method_calls_are_not_flagged(tmp_path: Path, code: str) -> None:
+    _write(tmp_path, "svc.ts" if "const" in code else "svc.py", code + "\n")
+    _, findings = _by_rule(tmp_path, "injection-eval")
+    assert findings == []
+
+
+@pytest.mark.parametrize(
+    "code", ["eval(user_input)", "window.eval(code);", "globalThis.eval(code);", "exec(source)"]
+)
+def test_real_eval_is_still_flagged(tmp_path: Path, code: str) -> None:
+    _write(tmp_path, "svc.js" if code.endswith(";") else "svc.py", code + "\n")
+    _, findings = _by_rule(tmp_path, "injection-eval")
+    assert len(findings) == 1

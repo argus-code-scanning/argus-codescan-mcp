@@ -44,8 +44,9 @@ const RULES: Rule[] = [
     id: "injection-eval",
     title: "Dynamic code execution (eval/exec) — injection risk",
     severity: "high",
-    // `.exec(` is a method call (RegExp#exec, db.exec), not eval-style execution.
-    pattern: /\beval\s*\(|(?<![.\w])exec\s*\(|\bFunction\s*\(|Runtime\.getRuntime\(\)\.exec/,
+    // `.eval(` / `.exec(` are method calls (redis.eval of a Lua script, RegExp#exec, db.exec),
+    // not eval-style execution; window/globalThis/self/global.eval( still is.
+    pattern: /(?<![.\w$])eval\s*\(|\b(?:window|globalThis|self|global)\.eval\s*\(|(?<![.\w$])exec\s*\(|\bFunction\s*\(|Runtime\.getRuntime\(\)\.exec/,
   },
   {
     id: "sql-concat",
@@ -56,9 +57,12 @@ const RULES: Rule[] = [
   },
   {
     id: "sql-concat-js",
-    title: "Possible SQL injection — dynamic SQL in query call",
+    title: "Possible SQL injection — variable interpolated or concatenated into a SQL value",
     severity: "high",
-    pattern: /\.(query|execute|raw|rawQuery|sql)\s*\(\s*[`'"].*\b(SELECT|INSERT|UPDATE|DELETE)\b|`[^`]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^`]*\$\{|['"][^'"]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^'"]*['"]\s*\+/i,
+    // Same rule as js-sql-string-build in argus-languages (#130): real SQL shape (SELECT … FROM,
+    // INSERT INTO, UPDATE … SET, DELETE FROM) with a variable spliced into a value. Parameterized
+    // queries ($1, ?) and log messages that merely contain "delete" are not flagged.
+    pattern: /((?<![\w$])`[^`]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^`]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*[\'"(%]*\$\{|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(]|'[^']*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^']*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*["(%]*'\s*\+\s*[\w(])/i,
     languages: ["javascript", "typescript"],
   },
   {
