@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "argus-languages"
-version = "0.4.0"
+version = "0.5.0"
 description = "Built-in security scanner for Java, PHP, Flutter, Terraform, Ansible, Python, Go, and 20+ languages. No external tools. Open source (MIT). pip install && argus-languages scan ."
 readme = "README.md"
 license = { text = "MIT" }
