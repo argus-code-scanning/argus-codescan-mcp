@@ -56,6 +56,8 @@ _SKIP_DIRS = frozenset(
         ".next",
         "coverage",
         "target",
+        ".gradle",
+        ".mvn",
     }
 )
 
@@ -220,7 +222,9 @@ def _parser_for(name: str) -> Callable[[str], Iterator[Package]] | None:
         return _PARSERS[name]
     if name.startswith("requirements") and name.endswith(".txt"):
         return _requirements
-    return None
+    from argus.tools.maven_deps import MAVEN_PARSERS  # Maven / Gradle (imported lazily)
+
+    return MAVEN_PARSERS.get(name)
 
 
 def find_lockfiles(target: Path) -> list[Path]:
@@ -278,7 +282,9 @@ def collect_packages(
             key = _normalise(package)
             if key not in packages and len(packages) >= _MAX_PACKAGES:
                 continue
-            index = text.find(package.name)
+            # Maven names (group:artifact) are split across tags; look for the artifact.
+            needle = package.name if package.name in text else package.name.rsplit(":", 1)[-1]
+            index = text.find(needle)
             line = text.count("\n", 0, index) + 1 if index >= 0 else 1
             locations = packages.setdefault(key, [])
             if (relative, line) not in locations:
@@ -306,6 +312,16 @@ def _post_querybatch(queries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def lookup_malicious(packages: list[Package]) -> dict[Package, list[str]]:
     """Map each package to the ``MAL-`` ids OSV lists for its exact version."""
     found: dict[Package, list[str]] = {}
+    for package, ids in query_vulnerability_ids(packages).items():
+        malicious = [i for i in ids if i.startswith("MAL-")]
+        if malicious:
+            found[package] = malicious
+    return found
+
+
+def query_vulnerability_ids(packages: list[Package]) -> dict[Package, list[str]]:
+    """Map each package to every OSV id (MAL-, GHSA-, CVE-, ...) listed for its exact version."""
+    found: dict[Package, list[str]] = {}
     for start in range(0, len(packages), _BATCH_SIZE):
         batch = packages[start : start + _BATCH_SIZE]
         queries = [
@@ -316,7 +332,7 @@ def lookup_malicious(packages: list[Package]) -> dict[Package, list[str]]:
             ids = [
                 str(v.get("id"))
                 for v in result.get("vulns", []) or []
-                if isinstance(v, dict) and str(v.get("id", "")).startswith("MAL-")
+                if isinstance(v, dict) and v.get("id")
             ]
             if ids:
                 found[package] = sorted(set(ids))
