@@ -68,7 +68,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 |----------|-------|
 | **SAST** | Semgrep · Bandit · ESLint-security · flake8-bandit |
 | **DAST** | OWASP ZAP · Nikto |
-| **SCA** | Trivy · Safety · pip-audit · npm audit |
+| **SCA** | Trivy · Safety · pip-audit · npm audit · built-in OSV known-malicious package check (MAL- records) |
 | **Secrets** | Gitleaks · detect-secrets · TruffleHog |
 | **IaC** | Checkov · Trivy config · Terrascan · KICS |
 | **Terraform** | tfsec · tflint · terraform validate · KICS · Checkov |
@@ -76,6 +76,13 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **Container** | Trivy image scan |
 | **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 | **Malware** | Built-in heuristics — crypto miners, reverse shells, BAT/PS1 droppers, web shells (not AV) |
+
+### Known-malicious dependencies
+
+`argus scan sca` (and `scan all`, and the MCP `scan_sca` tool) also checks every package in your lockfiles against OSV's **known-malicious** records (`MAL-…`, from the OpenSSF malicious-packages feed). A match is always **critical**: it means the exact version you lock was published as malware.
+
+- Reads `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`, pinned `requirements*.txt` (`name==version`) and `composer.lock`. Nothing is installed or run.
+- Sends only package names and exact versions to `api.osv.dev`. Offline, the check is skipped with a note. To turn it off, use `--no-network` or `ARGUS_NO_NETWORK=1`.
 
 ## MCP Tools (for AI clients)
 
