@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { existsSync, lstatSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import type { Finding, ScanResult, Severity } from "./types.js";
 
@@ -17,6 +17,8 @@ interface NpmAuditEntry {
   severity?: string;
   via?: Array<string | NpmAuditAdvisory>;
   range?: string;
+  /** Lockfile paths of the affected installs, e.g. node_modules/glob/node_modules/minimatch. */
+  nodes?: string[];
 }
 
 interface NpmAuditJson {
@@ -96,10 +98,57 @@ function advisoryId(advisory: NpmAuditAdvisory): string {
  * at another vulnerable package, which carries the advisory itself, so they are skipped.
  * `runtime` holds the package names `npm audit --omit=dev` still reports.
  */
+/**
+ * Installed versions from package-lock.json / npm-shrinkwrap.json, keyed both by package name
+ * and by lockfile path (node_modules/a/node_modules/b), so npm audit's `nodes` can be resolved.
+ */
+export function installedVersions(lockfileText: string): Map<string, string[]> {
+  const versions = new Map<string, Set<string>>();
+  const add = (name: string, version: unknown) => {
+    if (typeof version !== "string" || version.startsWith("file:")) return;
+    if (!versions.has(name)) versions.set(name, new Set());
+    versions.get(name)?.add(version);
+  };
+  let data: { packages?: Record<string, { version?: unknown; name?: unknown }>; dependencies?: unknown };
+  try {
+    data = JSON.parse(lockfileText);
+  } catch {
+    return new Map();
+  }
+  for (const [key, entry] of Object.entries(data.packages ?? {})) {
+    const at = key.lastIndexOf("node_modules/");
+    if (at < 0 || !entry) continue;
+    add(typeof entry.name === "string" ? entry.name : key.slice(at + "node_modules/".length), entry.version);
+    add(key, entry.version);
+  }
+  const walk = (deps: unknown) => {
+    if (!deps || typeof deps !== "object") return;
+    for (const [name, entry] of Object.entries(deps as Record<string, { version?: unknown; dependencies?: unknown }>)) {
+      add(name, entry?.version);
+      walk(entry?.dependencies);
+    }
+  };
+  if (!data.packages) walk(data.dependencies);
+  return new Map([...versions].map(([name, set]) => [name, [...set].sort()]));
+}
+
+/** Versions of the affected installs (npm audit `nodes`), or every installed version as a fallback. */
+function affectedVersions(
+  nodes: string[] | undefined,
+  pkgName: string,
+  installed?: Map<string, string[]>,
+): string | undefined {
+  if (!installed) return undefined;
+  const fromNodes = [...new Set((nodes ?? []).flatMap((node) => installed.get(node) ?? []))].sort();
+  const versions = fromNodes.length ? fromNodes : (installed.get(pkgName) ?? []);
+  return versions.join(", ") || undefined;
+}
+
 export function parseAuditFindings(
   data: NpmAuditJson,
   runtime: Set<string>,
   lockfile?: string,
+  installed?: Map<string, string[]>,
 ): Finding[] {
   const findings: Finding[] = [];
   const seen = new Set<string>();
@@ -125,6 +174,7 @@ export function parseAuditFindings(
         tool: "npm-audit",
         file: lockfile,
         package: pkgName,
+        version: affectedVersions(entry.nodes, pkgName, installed),
         description: `[${scope} dependency] ${pkgName} ${range}${title ? `: ${title}` : ""}`,
         url: via.url,
         ruleId: advisory,
@@ -211,7 +261,13 @@ export async function runNpmAuditSca(target: string): Promise<ScanResult> {
       }
       const runtime = new Set(Object.keys(parseJson(prod)?.vulnerabilities ?? {}));
       const lockfileRel = lockfile && relative(root, lockfile).split(sep).join("/");
-      result.findings.push(...parseAuditFindings(data, runtime, lockfileRel));
+      let installed: Map<string, string[]> | undefined;
+      try {
+        installed = lockfile ? installedVersions(readFileSync(lockfile, "utf8")) : undefined;
+      } catch {
+        installed = undefined;
+      }
+      result.findings.push(...parseAuditFindings(data, runtime, lockfileRel, installed));
       result.projects?.push(project);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
