@@ -600,6 +600,7 @@ async def run_all_sca(
 ) -> list[ScanResult]:
     """Run all available SCA tools against a target."""
     from argus.tools.malicious_packages import run_malicious_package_check
+    from argus.tools.maven_deps import run_java_dependency_check
 
     tasks = [
         run_trivy_fs(target, timeout=timeout),
@@ -608,6 +609,8 @@ async def run_all_sca(
         run_npm_audit(target, timeout=timeout),
         # Known-malicious packages (OSV MAL- records) from lockfiles; built in, no extra tool.
         run_malicious_package_check(target),
+        # Maven / Gradle CVEs from OSV when Trivy isn't installed; built in, no JVM needed.
+        run_java_dependency_check(target),
     ]
     # Ecosystem-specific tools only run when their manifests exist.
     target_path = Path(target)
