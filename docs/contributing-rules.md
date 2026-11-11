@@ -13,6 +13,7 @@ packages/languages/src/argus_languages/bundled_rules/
 | File            | Purpose                              |
 | --------------- | ------------------------------------ |
 | `malware.yaml`  | Miners, reverse shells, and droppers |
+| `dependency-sources.yaml` | Parsed remote dependencies in npm, pip, Poetry and Composer manifests |
 | `ml.yaml`       | AI/ML unsafe loads and LLM keys      |
 | `database.yaml` | Database and ORM-related issues      |
 | `common.yaml`   | Shared detection patterns            |
