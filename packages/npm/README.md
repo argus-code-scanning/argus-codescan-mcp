@@ -230,9 +230,9 @@ The **npm package** is for direct CLI scanning in Node projects — no MCP requi
 
 ## Java, PHP, Flutter, Terraform, Ansible?
 
-This npm package is for **Node / React / Next.js only**.
+**Java / Kotlin** are covered here too: `scan sast` checks SQL built from strings, XXE, LDAP injection, path traversal, JJWT tokens parsed without a signature, Spring Security `permitAll()` on everything, `web.ignoring()`, CSRF disabled and `@PermitAll`, JSP web shells, and Spring Boot config (`application*.properties` / `*.yml`: Actuator exposing every endpoint, the H2 console enabled). These are the same rules as the Python package.
 
-For other languages, use the Python package:
+For Maven/Gradle dependency CVEs, and for other languages, use the Python package:
 
 ```bash
 pip install argus-languages

@@ -18,7 +18,7 @@ USAGE:
   argus-codescan tools                 What's bundled
 
 BUILT-IN (ships with npm install):
-  argus-native     Python, Java, PHP, JS, TS, Go — injection, XSS, SQLi, …
+  argus-native     JS, TS, Python, Java/Kotlin + Spring config, PHP, Go — injection, XSS, SQLi, …
   eslint-security  JavaScript / JSX security rules
   argus-secrets    Pattern-based secret detection
 
