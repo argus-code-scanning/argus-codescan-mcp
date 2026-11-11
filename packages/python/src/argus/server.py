@@ -37,7 +37,7 @@ from argus.tools.iac import (
     run_trivy_config,
     run_trivy_image,
 )
-from argus.tools.malware import run_malware_scan
+from argus.tools.malware import run_malware_scan, run_malware_triage
 from argus.tools.ml import run_ml_scan
 from argus.tools.pci import run_pci_scan
 from argus.tools.review import review_summary_lines, run_review
@@ -440,6 +440,32 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="triage_malware",
+            description=(
+                "Run static malware heuristics and return bounded, redacted evidence snippets, "
+                "safe text-only decoding, package context, and a structured prompt for an AI "
+                "client to assess as malicious, suspicious, or benign. Never executes files or "
+                "calls a model."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to project directory or file",
+                    },
+                    "max_files": {
+                        "type": "integer",
+                        "description": "Maximum finding files to include (default: 10, maximum: 50)",
+                        "default": 10,
+                        "minimum": 1,
+                        "maximum": 50,
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_pci",
             description=(
                 "Scan source for PCI-DSS cardholder-data exposure heuristics: CVV/CVC stored "
@@ -762,6 +788,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_scan_ml(arguments)
         elif name == "scan_malware":
             return await _handle_scan_malware(arguments)
+        elif name == "triage_malware":
+            return await _handle_triage_malware(arguments)
         elif name == "scan_pci":
             return await _handle_scan_pci(arguments)
         elif name == "review_code":
@@ -1101,6 +1129,11 @@ async def _handle_scan_malware(args: dict[str, Any]) -> list[types.TextContent]:
         include_raw_json=True,
         target_path=target,
     )
+
+
+async def _handle_triage_malware(args: dict[str, Any]) -> list[types.TextContent]:
+    result = await run_malware_triage(args["target"], args.get("max_files", 10))
+    return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
 
 async def _handle_scan_pci(args: dict[str, Any]) -> list[types.TextContent]:
