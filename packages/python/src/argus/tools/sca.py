@@ -1,7 +1,8 @@
 """SCA (Software Composition Analysis) tool runners.
 
 Integrates: Trivy (filesystem mode), Safety (Python), pip-audit (Python),
-            npm audit (Node.js), govulncheck (Go), composer audit (PHP).
+            npm audit (Node.js), govulncheck (Go), composer audit (PHP), and a built-in
+            check of lockfile packages against OSV known-malicious (MAL-) records.
 """
 
 from __future__ import annotations
@@ -598,11 +599,18 @@ async def run_all_sca(
     timeout: int = 300,
 ) -> list[ScanResult]:
     """Run all available SCA tools against a target."""
+    from argus.tools.malicious_packages import run_malicious_package_check
+    from argus.tools.maven_deps import run_java_dependency_check
+
     tasks = [
         run_trivy_fs(target, timeout=timeout),
         run_safety(target, timeout=timeout),
         run_pip_audit(target, timeout=timeout),
         run_npm_audit(target, timeout=timeout),
+        # Known-malicious packages (OSV MAL- records) from lockfiles; built in, no extra tool.
+        run_malicious_package_check(target),
+        # Maven / Gradle CVEs from OSV when Trivy isn't installed; built in, no JVM needed.
+        run_java_dependency_check(target),
     ]
     # Ecosystem-specific tools only run when their manifests exist.
     target_path = Path(target)

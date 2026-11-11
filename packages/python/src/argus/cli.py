@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from collections.abc import Callable, Coroutine
 from pathlib import Path
@@ -131,6 +132,12 @@ def build_parser() -> argparse.ArgumentParser:
             choices=["critical", "high", "medium", "low", "never"],
             default="never",
             help="Exit with code 1 if findings at this severity or above are found",
+        )
+        p.add_argument(
+            "--no-network",
+            action="store_true",
+            help="Skip online lookups such as the OSV known-malicious package check "
+            "(same as ARGUS_NO_NETWORK=1)",
         )
         p.add_argument(
             "--fail-on-low-confidence",
@@ -728,6 +735,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
     from argus.policy import apply_policy, load_policy, merge_cli_policy
 
     scan_type = args.scan_type
+    if getattr(args, "no_network", False):
+        os.environ["ARGUS_NO_NETWORK"] = "1"
     timer = ScanTimer()
     timeout = args.timeout
     fmt = args.format

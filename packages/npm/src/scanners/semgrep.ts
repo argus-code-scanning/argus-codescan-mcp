@@ -1,3 +1,5 @@
+import { lstatSync } from "node:fs";
+import { dirname, isAbsolute, relative, sep } from "node:path";
 import { execa } from "execa";
 import { ensureOpengrepBinary, opengrepCachePath } from "./opengrep-installer.js";
 import { mapSemgrepSeverity } from "./severity.js";
@@ -57,7 +59,19 @@ export async function resolveSemgrepCommand(): Promise<ResolvedSastEngine | null
   return null;
 }
 
-function parseSemgrepJson(stdout: string, result: ScanResult, tool: string): void {
+/** Report paths relative to the scan root, like the other scanners (Opengrep prints absolute ones). */
+function relativePath(file: string | undefined, root: string): string | undefined {
+  if (!file || !isAbsolute(file)) return file;
+  const rel = relative(root, file);
+  return rel.startsWith("..") ? file : rel.split(sep).join("/");
+}
+
+export function parseSemgrepJson(
+  stdout: string,
+  result: ScanResult,
+  tool: string,
+  root?: string,
+): void {
   let data: SemgrepOutput = {};
   try {
     data = JSON.parse(stdout || "{}") as SemgrepOutput;
@@ -76,7 +90,7 @@ function parseSemgrepJson(stdout: string, result: ScanResult, tool: string): voi
       title: r.extra?.message ?? ruleId,
       severity: mapSemgrepSeverity(r.extra?.severity),
       tool,
-      file: r.path,
+      file: root ? relativePath(r.path, root) : r.path,
       line: r.start?.line,
       ruleId,
       description: [
@@ -86,6 +100,14 @@ function parseSemgrepJson(stdout: string, result: ScanResult, tool: string): voi
         .filter(Boolean)
         .join(" | "),
     });
+  }
+}
+
+function scanRoot(target: string): string {
+  try {
+    return lstatSync(target).isDirectory() ? target : dirname(target);
+  } catch {
+    return target;
   }
 }
 
@@ -120,7 +142,7 @@ export async function runSemgrepSast(target: string, timeoutMs = 300_000): Promi
       reject: false,
     });
 
-    parseSemgrepJson(stdout, result, resolved.tool);
+    parseSemgrepJson(stdout, result, resolved.tool, scanRoot(target));
 
     if (stderr && result.findings.length === 0 && result.errors.length === 0) {
       result.errors.push(stderr.slice(0, 400));

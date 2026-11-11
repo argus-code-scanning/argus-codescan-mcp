@@ -194,3 +194,29 @@ def test_custom_malware_file_rules_are_hardened() -> None:
     )
     assert rule.allow_inline_ignore is False
     assert rule.context_sensitive is False
+
+
+# ── injection-eval: method calls are not eval (real-world false positive) ───
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "const [count, ttl] = await this.redis.eval(HIT_SCRIPT, 1, key);",
+        "const m = /token=([a-f0-9]{64})/.exec(text);",
+        "result = conn.eval(LUA_SCRIPT, 0)",
+    ],
+)
+def test_eval_method_calls_are_not_flagged(tmp_path: Path, code: str) -> None:
+    _write(tmp_path, "svc.ts" if "const" in code else "svc.py", code + "\n")
+    _, findings = _by_rule(tmp_path, "injection-eval")
+    assert findings == []
+
+
+@pytest.mark.parametrize(
+    "code", ["eval(user_input)", "window.eval(code);", "globalThis.eval(code);", "exec(source)"]
+)
+def test_real_eval_is_still_flagged(tmp_path: Path, code: str) -> None:
+    _write(tmp_path, "svc.js" if code.endswith(";") else "svc.py", code + "\n")
+    _, findings = _by_rule(tmp_path, "injection-eval")
+    assert len(findings) == 1
