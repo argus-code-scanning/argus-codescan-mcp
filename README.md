@@ -84,6 +84,8 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 - Reads `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`, pinned `requirements*.txt` (`name==version`) and `composer.lock`. Nothing is installed or run.
 - Sends only package names and exact versions to `api.osv.dev`. Offline, the check is skipped with a note. To turn it off, use `--no-network` or `ARGUS_NO_NETWORK=1`.
 
+> **How to scan your stack:** see [Using Argus by language](docs/usage-by-language.md) for Java, Kotlin, Python, Node/npm, PHP/Laravel, Go, Ruby, C#, Rust, Flutter, Terraform, Ansible and more.
+
 ## MCP Tools (for AI clients)
 
 | Tool | What It Does |
