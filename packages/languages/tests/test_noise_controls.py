@@ -220,3 +220,13 @@ def test_real_eval_is_still_flagged(tmp_path: Path, code: str) -> None:
     _write(tmp_path, "svc.js" if code.endswith(";") else "svc.py", code + "\n")
     _, findings = _by_rule(tmp_path, "injection-eval")
     assert len(findings) == 1
+
+
+# ── JSP webshell rule only applies to .jsp pages (was firing on every .java file) ───
+
+
+def test_processbuilder_in_java_is_not_a_jsp_webshell(tmp_path: Path) -> None:
+    _write(tmp_path, "Runner.java", 'Process p = new ProcessBuilder("git", "status").start();\n')
+    _write(tmp_path, "cmd.jsp", '<% Runtime.getRuntime().exec(request.getParameter("c")); %>\n')
+    _, findings = _by_rule(tmp_path, "malware-jsp-webshell")
+    assert [(f.file, f.severity) for f in findings] == [("cmd.jsp", Severity.CRITICAL)]
