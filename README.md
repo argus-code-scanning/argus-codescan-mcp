@@ -68,7 +68,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 |----------|-------|
 | **SAST** | Semgrep · Bandit · ESLint-security · flake8-bandit |
 | **DAST** | OWASP ZAP · Nikto |
-| **SCA** | Trivy · Safety · pip-audit · npm audit · built-in OSV known-malicious package check (MAL- records) |
+| **SCA** | Trivy · Safety · pip-audit · npm audit · built-in Maven/Gradle CVE check (OSV) · built-in OSV known-malicious package check (MAL- records) |
 | **Secrets** | Gitleaks · detect-secrets · TruffleHog |
 | **IaC** | Checkov · Trivy config · Terrascan · KICS |
 | **Terraform** | tfsec · tflint · terraform validate · KICS · Checkov |
@@ -81,10 +81,12 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 
 `argus scan sca` (and `scan all`, and the MCP `scan_sca` tool) also checks every package in your lockfiles against OSV's **known-malicious** records (`MAL-…`, from the OpenSSF malicious-packages feed). A match is always **critical**: it means the exact version you lock was published as malware.
 
-- Reads `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`, pinned `requirements*.txt` (`name==version`) and `composer.lock`. Nothing is installed or run.
+- Reads `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`, pinned `requirements*.txt` (`name==version`), `composer.lock`, and for Java/Kotlin `pom.xml`, `gradle.lockfile`, `build.gradle(.kts)` and `libs.versions.toml`. Nothing is installed or run.
 - Sends only package names and exact versions to `api.osv.dev`. Offline, the check is skipped with a note. To turn it off, use `--no-network` or `ARGUS_NO_NETWORK=1`.
 
-> **How to scan your stack:** see [Using Argus by language](docs/usage-by-language.md) for Java, Kotlin, Python, Node/npm, PHP/Laravel, Go, Ruby, C#, Rust, Flutter, Terraform, Ansible and more.
+### Java / Kotlin dependencies without Trivy
+
+When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle dependencies for known vulnerabilities. It reads the same files listed above and looks up exact versions on OSV. Findings include the CVE and GHSA ids, the severity and the nearest fixed version. Only literal versions are used: `${property}` values are resolved from the pom, while ranges, `1.+` and SNAPSHOTs are skipped. Nothing is downloaded, and no JVM or build is needed. With Trivy installed, Trivy covers this instead, so CVEs aren't reported twice.
 
 ## MCP Tools (for AI clients)
 

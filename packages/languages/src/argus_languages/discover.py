@@ -137,6 +137,12 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
         return "blade"
     if name == "composer.json":
         return "composer"
+    if name == "package.json":
+        return "npm-manifest"
+    if name.startswith("requirements") and name.endswith(".txt"):
+        return "python-requirements"
+    if name == "pyproject.toml":
+        return "python-manifest"
 
     if name == "dockerfile" or name.endswith(".dockerfile"):
         return "docker"
@@ -248,5 +254,8 @@ SUPPORTED_LANGUAGES = sorted(
         "dotenv-example",
         "spring-config",
         "github-actions",
+        "npm-manifest",
+        "python-requirements",
+        "python-manifest",
     }
 )

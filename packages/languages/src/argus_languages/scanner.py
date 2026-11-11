@@ -3,6 +3,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from pathlib import Path
 
+from argus_languages.dependency_sources import scan_dependency_sources
 from argus_languages.discover import SUPPORTED_LANGUAGES, discover_files
 from argus_languages.models import Finding, ScanResult
 from argus_languages.noise import IgnoreMarker, downgrade, parse_ignore, path_context
@@ -56,7 +57,8 @@ def _skip_line(line: str, language: str) -> bool:
 # Config files only get rules written for them; generic code rules would
 # misfire on JSON and KEY=value lines.
 CONFIG_LANGUAGES = frozenset(
-    {"composer", "dotenv-production", "dotenv-example", "spring-config", "github-actions"}
+    {"composer", "dotenv-production", "dotenv-example", "spring-config", "github-actions",
+     "npm-manifest", "python-requirements", "python-manifest", "dependency-source"}
 )
 
 
@@ -183,6 +185,16 @@ def scan_path(target: str | Path, rules: list[LoadedRule] | None = None) -> Scan
         result.findings.extend(
             _scan_content(scanned.relative, scanned.language, content, loaded, suppressed)
         )
+        dependency_findings = scan_dependency_sources(
+            scanned.relative, scanned.language, content, loaded
+        )
+        for finding in dependency_findings:
+            if finding.rule_id == "dependency-http-source" and any(
+                f.file == finding.file and f.line == finding.line
+                and f.rule_id == "composer-insecure-repository" for f in result.findings
+            ):
+                continue
+            result.findings.append(finding)
 
     result.metadata["files_scanned"] = len(files)
     if suppressed:
