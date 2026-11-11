@@ -4,7 +4,7 @@
  */
 
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, extname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import {
   IGNORE_HINT,
   type IgnoreMarker,
@@ -23,7 +23,8 @@ const SKIP_DIRS = new Set([
 const EXT_LANG: Record<string, string> = {
   ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
   ".py": "python", ".java": "java", ".php": "php", ".go": "go", ".rb": "ruby",
-  ".cs": "csharp", ".kt": "kotlin", ".swift": "swift", ".pl": "perl",
+  ".cs": "csharp", ".kt": "kotlin", ".kts": "kotlin", ".swift": "swift",
+  ".jsp": "jsp", ".scala": "scala", ".pl": "perl",
   ".sh": "shell", ".bash": "shell", ".zsh": "shell",
 };
 
@@ -52,7 +53,7 @@ const RULES: Rule[] = [
     title: "Possible SQL injection — string concatenation in query",
     severity: "high",
     pattern: /(Statement\.execute\s*\(|createStatement\s*\(\).*\+|mysql_query\s*\(|mysqli_query\s*\(|f["'].*\b(SELECT|INSERT|UPDATE|DELETE)\b|["'].*\+\s*["'].*\bWHERE\b)/i,
-    languages: ["java", "php", "python", "ruby"],
+    languages: ["php", "python", "ruby"],
   },
   {
     id: "sql-concat-js",
@@ -160,7 +161,144 @@ const RULES: Rule[] = [
     severity: "moderate",
     pattern: /(fetch\s*\([^)]*\+|requests\.(get|post)\s*\([^)]*\+|HttpClient.*\+|file_get_contents\s*\(\s*\$)/,
   },
+  // ── Java / Kotlin / Spring, ported from argus-languages (same ids and patterns) ──
+  {
+    id: "java-sql-string-build",
+    title: "Possible SQL injection \u2014 variable concatenated or formatted into a SQL value",
+    severity: "high",
+    pattern: /("[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(]|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*%[sd][^"]*"\s*\.formatted\(|\bString\.format\(\s*"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*%[sd])/i,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "kotlin-sql-string-template",
+    title: "Possible SQL injection \u2014 variable interpolated into a SQL value with a string template",
+    severity: "high",
+    pattern: /"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*\$\{?[A-Za-z_]/i,
+    languages: ["kotlin"],
+  },
+  {
+    id: "java-sql-statement-concat",
+    title: "Java SQL Statement built via string concatenation",
+    severity: "high",
+    pattern: /(Statement\.execute\s*\(|createStatement\s*\(\).*\+|PreparedStatement.*\+.*\+)/,
+    languages: ["java", "kotlin", "scala"],
+  },
+  {
+    id: "db-jdbc-statement-concat",
+    title: "JDBC Statement built with string concatenation",
+    severity: "high",
+    pattern: /(createStatement|prepareStatement)\s*\([^)]*\+/,
+    languages: ["java", "kotlin", "scala"],
+  },
+  {
+    id: "db-sql-dynamic-exec",
+    title: "Dynamic SQL EXEC/EXECUTE \u2014 injection risk",
+    severity: "high",
+    pattern: /(EXEC\s*\(|EXECUTE\s+IMMEDIATE\s+|sp_executesql\s*\()/i,
+    languages: ["java"],
+  },
+  {
+    id: "java-xxe",
+    title: "Possible XXE \u2014 XML parser without secure features",
+    severity: "high",
+    pattern: /(DocumentBuilderFactory\.newInstance|SAXParserFactory\.newInstance|XMLInputFactory\.newInstance)/,
+    languages: ["java", "kotlin", "scala"],
+  },
+  {
+    id: "java-ldap-injection",
+    title: "Possible LDAP injection \u2014 concatenated filter",
+    severity: "high",
+    pattern: /(search\s*\([^)]*\+|DirContext\.search\s*\([^)]*\+)/,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "java-path-traversal",
+    title: "Possible path traversal \u2014 user input in file path",
+    severity: "moderate",
+    pattern: /(Paths\.get\s*\([^)]*\+|Files\.(read|write).*\+)/,
+    languages: ["java", "kotlin", "scala"],
+  },
+  {
+    id: "java-log-injection",
+    title: "Possible log injection \u2014 user input in log statement",
+    severity: "low",
+    pattern: /(logger\.(info|warn|error|debug)\s*\([^)]*\+.*request\.|log\.(info|warn|error)\s*\([^)]*\+)/,
+    languages: ["java", "kotlin"],
+    confidence: "low",
+  },
+  {
+    id: "java-jjwt-unsigned-parse",
+    title: "jjwt parses an unsigned token \u2014 anyone can forge it",
+    severity: "high",
+    pattern: /\.(parseClaimsJwt|parsePlaintextJwt|parseUnsecuredClaims|parseUnsecuredContent)\s*\(/,
+    languages: ["java"],
+  },
+  {
+    id: "java-spring-permitall-everything",
+    title: "Spring Security permits every request without authentication (permitAll on anyRequest or \"/**\")",
+    severity: "high",
+    pattern: /(\.anyRequest\(\)\s*\.permitAll\(\)|\.(requestMatchers|antMatchers|mvcMatchers)\(\s*"\/\*\*"\s*\)\s*\.permitAll\(\)|\bauthorize\(\s*anyRequest\s*,\s*permitAll\s*\))/,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "java-spring-web-ignoring-everything",
+    title: "Spring Security ignores every request (web.ignoring on anyRequest or \"/**\") \u2014 no filters run at all",
+    severity: "high",
+    pattern: /\.ignoring\(\)\s*\.(anyRequest\(\)|(requestMatchers|antMatchers|mvcMatchers)\(\s*"\/\*\*"\s*\))/,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "java-jsr250-permitall",
+    title: "@PermitAll opens this controller or method to everyone \u2014 review: is it meant to be public?",
+    severity: "moderate",
+    pattern: /^(?!\s*(import\b|\/\/|\*)).*@PermitAll\b/,
+    languages: ["java", "kotlin"],
+    confidence: "low",
+  },
+  {
+    id: "spring-csrf-disabled",
+    title: "Spring CSRF protection disabled",
+    severity: "moderate",
+    pattern: /\.csrf\s*\(\s*\)\.disable\s*\(\)/,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "malware-jsp-webshell",
+    title: "JSP / Java runtime exec web shell pattern",
+    severity: "critical",
+    pattern: /Runtime\.getRuntime\(\)\.exec\s*\(|ProcessBuilder\s*\(/i,
+    languages: ["jsp"],
+  },
+  {
+    id: "spring-actuator-exposure-all",
+    title: "Spring Boot Actuator exposes every endpoint over HTTP (exposure.include = *) \u2014 /env, /heapdump and /threaddump included",
+    severity: "high",
+    pattern: /^\s*(management\.endpoints\.web\.exposure\.include\s*[=:]\s*['"]?\*|include\s*:\s*['"]\*['"]\s*(#.*)?$)/,
+    languages: ["spring-config"],
+  },
+  {
+    id: "spring-h2-console-enabled",
+    title: "H2 web console is enabled (spring.h2.console.enabled) \u2014 make sure this is a dev-only profile",
+    severity: "moderate",
+    pattern: /^\s*spring\.h2\.console\.enabled\s*[=:]\s*['"]?true\b/,
+    languages: ["spring-config"],
+  },
 ];
+
+/** Spring Boot externalised config: application.properties, application-prod.yml, ... */
+function isSpringConfig(name: string): boolean {
+  return /^(?:application|bootstrap)(?:-[\w.-]+)?\.(?:properties|ya?ml)$/.test(name);
+}
+
+/** Language for a file name, or undefined when argus-native doesn't scan it. */
+function languageOf(name: string): string | undefined {
+  if (isSpringConfig(name)) return "spring-config";
+  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "";
+  return EXT_LANG[ext];
+}
+
+// Config files only get rules written for them; generic code rules would misfire on KEY=value.
+const CONFIG_LANGUAGES = new Set(["spring-config"]);
 
 function walkFiles(dir: string, out: string[], depth = 0): void {
   if (depth > 14) return;
@@ -168,8 +306,7 @@ function walkFiles(dir: string, out: string[], depth = 0): void {
     const root = lstatSync(dir);
     if (root.isSymbolicLink()) return;
     if (!root.isDirectory()) {
-      const ext = extname(dir).toLowerCase();
-      if (EXT_LANG[ext]) out.push(dir);
+      if (languageOf(basename(dir))) out.push(dir);
       return;
     }
   } catch {
@@ -194,8 +331,7 @@ function walkFiles(dir: string, out: string[], depth = 0): void {
     if (st.isDirectory()) {
       walkFiles(full, out, depth + 1);
     } else {
-      const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
-      if (EXT_LANG[ext]) out.push(full);
+      if (languageOf(name)) out.push(full);
     }
   }
 }
@@ -218,8 +354,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
   }
 
   for (const file of files) {
-    const ext = extname(file).toLowerCase();
-    const lang = EXT_LANG[ext] ?? "unknown";
+    const lang = languageOf(basename(file)) ?? "unknown";
     let content: string;
     try {
       content = readFileSync(file, "utf8");
@@ -247,7 +382,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
     }
 
     for (const rule of RULES) {
-      if (rule.languages && !rule.languages.includes(lang)) continue;
+      if (rule.languages ? !rule.languages.includes(lang) : CONFIG_LANGUAGES.has(lang)) continue;
 
       const matchedLines = new Set<number>();
       if (rule.multiline) {

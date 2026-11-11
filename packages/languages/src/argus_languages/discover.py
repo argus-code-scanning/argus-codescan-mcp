@@ -22,7 +22,7 @@ EXT_MAP: dict[str, LanguageId] = {
     ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript", ".cjs": "javascript",
     ".ts": "typescript", ".tsx": "typescript", ".mts": "typescript", ".cts": "typescript",
     ".py": "python", ".pyw": "python",
-    ".java": "java", ".jsp": "java",
+    ".java": "java", ".jsp": "jsp",
     ".php": "php", ".phtml": "php",
     ".go": "go",
     ".rb": "ruby", ".erb": "ruby",
