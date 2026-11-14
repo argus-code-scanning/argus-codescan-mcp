@@ -283,6 +283,57 @@ const RULES: Rule[] = [
     pattern: /^\s*spring\.h2\.console\.enabled\s*[=:]\s*['"]?true\b/,
     languages: ["spring-config"],
   },
+  // ── Server-side template injection (#185), ported from argus-languages ssti.yaml ──
+  {
+    id: "python-ssti-render-template-string",
+    title: "Template injection \u2014 render_template_string() with a non-literal template (Flask / Jinja2)",
+    severity: "high",
+    pattern: /\brender_template_string\s*\(\s*(?:(?![rRuU]?(?:"""|'''|"|'))|[rRuU]?(?:"|')[^"'\n]*(?:"|')\s*(?:\+|%|\.format\b))/,
+    languages: ["python"],
+  },
+  {
+    id: "python-ssti-template-from-input",
+    title: "Template injection \u2014 Jinja2 / Django / Mako template built from request input or an f-string",
+    severity: "high",
+    pattern: /(?<!string\.)\b(?:jinja2\.)?Template\s*\(\s*(?:request\.|[rR]?f["'])|\bjinja2\.Template\s*\(\s*(?![rRuU]?["'])|\b(?:\w*env(?:ironment)?|jinja\w*|engines\[[^\]\n]+\])\.from_string\s*\(\s*(?![rRuU]?(?:"""|'''|"|'))/,
+    languages: ["python"],
+  },
+  {
+    id: "js-ssti-render-user-template",
+    title: "Template injection \u2014 template engine compiles a template built from request input (EJS, Pug, Handlebars, Nunjucks, lodash)",
+    severity: "high",
+    pattern: /\b(?:ejs|pug|jade|nunjucks|handlebars|Handlebars|mustache|Mustache|doT|dot|hogan|Hogan|swig|_|lodash)\.(?:render|renderString|compile|compileTemplate|template)\s*\(\s*(?:[^,)\n]*\breq(?:uest)?\.(?:body|query|params|headers|cookies)\b|`[^`\n]*\$\{|["'][^"'\n]*["']\s*\+)/,
+    languages: ["javascript", "typescript"],
+  },
+  {
+    id: "php-ssti-template-from-input",
+    title: "Template injection \u2014 Twig / Blade / Smarty template created from request input",
+    severity: "high",
+    pattern: /->createTemplate\s*\(\s*(?:\$_(?:GET|POST|REQUEST|COOKIE)\b|\$request->)|Blade::render\s*\(\s*(?:\$_(?:GET|POST|REQUEST)\b|\$request->|request\(\))|->fetch\s*\(\s*["']string:["']\s*\.\s*\$|->fetch\s*\(\s*["']string:[^"']*\$/,
+    languages: ["php"],
+  },
+  {
+    id: "java-ssti-freemarker-string-template",
+    title: "Template injection \u2014 FreeMarker Template built from a non-literal string",
+    severity: "high",
+    pattern: /new\s+(?:freemarker\.template\.)?Template\s*\([^,\n]+,\s*new\s+StringReader\s*\(\s*(?!")/,
+    languages: ["java", "kotlin"],
+  },
+  {
+    id: "java-ssti-velocity-evaluate",
+    title: "Template injection \u2014 Velocity evaluate() of a template string \u2014 review: is the template user-controlled?",
+    severity: "moderate",
+    pattern: /\b(?:Velocity|velocityEngine|velocity|ve)\.evaluate\s*\(/,
+    languages: ["java", "kotlin"],
+    confidence: "low",
+  },
+  {
+    id: "ruby-ssti-erb-from-input",
+    title: "Template injection \u2014 ERB template built from request input",
+    severity: "high",
+    pattern: /\bERB\.new\s*\(\s*(?:params|request|cookies)\b|\bERB\.new\s*\(\s*"[^"\n]*#\{(?:params|request)/,
+    languages: ["ruby"],
+  },
 ];
 
 /** Spring Boot externalised config: application.properties, application-prod.yml, ... */

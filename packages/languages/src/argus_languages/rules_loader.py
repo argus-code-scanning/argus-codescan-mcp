@@ -33,6 +33,7 @@ RULE_FILES = (
     "other.yaml",
     "github-actions.yaml",
     "exposed-endpoints.yaml",
+    "ssti.yaml",
 )
 
 

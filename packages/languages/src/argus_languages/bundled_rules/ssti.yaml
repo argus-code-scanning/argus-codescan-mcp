@@ -1,0 +1,67 @@
+# Server-side template injection (#185): user input or a built-up string becomes the template
+# itself, so the engine evaluates it (usually remote code execution). Rendering a template file,
+# or a fixed template string with data passed separately, is safe and not flagged.
+
+- id: python-ssti-render-template-string
+  title: 'Template injection — render_template_string() with a non-literal template (Flask / Jinja2)'
+  severity: high
+  pattern: '\brender_template_string\s*\(\s*(?:(?![rRuU]?(?:"""|''''''|"|''))|[rRuU]?(?:"|'')[^"''\n]*(?:"|'')\s*(?:\+|%|\.format\b))'
+  languages: [python]
+  fix_guidance: >-
+    Render a template file with render_template("page.html", name=name), or keep the template a fixed
+    string and pass user values as variables: render_template_string("Hi {{ name }}", name=name).
+
+- id: python-ssti-template-from-input
+  title: 'Template injection — Jinja2 / Django / Mako template built from request input or an f-string'
+  severity: high
+  # from_string only on template environments: PackageURL.from_string / URI.from_string are not templates
+  pattern: '(?<!string\.)\b(?:jinja2\.)?Template\s*\(\s*(?:request\.|[rR]?f["''])|\bjinja2\.Template\s*\(\s*(?![rRuU]?["''])|\b(?:\w*env(?:ironment)?|jinja\w*|engines\[[^\]\n]+\])\.from_string\s*\(\s*(?![rRuU]?(?:"""|''''''|"|''))'
+  languages: [python]
+  fix_guidance: >-
+    Never build template source from user input. Load templates from files and pass user values as
+    context variables (they are autoescaped and never evaluated).
+
+- id: js-ssti-render-user-template
+  title: 'Template injection — template engine compiles a template built from request input (EJS, Pug, Handlebars, Nunjucks, lodash)'
+  severity: high
+  pattern: '\b(?:ejs|pug|jade|nunjucks|handlebars|Handlebars|mustache|Mustache|doT|dot|hogan|Hogan|swig|_|lodash)\.(?:render|renderString|compile|compileTemplate|template)\s*\(\s*(?:[^,)\n]*\breq(?:uest)?\.(?:body|query|params|headers|cookies)\b|`[^`\n]*\$\{|["''][^"''\n]*["'']\s*\+)'
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Compile templates from files or fixed strings only and pass user input as data:
+    res.render("view", { name }) / Handlebars.compile(FIXED_TEMPLATE)({ name }).
+
+- id: php-ssti-template-from-input
+  title: 'Template injection — Twig / Blade / Smarty template created from request input'
+  severity: high
+  pattern: '->createTemplate\s*\(\s*(?:\$_(?:GET|POST|REQUEST|COOKIE)\b|\$request->)|Blade::render\s*\(\s*(?:\$_(?:GET|POST|REQUEST)\b|\$request->|request\(\))|->fetch\s*\(\s*["'']string:["'']\s*\.\s*\$|->fetch\s*\(\s*["'']string:[^"'']*\$'
+  languages: [php]
+  fix_guidance: >-
+    Keep templates in files; pass request values as template variables. Never call createTemplate(),
+    Blade::render() or Smarty fetch("string:…") with user-supplied template source.
+
+- id: java-ssti-freemarker-string-template
+  title: 'Template injection — FreeMarker Template built from a non-literal string'
+  severity: high
+  pattern: 'new\s+(?:freemarker\.template\.)?Template\s*\([^,\n]+,\s*new\s+StringReader\s*\(\s*(?!")'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Load FreeMarker templates from a TemplateLoader (files / classpath) and pass user values in the
+    data model. If templates must come from users, use a sandboxed configuration
+    (TemplateClassResolver.ALLOWS_NOTHING_RESOLVER, no ?api / ?new).
+
+- id: java-ssti-velocity-evaluate
+  title: 'Template injection — Velocity evaluate() of a template string — review: is the template user-controlled?'
+  severity: medium
+  confidence: low
+  pattern: '\b(?:Velocity|velocityEngine|velocity|ve)\.evaluate\s*\('
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Prefer file templates (getTemplate). If evaluate() is required, make sure the template string never
+    contains user input and enable SecureUberspector.
+
+- id: ruby-ssti-erb-from-input
+  title: 'Template injection — ERB template built from request input'
+  severity: high
+  pattern: '\bERB\.new\s*\(\s*(?:params|request|cookies)\b|\bERB\.new\s*\(\s*"[^"\n]*#\{(?:params|request)'
+  languages: [ruby]
+  fix_guidance: Render view files; pass request values as locals, never as ERB source.
