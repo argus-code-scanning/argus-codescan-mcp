@@ -402,6 +402,36 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="scan_threats",
+            description=(
+                "Match the repository against known indicators of compromise (IOCs): URLs, "
+                "domains, IPs and file hashes from abuse.ch ThreatFox / URLhaus / MalwareBazaar "
+                "(needs ARGUS_ABUSECH_AUTH_KEY, free) and a local .argus/iocs.txt. Matching is "
+                "local; repository content is never uploaded."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to project directory or file",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json", "sarif"],
+                        "description": "Output format (default: markdown)",
+                        "default": "markdown",
+                    },
+                    "fail_on": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low", "never"],
+                        "description": "Report a failing status at or above this severity",
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_malware",
             description=(
                 "Scan source and scripts for malware / backdoor / crypto-miner heuristics: "
@@ -788,6 +818,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_scan_ml(arguments)
         elif name == "scan_malware":
             return await _handle_scan_malware(arguments)
+        elif name == "scan_threats":
+            return await _handle_scan_threats(arguments)
         elif name == "triage_malware":
             return await _handle_triage_malware(arguments)
         elif name == "scan_pci":
@@ -1125,6 +1157,24 @@ async def _handle_scan_malware(args: dict[str, Any]) -> list[types.TextContent]:
         scan_type="malware",
         timer=timer,
         fmt=fmt,
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+        target_path=target,
+    )
+
+
+async def _handle_scan_threats(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.tools.threat_intel import run_threat_scan
+
+    timer = ScanTimer()
+    target = args["target"]
+    result = await run_threat_scan(target)
+    report = AggregatedReport(target=target, results=[result])
+    return await _finish_scan(
+        report,
+        scan_type="threats",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
         fail_on=args.get("fail_on"),
         include_raw_json=True,
         target_path=target,

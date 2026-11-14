@@ -88,6 +88,14 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 
 When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle dependencies for known vulnerabilities. It reads the same files listed above and looks up exact versions on OSV. Findings include the CVE and GHSA ids, the severity and the nearest fixed version. Only literal versions are used: `${property}` values are resolved from the pom, while ranges, `1.+` and SNAPSHOTs are skipped. Nothing is downloaded, and no JVM or build is needed. With Trivy installed, Trivy covers this instead, so CVEs aren't reported twice.
 
+### Known threats (IOCs)
+
+`argus scan threats` matches your repository against **known indicators of compromise**: malware URLs, C2 domains and IPs, and file hashes. It's also part of `argus scan malware` and `scan all`. A match is **critical**.
+
+- **Your own list:** put one URL, domain, IPv4 or SHA-256 per line in `.argus/iocs.txt` (or point `ARGUS_IOC_FILE` at a file). This works offline, with no account.
+- **abuse.ch feeds** (ThreatFox, URLhaus, MalwareBazaar): get a free Auth-Key at [auth.abuse.ch](https://auth.abuse.ch/) and set `ARGUS_ABUSECH_AUTH_KEY`. Feeds are cached for 24 hours in `~/.cache/argus/threat-intel`; `--no-network` uses only the cache.
+- Matching is local: repository content is never uploaded. Big shared platforms (GitHub, Google Drive, Discord CDN…) only match an exact listed URL, never the whole domain.
+
 ## MCP Tools (for AI clients)
 
 | Tool | What It Does |
