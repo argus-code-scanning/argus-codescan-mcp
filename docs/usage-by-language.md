@@ -87,7 +87,8 @@ npx argus-codescan review --staged       # before a commit
 | ESLint security rules + Opengrep | Extra JS/TS rules; Opengrep downloads itself on first use | npm |
 | Known-malicious packages | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` against OSV `MAL-` | Python (`argus scan sca .`) |
 | Install-script malware | `postinstall` / `preinstall` hooks that download and run code, run inline code or decode payloads | Python (`argus scan malware .`) |
-| Worm behaviour | Credential harvesting plus exfiltration, package code that runs `npm publish`, obfuscated JS, crypto-wallet hijacking | Python (`argus scan malware .`) |
+| Worm behaviour | Credential harvesting plus exfiltration, package code that runs `npm publish`, obfuscated JS, crypto-wallet hijacking, clipboard address swappers, permit-phishing drainers | Python (`argus scan malware .`) |
+| Known threats | URLs, domains, IPs and file hashes from abuse.ch feeds and your own `.argus/iocs.txt` | Python (`argus scan threats .`) |
 
 For a Node project, the best coverage is both: `npx argus-codescan scan all .` in CI, plus `pip install argus-scan && argus scan malware . && argus scan sca .` for the supply-chain checks.
 
@@ -147,7 +148,7 @@ argus scan dast https://staging.example.com   # live site (needs OWASP ZAP or Ni
 | Terraform | Public S3 / GCS / Azure storage, open security groups, public RDS, IAM `*` wildcards, unencrypted EBS, hardcoded secrets, HTTP state backends | Checkov, Trivy, tfsec, tflint, KICS |
 | Ansible | Hardcoded secrets and `become` passwords, `shell`/`command` with variables, SSL verification off, world-writable permissions, insecure git checkouts | ansible-lint, KICS, Checkov |
 | Dockerfile / Kubernetes | Secrets in `ENV`, privileged containers, host network / PID, Docker socket mounts, running as root | Checkov, Trivy |
-| GitHub Actions | Script injection from PR titles/branches, `pull_request_target` with a PR checkout, actions not pinned to a SHA, `write-all` permissions | — |
+| GitHub Actions | Script injection from PR titles/branches, `pull_request_target` with a PR checkout, actions not pinned to a SHA, `write-all` permissions; injected payloads: `toJSON(secrets)` dumps, secrets piped to curl/base64, encoded payloads, crypto miners, self-hosted runners on pull requests | — |
 
 ---
 
