@@ -6,6 +6,8 @@
   the network (the ChainDrop / Shai-Hulud / s1ngularity stealer pattern)
 - #136 self-propagation: package code that publishes packages or enumerates a maintainer's
   packages on the npm registry
+- #138 node-gyp build files (``binding.gyp`` / ``*.gypi``): ``npm install`` runs ``node-gyp
+  rebuild`` for any package that has one, even without install scripts
 - #139 Python install-time execution: ``setup.py`` command overrides (``cmdclass``) that run
   code during ``pip install``, and ``.pth`` files that run code at every interpreter start
 
@@ -22,6 +24,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import warnings
 from collections.abc import Callable, Iterator
 from pathlib import Path, PurePosixPath
 
@@ -342,6 +345,104 @@ def self_propagation_findings(text: str, relative: str) -> list[Finding]:
     return findings
 
 
+# ── #138 node-gyp build files ─────────────────────────────────────────────────
+
+_GYP_EXPANSION = re.compile(r"<!@?\((.*)\)", re.DOTALL)
+# Native addons run `node -p "..."` in build files all the time (sharp, bcrypt, node-addon-api
+# read versions and paths that way), so inline code alone is normal here. It counts when it
+# spawns processes, opens network connections or evaluates more code.
+_GYP_CODE_DANGER = re.compile(
+    r"child_process|\bexec(?:Sync)?\s*\(|\bspawn(?:Sync)?\s*\("
+    r"|require\(\s*[\\'\"]*(?:https?|net|dgram|tls)\b"
+    r"|\bfetch\s*\(|\beval\s*\(|\bFunction\s*\(|process\.binding|urllib|urlopen|subprocess"
+    r"|os\.system|socket|Invoke-Expression|\biex\b"
+)
+
+
+def _gyp_verdict(command: str) -> str | None:
+    if _DOWNLOAD_AND_RUN.search(command):
+        return "downloads and runs code"
+    if re.search(_DOWNLOAD, command, re.IGNORECASE):
+        return "downloads from the network"
+    if _ENCODED.search(command):
+        return "decodes an encoded payload"
+    if _GYP_CODE_DANGER.search(command):
+        return "runs code that spawns processes or uses the network"
+    return None
+
+
+def _gyp_strings(value: object) -> Iterator[str]:
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _gyp_strings(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _gyp_strings(item)
+
+
+def _gyp_actions(value: object) -> Iterator[list[str]]:
+    if isinstance(value, dict):
+        action = value.get("action")
+        if isinstance(action, list) and all(isinstance(a, str) for a in action):
+            yield action
+        for item in value.values():
+            yield from _gyp_actions(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _gyp_actions(item)
+
+
+def gyp_findings(text: str, relative: str) -> list[Finding]:
+    """Shell commands that node-gyp runs from binding.gyp (parsed as a literal, never run)."""
+    without_comments = "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+    commands: list[str] = []
+    try:
+        with warnings.catch_warnings():  # gyp strings often contain "\/" style escapes
+            warnings.simplefilter("ignore", SyntaxWarning)
+            data = ast.literal_eval(without_comments)
+    except (SyntaxError, ValueError, MemoryError, RecursionError):
+        data = None
+    if data is not None:
+        for string in _gyp_strings(data):
+            commands.extend(m.group(1).strip() for m in _GYP_EXPANSION.finditer(string))
+        commands.extend(" ".join(action) for action in _gyp_actions(data))
+    else:  # not a plain literal: fall back to the raw text
+        for literal in re.findall(r'"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'', text):
+            string = literal[0] or literal[1]
+            commands.extend(m.group(1).strip() for m in _GYP_EXPANSION.finditer(string))
+    findings = []
+    seen: set[str] = set()
+    for command in commands:
+        if command in seen:
+            continue
+        seen.add(command)
+        what = _gyp_verdict(command)
+        if what is None:
+            continue
+        index = text.find(command[:40])
+        shown = command if len(command) <= 120 else command[:117] + "..."
+        findings.append(
+            _finding(
+                relative,
+                _line_of(text, index),
+                "malware-gyp-command-exec",
+                f"node-gyp build file {what}: {shown}",
+                Severity.HIGH,
+                "npm runs `node-gyp rebuild` for every package with a binding.gyp, even when it "
+                "has no install scripts, so commands in `<!(...)` expansions and `actions` run "
+                "on install. A June 2026 campaign hid its payload here.",
+                "Remove the command from the build file. If you did not add it, treat the "
+                "package as compromised: unpublish the affected versions and rotate tokens.",
+                "high",
+            )
+        )
+    return findings
+
+
 # ── #139 Python install-time execution ────────────────────────────────────────
 
 # setuptools commands that run during `pip install` / `pip install -e`.
@@ -509,6 +610,12 @@ def run_supply_chain_checks(target: str) -> list[Finding]:
         except OSError:
             continue
         findings.extend(lifecycle_script_findings(text, manifest.relative_to(base).as_posix()))
+    for gyp in iter_files(root, lambda name: name == "binding.gyp" or name.endswith(".gypi")):
+        try:
+            text = gyp.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        findings.extend(gyp_findings(text, gyp.relative_to(base).as_posix()))
     for pth in iter_files(root, lambda name: name.endswith(".pth")):
         try:
             text = pth.read_text(encoding="utf-8", errors="replace")

