@@ -203,6 +203,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common(malware_p)
 
+    threats_p = scan_sub.add_parser(
+        "threats",
+        help="Known indicators of compromise (IOCs): abuse.ch feeds with ARGUS_ABUSECH_AUTH_KEY, "
+        "plus .argus/iocs.txt",
+    )
+    _add_common(threats_p)
+
     pci_p = scan_sub.add_parser(
         "pci",
         help="PCI-DSS cardholder-data heuristics — CVV storage, PANs in logs, http:// card data (built-in)",
@@ -653,6 +660,11 @@ async def _dispatch_scan(
         from argus.tools.malware import run_malware_scan
 
         return [await run_malware_scan(target)]
+
+    if scan_type == "threats":
+        from argus.tools.threat_intel import run_threat_scan
+
+        return [await run_threat_scan(target)]
 
     if scan_type == "pci":
         from argus.tools.pci import run_pci_scan

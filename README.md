@@ -88,21 +88,13 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 
 When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle dependencies for known vulnerabilities. It reads the same files listed above and looks up exact versions on OSV. Findings include the CVE and GHSA ids, the severity and the nearest fixed version. Only literal versions are used: `${property}` values are resolved from the pom, while ranges, `1.+` and SNAPSHOTs are skipped. Nothing is downloaded, and no JVM or build is needed. With Trivy installed, Trivy covers this instead, so CVEs aren't reported twice.
 
-### Missing rate limiting and login lockout
+### Known threats (IOCs)
 
-`argus scan sast` (and `scan all`) checks whether your API protects its sensitive endpoints against brute force and abuse. That is a **missing** control, so Argus looks at the whole project:
+`argus scan threats` matches your repository against **known indicators of compromise**: malware URLs, C2 domains and IPs, and file hashes. It's also part of `argus scan malware` and `scan all`. A match is **critical**.
 
-1. It finds login, token, password-reset, OTP/2FA, register and verify routes in Express, NestJS, Fastify, Flask, FastAPI, Django, aiohttp, Spring, JAX-RS, Ktor, Laravel, Symfony, Slim, Rails, Sinatra, Go (net/http, gin, echo, chi, Fiber), ASP.NET Core, Rust (actix, axum) and Phoenix.
-2. It looks for a rate limiter (express-rate-limit, `@nestjs/throttler`, Flask-Limiter, slowapi, DRF throttling, Bucket4j, Resilience4j, Ktor RateLimit, Laravel `throttle`, Symfony RateLimiter, Rack::Attack, `x/time/rate`, `AddRateLimiter`, governor, Hammer, or your own `RateLimit` guard) and for account lockout (failed-attempt counters, `locked_until`, django-axes, `ThrottlesLogins`, Identity `lockoutOnFailure`).
-
-| Finding | When |
-|---|---|
-| `api-rate-limit-missing` (medium) | Sensitive endpoints and no rate limiter anywhere |
-| `auth-lockout-missing` (medium) | Login endpoints with neither rate limiting nor lockout |
-| `auth-lockout-missing` (low, review) | Login is rate limited, but there is no per-account lockout |
-| `api-rate-limit-missing-general` (low, review) | An HTTP API with no rate limiting at all |
-
-Tests, docs and examples are ignored. Login delegated to an identity provider (Auth0, Cognito, Keycloak, Okta, Clerk, Firebase…) skips the lockout finding.
+- **Your own list:** put one URL, domain, IPv4 or SHA-256 per line in `.argus/iocs.txt` (or point `ARGUS_IOC_FILE` at a file). This works offline, with no account.
+- **abuse.ch feeds** (ThreatFox, URLhaus, MalwareBazaar): get a free Auth-Key at [auth.abuse.ch](https://auth.abuse.ch/) and set `ARGUS_ABUSECH_AUTH_KEY`. Feeds are cached for 24 hours in `~/.cache/argus/threat-intel`; `--no-network` uses only the cache.
+- Matching is local: repository content is never uploaded. Big shared platforms (GitHub, Google Drive, Discord CDN…) only match an exact listed URL, never the whole domain.
 
 ## MCP Tools (for AI clients)
 
