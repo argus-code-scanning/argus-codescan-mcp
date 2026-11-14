@@ -1,0 +1,197 @@
+[
+ {
+  "file": "app.py",
+  "code": "return render_template_string(request.args['tpl'])",
+  "rule": "python-ssti-render-template-string"
+ },
+ {
+  "file": "app.py",
+  "code": "return render_template_string(f\"<h1>Hello {name}</h1>\")",
+  "rule": "python-ssti-render-template-string"
+ },
+ {
+  "file": "app.py",
+  "code": "return render_template_string(\"<h1>Hello \" + name + \"</h1>\")",
+  "rule": "python-ssti-render-template-string"
+ },
+ {
+  "file": "app.py",
+  "code": "return render_template_string(\"<p>%s</p>\" % body)",
+  "rule": "python-ssti-render-template-string"
+ },
+ {
+  "file": "app.py",
+  "code": "return render_template_string(page)",
+  "rule": "python-ssti-render-template-string"
+ },
+ {
+  "file": "app.py",
+  "code": "return render_template_string(\"Hello {{ name }}\", name=name)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "return render_template_string('''<ul>{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul>''', items=items)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "return render_template('page.html', name=name)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "t = Template(request.GET['t']).render(ctx)",
+  "rule": "python-ssti-template-from-input"
+ },
+ {
+  "file": "app.py",
+  "code": "t = jinja2.Template(user_tpl)",
+  "rule": "python-ssti-template-from-input"
+ },
+ {
+  "file": "app.py",
+  "code": "html = env.from_string(f\"Hi {name}\").render()",
+  "rule": "python-ssti-template-from-input"
+ },
+ {
+  "file": "app.py",
+  "code": "html = env.from_string(source).render()",
+  "rule": "python-ssti-template-from-input"
+ },
+ {
+  "file": "app.py",
+  "code": "html = env.from_string(\"Hi {{ name }}\").render(name=name)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "msg = string.Template('$who likes $what').substitute(d)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "t = jinja2.Template('Hello {{ name }}')",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "purl_obj = PackageURL.from_string(purl)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "other_ref = self.__class__.from_string(other)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "msg = string.Template(f'{greeting} $who').substitute(who=x)",
+  "rule": null
+ },
+ {
+  "file": "app.py",
+  "code": "html = app.jinja_env.from_string(page_source).render()",
+  "rule": "python-ssti-template-from-input"
+ },
+ {
+  "file": "app.py",
+  "code": "t = engines['django'].from_string(request.POST['body'])",
+  "rule": "python-ssti-template-from-input"
+ },
+ {
+  "file": "app.js",
+  "code": "const html = ejs.render(req.body.template, data);",
+  "rule": "js-ssti-render-user-template"
+ },
+ {
+  "file": "app.js",
+  "code": "const fn = Handlebars.compile(req.query.t);",
+  "rule": "js-ssti-render-user-template"
+ },
+ {
+  "file": "app.js",
+  "code": "const out = nunjucks.renderString(`<p>${req.query.msg}</p>`);",
+  "rule": "js-ssti-render-user-template"
+ },
+ {
+  "file": "app.js",
+  "code": "const out = pug.render('p ' + userText);",
+  "rule": "js-ssti-render-user-template"
+ },
+ {
+  "file": "app.js",
+  "code": "const t = _.template(req.body.tpl);",
+  "rule": "js-ssti-render-user-template"
+ },
+ {
+  "file": "app.js",
+  "code": "res.render('profile', { name: req.query.name });",
+  "rule": null
+ },
+ {
+  "file": "app.js",
+  "code": "const fn = Handlebars.compile(fs.readFileSync('tpl.hbs', 'utf8'));",
+  "rule": null
+ },
+ {
+  "file": "app.js",
+  "code": "const html = ejs.render('<p><%= name %></p>', { name });",
+  "rule": null
+ },
+ {
+  "file": "app.php",
+  "code": "$tpl = $twig->createTemplate($_GET['t']);",
+  "rule": "php-ssti-template-from-input"
+ },
+ {
+  "file": "app.php",
+  "code": "echo Blade::render($request->input('tpl'), $data);",
+  "rule": "php-ssti-template-from-input"
+ },
+ {
+  "file": "app.php",
+  "code": "$smarty->fetch('string:' . $tpl);",
+  "rule": "php-ssti-template-from-input"
+ },
+ {
+  "file": "app.php",
+  "code": "echo $twig->render('page.twig', ['name' => $_GET['name']]);",
+  "rule": null
+ },
+ {
+  "file": "app.php",
+  "code": "$tpl = $twig->createTemplate('Hello {{ name }}');",
+  "rule": null
+ },
+ {
+  "file": "App.java",
+  "code": "Template t = new Template(\"x\", new StringReader(userTpl), cfg);",
+  "rule": "java-ssti-freemarker-string-template"
+ },
+ {
+  "file": "App.java",
+  "code": "Template t = new Template(\"x\", new StringReader(\"Hello ${name}\"), cfg);",
+  "rule": null
+ },
+ {
+  "file": "App.java",
+  "code": "Template t = cfg.getTemplate(\"page.ftl\");",
+  "rule": null
+ },
+ {
+  "file": "App.java",
+  "code": "Velocity.evaluate(context, writer, \"tag\", template);",
+  "rule": "java-ssti-velocity-evaluate"
+ },
+ {
+  "file": "app.rb",
+  "code": "html = ERB.new(params[:tpl]).result(binding)",
+  "rule": "ruby-ssti-erb-from-input"
+ },
+ {
+  "file": "app.rb",
+  "code": "html = ERB.new(File.read('page.erb')).result(binding)",
+  "rule": null
+ }
+]
