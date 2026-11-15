@@ -112,6 +112,18 @@ Tests, docs and examples are ignored. Login delegated to an identity provider (A
 - **abuse.ch feeds** (ThreatFox, URLhaus, MalwareBazaar): get a free Auth-Key at [auth.abuse.ch](https://auth.abuse.ch/) and set `ARGUS_ABUSECH_AUTH_KEY`. Feeds are cached for 24 hours in `~/.cache/argus/threat-intel`; `--no-network` uses only the cache.
 - Matching is local: repository content is never uploaded. Big shared platforms (GitHub, Google Drive, Discord CDN…) only match an exact listed URL, never the whole domain.
 
+### Poisoned AI agent rules files
+
+`argus scan malware` (and `scan code` / `scan all`) reads the files AI coding agents follow without showing them to you: `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, `CLAUDE.md`, `.claude/**/*.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/`, `.github/prompts/`, `.windsurfrules`, `.clinerules`, `.continue/`. It flags the "Rules File Backdoor" tricks:
+
+- invisible or bidi Unicode (hidden text the user can't see)
+- "ignore previous instructions", and hiding actions from the user ("don't tell the user…", "silently add…")
+- raw-IP, paste-site, tunnel and webhook URLs; download-and-run instructions
+- instructions to send or embed secrets, or to turn off TLS / auth / CSRF checks
+- hidden `<!-- … -->` comments that carry instructions for the agent
+
+Like the malware rules, these can't be silenced with `argus-ignore` and aren't downgraded in test folders: a poisoned rules file is attacker-controlled.
+
 ## MCP Tools (for AI clients)
 
 | Tool | What It Does |
