@@ -27,6 +27,7 @@ COMMENT_PREFIX: dict[str, tuple[str, ...]] = {
     "dotenv-example": ("#",),
     "spring-config": ("#", "!"),
     "github-actions": ("#",),
+    "agent-rules": (),  # Markdown: "#" starts a heading, not a comment
     "go": ("//",),
     "ruby": ("#",),
     "csharp": ("//", "/*"),
@@ -59,7 +60,7 @@ def _skip_line(line: str, language: str) -> bool:
 # misfire on JSON and KEY=value lines.
 CONFIG_LANGUAGES = frozenset(
     {"composer", "dotenv-production", "dotenv-example", "spring-config", "github-actions",
-     "npm-manifest", "python-requirements", "python-manifest", "dependency-source"}
+     "npm-manifest", "python-requirements", "python-manifest", "dependency-source", "agent-rules"}
 )
 
 
