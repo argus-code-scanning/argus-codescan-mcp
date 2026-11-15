@@ -1,0 +1,67 @@
+# Prompt injection in AI coding-agent rules files (#148): .cursorrules, AGENTS.md, CLAUDE.md,
+# .github/copilot-instructions.md, .cursor/rules/*.mdc, .claude/**/*.md, .windsurfrules, …
+# Agents follow these files without the user seeing them, so one poisoned rules file steers every
+# future AI edit (the "Rules File Backdoor"). These files are attacker-controlled input: the rules
+# can't be silenced with argus-ignore and aren't downgraded in tests/ (see rules_loader.py).
+
+- id: agent-rules-invisible-unicode
+  title: Invisible or bidi Unicode in an AI agent rules file — hidden instructions the user can't see
+  severity: high
+  pattern: '[​-‏‪-‮⁠-⁤⁦-⁩­᠎︀-️\U000E0000-\U000E007F\U000E0100-\U000E01EF]'
+  languages: [agent-rules]
+  fix_guidance: >-
+    Rules files are plain text: remove every zero-width, bidi-override, tag and variation-selector
+    character (e.g. `grep -nP "[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]"`), then review
+    the file's history to find who added them.
+
+- id: agent-rules-override-instructions
+  title: Rules file tells the AI agent to ignore its previous or system instructions
+  severity: high
+  # Not when quoted: defensive notes quote the attack ("ignore previous instructions" = data).
+  pattern: '(?<!["''“‘])\b(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+|the\s+|your\s+)?(?:previous|prior|above|earlier|preceding|system|original)\s+(?:instructions?|rules?|prompts?|guidelines|directions)'
+  flags: [i]
+  languages: [agent-rules]
+
+- id: agent-rules-conceal-from-user
+  title: Rules file tells the AI agent to hide what it does from the user
+  severity: high
+  pattern: '\b(?:do\s*n[o'']?t|never)\s+(?:tell|mention|show|inform|reveal|notify|alert|disclose)(?:\s+\w+){0,3}?\s+(?:the\s+)?(?:user|developer|human|reviewer)s?\b(?!\s+to\b)|\bwithout\s+(?:telling|informing|notifying|alerting)\s+(?:the\s+)?(?:user|developer|human|reviewer)|\b(?:silently|secretly|covertly)\s+(?:add|insert|inject|install|run|execute|download|send|upload|include|modify|change|commit|push|disable|remove|delete)\b|\bhide\s+(?:this|it|these|the\s+(?:change|code|request)s?)\s+from\s+(?:the\s+)?(?:user|developer|reviewer)'
+  flags: [i]
+  languages: [agent-rules]
+
+- id: agent-rules-suspicious-url
+  title: Rules file points the AI agent at a raw IP, paste site, tunnel or webhook URL
+  severity: high
+  pattern: 'https?://(?!(?:127\.|10\.|192\.168\.|0\.0\.0\.0|172\.(?:1[6-9]|2\d|3[01])\.))(?:\d{1,3}\.){3}\d{1,3}\b|https?://(?:[\w-]+\.)*(?:pastebin\.com|paste\.ee|hastebin\.com|ghostbin\.\w+|rentry\.co|0x0\.st|transfer\.sh|termbin\.com|ngrok(?:-free)?\.(?:io|app|dev)|trycloudflare\.com|webhook\.site|pipedream\.net|requestbin\.\w+|interact\.sh)\b|discord(?:app)?\.com/api/webhooks/|api\.telegram\.org/bot'
+  flags: [i]
+  languages: [agent-rules]
+
+- id: agent-rules-fetch-and-run
+  title: 'Rules file tells the AI agent to download and run code — review'
+  severity: medium
+  pattern: '\b(?:curl|wget|iwr|Invoke-WebRequest)\b[^\n|]*\|\s*(?:sudo\s+)?(?:ba|z)?sh\b|\bdownload\s+(?:and|then)\s+(?:run|execute)\b|\bInvoke-Expression\b|(?:^|[;|]\s*)iex\b'
+  flags: [i]
+  languages: [agent-rules]
+
+- id: agent-rules-exfiltrate-secrets
+  title: Rules file tells the AI agent to send or embed secrets
+  severity: high
+  # Lines with a negation ("never include API keys in code") are guidance, not an attack.
+  pattern: '^(?!.*\b(?:never|don''t|do\s+not|avoid|must\s+not|should\s+not|no)\b).*(?:\b(?:send|post|upload|forward|exfiltrate|transmit|report)\b.{0,80}\b(?:api[_ -]?keys?|tokens?|secrets?|passwords?|credentials?|\.env\b|env(?:ironment)?\s+var(?:iable)?s?|ssh\s+keys?|cookies?)\b.{0,60}\b(?:to|via)\s+(?:https?://|webhook|discord|telegram|slack|e-?mail|\S+\.(?:com|net|io|xyz|ru|top)\b)|\b(?:include|embed|hard-?code|insert|append)\b.{0,40}\b(?:api[_ -]?keys?|secrets?|tokens?|credentials|passwords?|\.env)\b.{0,40}\b(?:in(?:to)?|to)\b.{0,30}\b(?:requests?|urls?|query\s+strings?|headers?|logs?|commits?|telemetry|analytics))'
+  flags: [i]
+  languages: [agent-rules]
+
+- id: agent-rules-weaken-security
+  title: 'Rules file tells the AI agent to turn off a security control — review'
+  severity: medium
+  pattern: '^(?!.*\b(?:never|don''t|do\s+not|avoid|must\s+not|should\s+not)\b).*(?:\b(?:disable|turn\s+off|bypass|skip|remove)\s+(?:the\s+|all\s+)?(?:ssl|tls|https|certificate\s+(?:checks?|verification|validation)|cert\s+verification|verification|authentication|auth(?:orization)?\s+checks?|csrf(?:\s+protection)?|security\s+(?:checks?|headers?|scans?)|2fa|mfa|input\s+validation|sanitization|rate\s+limit(?:ing)?)\b|\bverify\s*=\s*False\b|rejectUnauthorized\s*:\s*false|--no-verify\b|NODE_TLS_REJECT_UNAUTHORIZED)'
+  flags: [i]
+  languages: [agent-rules]
+
+- id: agent-rules-hidden-html-comment
+  title: Hidden HTML comment in a rules file carries instructions for the AI agent
+  severity: high
+  multiline: true
+  pattern: '<!--(?:(?!-->)[\s\S]){0,3000}?(?:\bignore\s+(?:all\s+)?(?:previous|prior|above)\b|\byou\s+(?:must|should|will|are\s+to)\b|\balways\s+(?:add|include|insert|use|run|send)\b|\bdo\s*n[o'']?t\s+(?:tell|mention|show)\b|\binstructions?\s+for\s+(?:the\s+)?(?:ai|assistant|agent|model|llm)\b|\b(?:ai|assistant|agent|copilot|claude|cursor|gemini)\s*[,:]\s|\bcurl\s|\bwget\s|\bexecute\b|\bexfiltrat)(?:(?!-->)[\s\S]){0,3000}?-->'
+  flags: [i]
+  languages: [agent-rules]

@@ -84,6 +84,15 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 - Reads `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`, pinned `requirements*.txt` (`name==version`), `composer.lock`, and for Java/Kotlin `pom.xml`, `gradle.lockfile`, `build.gradle(.kts)` and `libs.versions.toml`. Nothing is installed or run.
 - Sends only package names and exact versions to `api.osv.dev`. Offline, the check is skipped with a note. To turn it off, use `--no-network` or `ARGUS_NO_NETWORK=1`.
 
+### Typosquats and hallucinated packages
+
+`argus scan sca` checks every direct dependency name in `package.json`, `requirements*.txt` and `pyproject.toml`:
+
+- **Lookalikes (offline, always on):** names one character away from a top npm / PyPI package (`reqeusts`, `loadsh`, `electorn`), separator swaps (`crossenv`), added `py`/`js`/`node-`/`python-` affixes, and look-alike characters. Packages that are themselves established (in the bundled top ~15,000 lists per registry) are never reported.
+- **Missing or brand-new packages (online, opt-in):** with `--registry-check`, dependencies that **don't exist** on npm / PyPI (often names an AI assistant made up, which attackers then register: "slopsquatting") are high, and packages first published in the last 30 days get a review. Projects using a private registry or `--extra-index-url` are skipped.
+
+The popular-package lists come from [top-pypi-packages](https://hugovk.dev/top-pypi-packages/) and [npm-high-impact](https://github.com/wooorm/npm-high-impact); refresh them with `python packages/python/scripts/refresh_top_packages.py`.
+
 ### Java / Kotlin dependencies without Trivy
 
 When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle dependencies for known vulnerabilities. It reads the same files listed above and looks up exact versions on OSV. Findings include the CVE and GHSA ids, the severity and the nearest fixed version. Only literal versions are used: `${property}` values are resolved from the pom, while ranges, `1.+` and SNAPSHOTs are skipped. Nothing is downloaded, and no JVM or build is needed. With Trivy installed, Trivy covers this instead, so CVEs aren't reported twice.
@@ -112,17 +121,17 @@ Tests, docs and examples are ignored. Login delegated to an identity provider (A
 - **abuse.ch feeds** (ThreatFox, URLhaus, MalwareBazaar): get a free Auth-Key at [auth.abuse.ch](https://auth.abuse.ch/) and set `ARGUS_ABUSECH_AUTH_KEY`. Feeds are cached for 24 hours in `~/.cache/argus/threat-intel`; `--no-network` uses only the cache.
 - Matching is local: repository content is never uploaded. Big shared platforms (GitHub, Google Drive, Discord CDN…) only match an exact listed URL, never the whole domain.
 
-### SQL injection across lines (Python)
+### Poisoned AI agent rules files
 
-`argus scan sast` follows user input through your Python code to SQL execution, even when the query is built on a different line from where it runs:
+`argus scan malware` (and `scan code` / `scan all`) reads the files AI coding agents follow without showing them to you: `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, `CLAUDE.md`, `.claude/**/*.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/`, `.github/prompts/`, `.windsurfrules`, `.clinerules`, `.continue/`. It flags the "Rules File Backdoor" tricks:
 
-```python
-name = request.args["name"]                                  # user input
-query = "SELECT * FROM users WHERE name = '" + name + "'"    # built into SQL
-cursor.execute(query)                                        # flagged: request.args (line 1) → execute (line 3)
-```
+- invisible or bidi Unicode (hidden text the user can't see)
+- "ignore previous instructions", and hiding actions from the user ("don't tell the user…", "silently add…")
+- raw-IP, paste-site, tunnel and webhook URLs; download-and-run instructions
+- instructions to send or embed secrets, or to turn off TLS / auth / CSRF checks
+- hidden `<!-- … -->` comments that carry instructions for the agent
 
-It covers Flask, Django, FastAPI (route parameters) and Starlette input; concatenation, f-strings, `.format`, `%` and `join`; `if`/`else`, loops and `try` blocks; and the sinks `execute`, `raw`, `text()`, `RawSQL`, `read_sql` and `extra`. `int()`/`float()` casts, allowlist checks (`if col not in ALLOWED: abort(400)`) and parameterized queries count as safe. JavaScript/TypeScript support is planned.
+Like the malware rules, these can't be silenced with `argus-ignore` and aren't downgraded in test folders: a poisoned rules file is attacker-controlled.
 
 ## MCP Tools (for AI clients)
 

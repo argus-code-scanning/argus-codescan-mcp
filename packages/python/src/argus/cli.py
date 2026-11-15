@@ -140,6 +140,12 @@ def build_parser() -> argparse.ArgumentParser:
             "(same as ARGUS_NO_NETWORK=1)",
         )
         p.add_argument(
+            "--registry-check",
+            action="store_true",
+            help="Look up dependencies on npm / PyPI: flag names that don't exist (possibly "
+            "AI-hallucinated) and packages first published in the last 30 days",
+        )
+        p.add_argument(
             "--fail-on-low-confidence",
             action="store_true",
             help="Also let low-confidence rule matches trigger --fail-on (off by default)",
@@ -749,6 +755,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
     scan_type = args.scan_type
     if getattr(args, "no_network", False):
         os.environ["ARGUS_NO_NETWORK"] = "1"
+    if getattr(args, "registry_check", False):
+        os.environ["ARGUS_REGISTRY_CHECK"] = "1"
     timer = ScanTimer()
     timeout = args.timeout
     fmt = args.format

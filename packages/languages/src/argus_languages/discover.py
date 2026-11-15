@@ -105,6 +105,29 @@ def _is_github_actions(rel: str, name: str) -> bool:
     return "/.github/workflows/" in posix or name in ("action.yml", "action.yaml")
 
 
+# AI coding-agent instruction files (#148). Agents follow these without the user seeing them.
+AGENT_RULES_FILES = frozenset(
+    {".cursorrules", ".windsurfrules", ".clinerules", ".roorules", "agents.md", "claude.md",
+     "claude.local.md", "gemini.md", "copilot-instructions.md"}
+)
+AGENT_DIRS = frozenset(
+    {".cursor", ".claude", ".continue", ".windsurf", ".clinerules", ".gemini", ".roo"}
+)
+_AGENT_RULE_DIRS = (
+    "/.cursor/rules/", "/.claude/", "/.continue/", "/.windsurf/rules/", "/.clinerules/",
+    "/.github/instructions/", "/.github/prompts/", "/.gemini/", "/.roo/rules",
+)
+
+
+def _is_agent_rules(rel: str, name: str) -> bool:
+    if name in AGENT_RULES_FILES:
+        return True
+    posix = "/" + Path(rel).as_posix().lower()
+    if not name.endswith((".md", ".mdc", ".txt", ".prompt")):
+        return False
+    return any(d in posix for d in _AGENT_RULE_DIRS)
+
+
 def _is_spring_config(name: str) -> bool:
     """application.properties, application-prod.yml, ... (Spring Boot externalised config)."""
     return name.startswith("application") and name.endswith((".properties", ".yml", ".yaml"))
@@ -121,6 +144,8 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
 
     if _is_generated_dart(name):
         return None
+    if _is_agent_rules(rel, name):
+        return "agent-rules"
 
     if name == "androidmanifest.xml":
         return "flutter"
@@ -179,6 +204,8 @@ def discover_files(target: Path) -> list[ScannedFile]:
             return True
         if name == ".github":
             return False  # workflows live in .github/workflows
+        if name in AGENT_DIRS or name.lower() in AGENT_RULES_FILES:
+            return False  # AI agent rules (#148): .cursor/, .claude/, .cursorrules, ...
         if name.startswith(".") and not _dotenv_language(name.lower()):
             return True
         # Keep android/ but skip nested Gradle build dirs
@@ -254,6 +281,7 @@ SUPPORTED_LANGUAGES = sorted(
         "dotenv-example",
         "spring-config",
         "github-actions",
+        "agent-rules",
         "npm-manifest",
         "python-requirements",
         "python-manifest",
