@@ -133,6 +133,17 @@ Tests, docs and examples are ignored. Login delegated to an identity provider (A
 
 Like the malware rules, these can't be silenced with `argus-ignore` and aren't downgraded in test folders: a poisoned rules file is attacker-controlled.
 
+### Invisible Unicode and Trojan Source
+
+`argus scan malware` (and `scan all`) also reads every source file and Markdown file for characters an editor or a diff doesn't show:
+
+- bidi controls (Trojan Source, CVE-2021-42574): high
+- zero-width characters: medium
+- variation selectors and tag characters outside an emoji (GlassWorm, ASCII smuggling): high in code, medium in Markdown
+- runs of 10 or more private-use characters: high
+
+Each finding names the code point and its column, for example `U+202E RIGHT-TO-LEFT OVERRIDE at col 14`. A byte order mark at the start of a file, emoji sequences, right-to-left text, and the joiners that Persian, Hindi and other scripts are spelled with are not flagged. AI agent rules files are covered by the rule above.
+
 ## MCP Tools (for AI clients)
 
 | Tool | What It Does |
