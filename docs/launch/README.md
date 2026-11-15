@@ -4,6 +4,7 @@ Materials to promote Argus as open source.
 
 | File | Use |
 |------|-----|
+| [trusted-publishing.md](trusted-publishing.md) | Clear red Deployments: PyPI / npm OIDC + VSCE_PAT |
 | [show-hn.md](show-hn.md) | Copy/paste for [Show HN](https://news.ycombinator.com/submit) |
 | [viral-contributors.md](viral-contributors.md) | 7-day viral plan + social posts + contributor funnel |
 | [awesome-mcp-submission.md](awesome-mcp-submission.md) | PR text for awesome-mcp-servers and similar lists |

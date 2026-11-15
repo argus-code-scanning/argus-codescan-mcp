@@ -61,11 +61,18 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # Trusted publishing needs npm >= 11.5.1. Configure it on npmjs.com
-      # (package settings -> Trusted publisher: this repo, ci-npm.yml, environment npm).
-      # An NPM_TOKEN secret still works as a fallback.
+      # (package settings → Trusted publisher: this repo, ci-npm.yml, environment npm).
+      # See docs/launch/trusted-publishing.md
+      # Do NOT set NODE_AUTH_TOKEN to an empty secret — that forces ENEEDAUTH and
+      # blocks OIDC. Only pass a token when NPM_TOKEN is actually configured.
       - run: npm install -g npm@11
       - run: npm ci
       - run: npm run build
-      - run: npm publish --provenance --access public
+      - name: Publish to npm (OIDC trusted publishing)
+        if: ${{ secrets.NPM_TOKEN == '' }}
+        run: npm publish --provenance --access public
+      - name: Publish to npm (NPM_TOKEN fallback)
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
