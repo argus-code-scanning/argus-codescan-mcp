@@ -308,6 +308,7 @@ async def run_all_sast(
     """Run all available SAST tools against a target."""
     import asyncio
 
+    from argus.tools.abuse_controls import run_abuse_control_check
     from argus.tools.code import run_native_languages
 
     target_path = Path(target)
@@ -315,6 +316,8 @@ async def run_all_sast(
 
     # Built-in multi-language scanner (Java, PHP, Terraform, Ansible, …) — always runs
     tasks.append(run_native_languages(target))
+    # Missing rate limiting / login lockout on auth endpoints (#191) — built in, always runs
+    tasks.append(run_abuse_control_check(target))
 
     # Always try Semgrep (multi-language)
     tasks.append(run_semgrep(target, config=semgrep_config, timeout=timeout))
