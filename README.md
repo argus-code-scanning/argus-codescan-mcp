@@ -84,6 +84,15 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 - Reads `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`, pinned `requirements*.txt` (`name==version`), `composer.lock`, and for Java/Kotlin `pom.xml`, `gradle.lockfile`, `build.gradle(.kts)` and `libs.versions.toml`. Nothing is installed or run.
 - Sends only package names and exact versions to `api.osv.dev`. Offline, the check is skipped with a note. To turn it off, use `--no-network` or `ARGUS_NO_NETWORK=1`.
 
+### Typosquats and hallucinated packages
+
+`argus scan sca` checks every direct dependency name in `package.json`, `requirements*.txt` and `pyproject.toml`:
+
+- **Lookalikes (offline, always on):** names one character away from a top npm / PyPI package (`reqeusts`, `loadsh`, `electorn`), separator swaps (`crossenv`), added `py`/`js`/`node-`/`python-` affixes, and look-alike characters. Packages that are themselves established (in the bundled top ~15,000 lists per registry) are never reported.
+- **Missing or brand-new packages (online, opt-in):** with `--registry-check`, dependencies that **don't exist** on npm / PyPI (often names an AI assistant made up, which attackers then register: "slopsquatting") are high, and packages first published in the last 30 days get a review. Projects using a private registry or `--extra-index-url` are skipped.
+
+The popular-package lists come from [top-pypi-packages](https://hugovk.dev/top-pypi-packages/) and [npm-high-impact](https://github.com/wooorm/npm-high-impact); refresh them with `python packages/python/scripts/refresh_top_packages.py`.
+
 ### Java / Kotlin dependencies without Trivy
 
 When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle dependencies for known vulnerabilities. It reads the same files listed above and looks up exact versions on OSV. Findings include the CVE and GHSA ids, the severity and the nearest fixed version. Only literal versions are used: `${property}` values are resolved from the pom, while ranges, `1.+` and SNAPSHOTs are skipped. Nothing is downloaded, and no JVM or build is needed. With Trivy installed, Trivy covers this instead, so CVEs aren't reported twice.

@@ -601,6 +601,7 @@ async def run_all_sca(
     """Run all available SCA tools against a target."""
     from argus.tools.malicious_packages import run_malicious_package_check
     from argus.tools.maven_deps import run_java_dependency_check
+    from argus.tools.typosquats import run_typosquat_check
 
     tasks = [
         run_trivy_fs(target, timeout=timeout),
@@ -611,6 +612,9 @@ async def run_all_sca(
         run_malicious_package_check(target),
         # Maven / Gradle CVEs from OSV when Trivy isn't installed; built in, no JVM needed.
         run_java_dependency_check(target),
+        # Typosquatted dependency names (offline) and, with --registry-check, missing or brand-new
+        # packages on npm / PyPI (#142).
+        run_typosquat_check(target),
     ]
     # Ecosystem-specific tools only run when their manifests exist.
     target_path = Path(target)

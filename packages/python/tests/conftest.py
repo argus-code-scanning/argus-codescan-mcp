@@ -13,6 +13,7 @@ def _isolated_cache(
     monkeypatch.setenv("ARGUS_CACHE_DIR", str(tmp_path_factory.mktemp("argus-cache")))
     monkeypatch.delenv("ARGUS_ABUSECH_AUTH_KEY", raising=False)
     monkeypatch.delenv("ARGUS_IOC_FILE", raising=False)
+    monkeypatch.delenv("ARGUS_REGISTRY_CHECK", raising=False)
 
 
 @pytest.fixture(autouse=True)
