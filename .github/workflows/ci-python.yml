@@ -133,6 +133,8 @@ jobs:
           name: python-dist
           path: packages/python/dist/
 
+  # OIDC trusted publishers must be configured on BOTH PyPI projects
+  # (argus-scan + argus-languages). See docs/launch/trusted-publishing.md
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
