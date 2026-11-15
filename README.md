@@ -112,6 +112,18 @@ Tests, docs and examples are ignored. Login delegated to an identity provider (A
 - **abuse.ch feeds** (ThreatFox, URLhaus, MalwareBazaar): get a free Auth-Key at [auth.abuse.ch](https://auth.abuse.ch/) and set `ARGUS_ABUSECH_AUTH_KEY`. Feeds are cached for 24 hours in `~/.cache/argus/threat-intel`; `--no-network` uses only the cache.
 - Matching is local: repository content is never uploaded. Big shared platforms (GitHub, Google Drive, Discord CDN…) only match an exact listed URL, never the whole domain.
 
+### SQL injection across lines (Python)
+
+`argus scan sast` follows user input through your Python code to SQL execution, even when the query is built on a different line from where it runs:
+
+```python
+name = request.args["name"]                                  # user input
+query = "SELECT * FROM users WHERE name = '" + name + "'"    # built into SQL
+cursor.execute(query)                                        # flagged: request.args (line 1) → execute (line 3)
+```
+
+It covers Flask, Django, FastAPI (route parameters) and Starlette input; concatenation, f-strings, `.format`, `%` and `join`; `if`/`else`, loops and `try` blocks; and the sinks `execute`, `raw`, `text()`, `RawSQL`, `read_sql` and `extra`. `int()`/`float()` casts, allowlist checks (`if col not in ALLOWED: abort(400)`) and parameterized queries count as safe. JavaScript/TypeScript support is planned.
+
 ## MCP Tools (for AI clients)
 
 | Tool | What It Does |
