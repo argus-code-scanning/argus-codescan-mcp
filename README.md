@@ -77,6 +77,20 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 | **Malware** | Built-in heuristics — crypto miners, reverse shells, BAT/PS1 droppers, web shells (not AV) |
 
+### Terraform modules and providers
+
+`scan sca` (both packages) checks what `terraform init` will download:
+
+| Rule | Severity | Flags |
+|---|---|---|
+| `tf-module-insecure-source` | high | module fetched over `http://` or `git://` (unencrypted) |
+| `tf-module-git-unpinned` | moderate | git module with no `?ref=`, or on a branch like `main` |
+| `tf-module-registry-unpinned` | moderate | registry module with no `version` |
+| `tf-provider-unpinned` | low | `required_providers` entry with no version constraint |
+| `tf-lockfile-missing` | low | root module (backend, cloud or provider block) with no `.terraform.lock.hcl` |
+
+Modules pinned to a commit SHA or tag, local modules, and child modules without a lockfile are not flagged. Findings in `examples/` and `docs/` are lowered one level.
+
 ### Known-malicious dependencies
 
 `argus scan sca` (and `scan all`, and the MCP `scan_sca` tool) also checks every package in your lockfiles against OSV's **known-malicious** records (`MAL-…`, from the OpenSSF malicious-packages feed). A match is always **critical**: it means the exact version you lock was published as malware.

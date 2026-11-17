@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { buildReport, printScanReport } from "./scanners/report.js";
 import { runAllSast } from "./scanners/sast.js";
 import { runNpmAuditSca } from "./scanners/sca.js";
+import { runTerraformDependencyCheck } from "./scanners/terraform-deps.js";
 import { runAllSecrets } from "./scanners/secrets.js";
 import { runToolsCommand } from "./scanners/tools.js";
 import type { Severity } from "./scanners/types.js";
@@ -100,15 +101,21 @@ export async function runScanCli(args: string[]): Promise<number> {
   const reportOpts = { csvPath, writeCsv, includeLowConfidence };
 
   if (scanType === "sca") {
-    console.error(`Running SCA scan (npm audit) on: ${target}`);
-    const scaResult = await runNpmAuditSca(target);
-    // Fatal only when no project could be audited; skipped packages without a
+    console.error(`Running SCA scan (npm audit + Terraform pinning) on: ${target}`);
+    const [scaResult, terraform] = await Promise.all([
+      runNpmAuditSca(target),
+      runTerraformDependencyCheck(target),
+    ]);
+    // Fatal only when nothing could be checked; skipped packages without a
     // lockfile are listed as notes in the report.
-    if (scaResult.findings.length === 0 && !scaResult.projects?.length) {
+    const checked = scaResult.projects?.length || terraform.projects?.length;
+    if (scaResult.findings.length === 0 && terraform.findings.length === 0 && !checked) {
       for (const err of scaResult.errors) console.error(`Error: ${err}`);
       return 1;
     }
-    return printScanReport(buildReport(target, "sca", [scaResult]), format, failOn, reportOpts);
+    const results = terraform.projects?.length ? [scaResult, terraform] : [scaResult];
+    if (!scaResult.projects?.length && terraform.projects?.length) scaResult.errors = [];
+    return printScanReport(buildReport(target, "sca", results), format, failOn, reportOpts);
   }
 
   if (scanType === "sast") {
@@ -127,12 +134,13 @@ export async function runScanCli(args: string[]): Promise<number> {
   if (scanType === "all") {
     console.error(`Running full scan on: ${target}`);
     console.error("  sca + sast (built-in) + secrets\n");
-    const [sca, sastResults, secretResults] = await Promise.all([
+    const [sca, terraform, sastResults, secretResults] = await Promise.all([
       runNpmAuditSca(target),
+      runTerraformDependencyCheck(target),
       runAllSast(target),
       runAllSecrets(target),
     ]);
-    const results = [sca, ...sastResults, ...secretResults];
+    const results = [sca, ...(terraform.projects?.length ? [terraform] : []), ...sastResults, ...secretResults];
     return printScanReport(buildReport(target, "all", results), format, failOn, reportOpts);
   }
 
