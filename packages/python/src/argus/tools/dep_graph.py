@@ -235,7 +235,8 @@ def _python_toml(lockfile: Path, text: str) -> DependencyGraph:
         if not isinstance(entry, dict):
             continue
         name = _norm_py(str(entry.get("name", "")))
-        source = entry.get("source") if isinstance(entry.get("source"), dict) else {}
+        raw_source = entry.get("source")
+        source: dict[str, Any] = raw_source if isinstance(raw_source, dict) else {}
         deps = entry.get("dependencies") or {}
         children = list(deps) if isinstance(deps, dict) else [d.get("name", "") for d in deps]
         if "virtual" in source or "editable" in source:  # uv: the project itself
