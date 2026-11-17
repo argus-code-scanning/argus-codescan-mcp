@@ -102,6 +102,43 @@ const RULES: Rule[] = [
     pattern: /((?<![\w$])`[^`]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^`]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*[\'"(%]*\$\{|"[^"]*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^"]*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*['(%]*"\s*\+\s*[\w(]|'[^']*?(?:SELECT\b[^"\'`;]*?\bFROM|INSERT\s+INTO|REPLACE\s+INTO|UPDATE\b[^"\'`;]*?\bSET|DELETE\s+FROM)\b[^']*?(?:=|<|>|\bLIKE|\bIN\s*\(|\bVALUES\s*\()\s*["(%]*'\s*\+\s*[\w(])/i,
     languages: ["javascript", "typescript"],
   },
+  // ORM and query-builder escape hatches (#182), same ids and patterns as sql-injection.yaml.
+  {
+    id: "js-typeorm-sql-interpolation",
+    title: "Possible SQL injection \u2014 variable interpolated into a TypeORM query-builder condition",
+    severity: "high",
+    pattern: /\.(?:where|andWhere|orWhere|having|andHaving|orHaving)\s*\(\s*(?:`[^`\n]*?(?:=|<>|<|>|\b(?:I?LIKE|i?like)\b|\b(?:IN|in)\s*\()\s*['"(%]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|(["'])[^"'\n]*?(?:=|<>|<|>|\b(?:I?LIKE|i?like)\b|\b(?:IN|in)\s*\()\s*['"(%]*\1\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(])/,
+    languages: ["javascript", "typescript"],
+  },
+  {
+    id: "js-knex-raw-interpolation",
+    title: "Possible SQL injection \u2014 variable passed into a Knex raw SQL method",
+    severity: "high",
+    pattern: /(?:\.(?:whereRaw|orWhereRaw|andWhereRaw|havingRaw|orHavingRaw|orderByRaw|groupByRaw|joinRaw|selectRaw|fromRaw)|\b(?:knex|trx|db)\.raw)\s*\(\s*(?:`[^`\n]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|["'][^"'\n]*["']\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(]|(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$][\w$.]*\s*[,)])/,
+    languages: ["javascript", "typescript"],
+  },
+  {
+    id: "js-prisma-raw-unsafe",
+    title: "Possible SQL injection \u2014 Prisma $queryRawUnsafe / $executeRawUnsafe or Prisma.raw with a built string",
+    severity: "high",
+    pattern: /\$(?:query|execute)RawUnsafe\s*\(\s*(?:`[^`\n]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|["'][^"'\n]*["']\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(]|(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$][\w$.]*\s*[,)])|\bPrisma\.raw\s*\(\s*(?!["'`])(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$]/,
+    languages: ["javascript", "typescript"],
+  },
+  {
+    id: "js-sequelize-literal-interpolation",
+    title: "Possible SQL injection \u2014 variable passed into sequelize.literal()",
+    severity: "high",
+    pattern: /\b[Ss]equelize\.literal\s*\(\s*(?:`[^`\n]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|["'][^"'\n]*["']\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(]|(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$][\w$.]*\s*[,)])/,
+    languages: ["javascript", "typescript"],
+  },
+  {
+    id: "js-orm-order-by-input",
+    title: "ORDER BY / GROUP BY built from request input \u2014 check it is limited to an allow-list",
+    severity: "moderate",
+    confidence: "low",
+    pattern: /\.(?:orderBy|addOrderBy|groupBy|addGroupBy)\s*\(\s*(?:`[^`\n]*\$\{\s*(?:req|request|query|body|params|dto|filter|filters|input|args|options|opts|sort\w*)\b|(?:req|request)\.(?:query|body|params)\b)/,
+    languages: ["javascript", "typescript"],
+  },
   // Shell, PowerShell and batch scripts (#219, #220): same ids and patterns as shell.yaml,
   // powershell.yaml and batch.yaml in argus-languages.
   {
