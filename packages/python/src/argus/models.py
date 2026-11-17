@@ -155,5 +155,10 @@ class AggregatedReport:
 
 
 def counts_toward_failure(finding: dict[str, Any], include_low_confidence: bool = False) -> bool:
-    """Low-confidence rule matches are shown but do not fail --fail-on unless asked."""
+    """Low-confidence rule matches are shown but do not fail --fail-on unless asked.
+
+    Findings covered by an unexpired accepted risk (.argus.yml ``accepted_risks``) never fail.
+    """
+    if finding.get("accepted_risk"):
+        return False
     return include_low_confidence or finding.get("confidence") != "low"

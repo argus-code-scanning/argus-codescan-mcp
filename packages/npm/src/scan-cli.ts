@@ -28,6 +28,7 @@ OPTIONS:
   --no-csv                    Skip writing CSV file
   --fail-on critical|high|moderate
   --fail-on-low-confidence    Let low-confidence rule matches trigger --fail-on too
+  --policy <file>             .argus.yml to use (default: found by walking up from the target)
 
 FALSE POSITIVES:
   Add  // argus-ignore[rule-id]: reason  on the line (or the line above) to silence
@@ -48,12 +49,14 @@ function parseScanArgs(args: string[]): {
   csvPath?: string;
   writeCsv: boolean;
   includeLowConfidence: boolean;
+  policyPath?: string;
 } {
   let format: "json" | "table" | "csv" = "table";
   let failOn: Severity | "never" = "never";
   let csvPath: string | undefined;
   let writeCsv = true;
   let includeLowConfidence = false;
+  let policyPath: string | undefined;
   const positional: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -64,6 +67,8 @@ function parseScanArgs(args: string[]): {
       csvPath = resolve(args[++i]);
     } else if (arg === "--no-csv") {
       writeCsv = false;
+    } else if (arg === "--policy" && args[i + 1]) {
+      policyPath = resolve(args[++i]);
     } else if (arg === "--fail-on-low-confidence") {
       includeLowConfidence = true;
     } else if (arg === "--fail-on" && args[i + 1]) {
@@ -80,6 +85,7 @@ function parseScanArgs(args: string[]): {
     csvPath,
     writeCsv,
     includeLowConfidence,
+    policyPath,
   };
 }
 
@@ -94,10 +100,10 @@ export async function runScanCli(args: string[]): Promise<number> {
   }
 
   const scanType = args[0];
-  const { format, failOn, target, csvPath, writeCsv, includeLowConfidence } = parseScanArgs(
+  const { format, failOn, target, csvPath, writeCsv, includeLowConfidence, policyPath } = parseScanArgs(
     args.slice(1),
   );
-  const reportOpts = { csvPath, writeCsv, includeLowConfidence };
+  const reportOpts = { csvPath, writeCsv, includeLowConfidence, policyPath };
 
   if (scanType === "sca") {
     console.error(`Running SCA scan (npm audit) on: ${target}`);

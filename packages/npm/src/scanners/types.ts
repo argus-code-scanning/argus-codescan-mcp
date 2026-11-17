@@ -15,6 +15,10 @@ export interface Finding {
   confidence?: Confidence;
   /** Set when the file probably does not ship; the severity was lowered one level. */
   context?: FindingContext;
+  /** Covered by an unexpired .argus.yml accepted risk: shown, but never fails --fail-on. */
+  acceptedRisk?: { id: string; reason: string; expires: string };
+  /** The accepted risk that covered this finding expired on this date. */
+  acceptedRiskExpired?: string;
 }
 
 export type Confidence = "high" | "medium" | "low";
@@ -36,6 +40,8 @@ export interface ScanReport {
   target: string;
   scanType: string;
   results: ScanResult[];
+  /** Policy notes (.argus.yml accepted risks that expired, expire soon or matched nothing). */
+  notes?: string[];
   summary: {
     total: number;
     critical: number;

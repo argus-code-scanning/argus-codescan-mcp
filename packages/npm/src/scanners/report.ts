@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ScanReport, ScanResult, Severity } from "./types.js";
 import { countsTowardFailure } from "./noise.js";
+import { applyPolicy, loadPolicy } from "./policy.js";
 
 function countBySeverity(results: ScanResult[]) {
   const counts = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };
@@ -45,6 +46,12 @@ export function formatTable(report: ScanReport): string {
     }
   }
 
+  if (report.notes?.length) {
+    lines.push("[policy] notes:");
+    for (const note of report.notes) lines.push(`  ${note}`);
+    lines.push("");
+  }
+
   if (report.summary.total === 0) {
     lines.push("No security findings.");
     return lines.join("\n");
@@ -66,6 +73,12 @@ export function formatTable(report: ScanReport): string {
           f.context ? `in ${f.context}` : "",
         ].filter(Boolean);
         lines.push(`         [${f.tool}] ${f.ruleId}${tags.length ? ` (${tags.join(", ")})` : ""}`);
+      }
+      if (f.acceptedRisk) {
+        const why = f.acceptedRisk.reason ? `: ${f.acceptedRisk.reason}` : "";
+        lines.push(`         accepted risk until ${f.acceptedRisk.expires}${why} (does not fail the gate)`);
+      } else if (f.acceptedRiskExpired) {
+        lines.push(`         accepted risk EXPIRED on ${f.acceptedRiskExpired}: counts again`);
       }
       if (f.url) lines.push(`         ${f.url}`);
       if (f.description) lines.push(`         ${f.description}`);
@@ -168,8 +181,11 @@ export function printScanReport(
   report: ScanReport,
   format: "json" | "table" | "csv",
   failOn: Severity | "never",
-  options: { csvPath?: string; writeCsv?: boolean; includeLowConfidence?: boolean } = {},
+  options: { csvPath?: string; writeCsv?: boolean; includeLowConfidence?: boolean; policyPath?: string } = {},
 ): number {
+  applyPolicy(report, loadPolicy(report.target, options.policyPath));
+  report.summary = countBySeverity(report.results); // suppressions may have removed findings
+  for (const note of report.notes ?? []) console.error(`Policy: ${note}`);
   const writeCsv = options.writeCsv !== false;
   const csvPath = options.csvPath ?? defaultCsvPath(report);
 

@@ -43,3 +43,12 @@ suppressions:
     path: "tests/**"
     reason: "asserts in test files"
     expires: "2026-12-31"
+
+# Known findings you have decided to live with for now (e.g. no patched version exists).
+# They stay in the report, marked "accepted risk until <date>", and do not fail fail_on /
+# --fail-on until they expire; then they count again. Works in argus-scan and argus-codescan.
+# accepted_risks:
+#   - id: GHSA-fc5q-39xc-vjpf        # advisory, CVE or rule id
+#     package: picomatch             # optional: only this package
+#     reason: "No patched version; reached via typeorm > tinyglobby"
+#     expires: "2026-12-17"          # required
