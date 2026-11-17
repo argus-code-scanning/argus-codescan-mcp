@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { buildReport, printScanReport } from "./scanners/report.js";
 import { runAllSast } from "./scanners/sast.js";
+import { runOsvDependencyCheck } from "./scanners/osv-deps.js";
 import { runNpmAuditSca } from "./scanners/sca.js";
 import { runAllSecrets } from "./scanners/secrets.js";
 import { runToolsCommand } from "./scanners/tools.js";
@@ -28,6 +29,7 @@ OPTIONS:
   --no-csv                    Skip writing CSV file
   --fail-on critical|high|moderate
   --fail-on-low-confidence    Let low-confidence rule matches trigger --fail-on too
+  --no-network                Skip the OSV dependency lookup (also ARGUS_NO_NETWORK=1)
 
 FALSE POSITIVES:
   Add  // argus-ignore[rule-id]: reason  on the line (or the line above) to silence
@@ -64,6 +66,8 @@ function parseScanArgs(args: string[]): {
       csvPath = resolve(args[++i]);
     } else if (arg === "--no-csv") {
       writeCsv = false;
+    } else if (arg === "--no-network") {
+      process.env.ARGUS_NO_NETWORK = "1";
     } else if (arg === "--fail-on-low-confidence") {
       includeLowConfidence = true;
     } else if (arg === "--fail-on" && args[i + 1]) {
@@ -100,15 +104,18 @@ export async function runScanCli(args: string[]): Promise<number> {
   const reportOpts = { csvPath, writeCsv, includeLowConfidence };
 
   if (scanType === "sca") {
-    console.error(`Running SCA scan (npm audit) on: ${target}`);
-    const scaResult = await runNpmAuditSca(target);
-    // Fatal only when no project could be audited; skipped packages without a
+    console.error(`Running SCA scan (npm audit + OSV for every other lockfile) on: ${target}`);
+    const [scaResult, osv] = await Promise.all([runNpmAuditSca(target), runOsvDependencyCheck(target)]);
+    // Fatal only when nothing could be checked; skipped packages without a
     // lockfile are listed as notes in the report.
-    if (scaResult.findings.length === 0 && !scaResult.projects?.length) {
+    const checked = scaResult.projects?.length || osv.projects?.length;
+    if (scaResult.findings.length === 0 && osv.findings.length === 0 && !checked) {
       for (const err of scaResult.errors) console.error(`Error: ${err}`);
       return 1;
     }
-    return printScanReport(buildReport(target, "sca", [scaResult]), format, failOn, reportOpts);
+    if (!scaResult.projects?.length) scaResult.errors = [];
+    const results = osv.projects?.length ? [scaResult, osv] : [scaResult];
+    return printScanReport(buildReport(target, "sca", results), format, failOn, reportOpts);
   }
 
   if (scanType === "sast") {
@@ -127,12 +134,13 @@ export async function runScanCli(args: string[]): Promise<number> {
   if (scanType === "all") {
     console.error(`Running full scan on: ${target}`);
     console.error("  sca + sast (built-in) + secrets\n");
-    const [sca, sastResults, secretResults] = await Promise.all([
+    const [sca, osv, sastResults, secretResults] = await Promise.all([
       runNpmAuditSca(target),
+      runOsvDependencyCheck(target),
       runAllSast(target),
       runAllSecrets(target),
     ]);
-    const results = [sca, ...sastResults, ...secretResults];
+    const results = [sca, ...(osv.projects?.length ? [osv] : []), ...sastResults, ...secretResults];
     return printScanReport(buildReport(target, "all", results), format, failOn, reportOpts);
   }
 
