@@ -481,7 +481,7 @@ def _print_table(report_dict: dict) -> None:
             print(_color(row, sev))
             pad = " " * (col_w["sev"] + 2)
             paths = f.get("dependency_paths") or []
-            if paths:
+            if any(" \u203a " in p for p in paths):  # direct dependencies need no "via"
                 more = f" (+{len(paths) - 3} more)" if len(paths) > 3 else ""
                 print(f"{pad}via {', '.join(paths[:3])}{more}")
             if f.get("package") and f.get("fix_guidance"):
