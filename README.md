@@ -77,19 +77,20 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 | **Malware** | Built-in heuristics — crypto miners, reverse shells, BAT/PS1 droppers, web shells (not AV) |
 
-### Terraform modules and providers
+### Shell, PowerShell and batch scripts
 
-`scan sca` (both packages) checks what `terraform init` will download:
+`scan code` / `scan sast` (both packages) check `.sh` `.bash` `.zsh`, `.ps1` `.psm1` `.psd1` and `.bat` `.cmd` files, plus extensionless scripts found by their `#!` line (`bin/deploy`, `scripts/setup`). `bin/` is scanned unless it holds build output (`Debug/`, `Release/`, `.dll`).
 
-| Rule | Severity | Flags |
+| Shell | PowerShell | Batch |
 |---|---|---|
-| `tf-module-insecure-source` | high | module fetched over `http://` or `git://` (unencrypted) |
-| `tf-module-git-unpinned` | moderate | git module with no `?ref=`, or on a branch like `main` |
-| `tf-module-registry-unpinned` | moderate | registry module with no `version` |
-| `tf-provider-unpinned` | low | `required_providers` entry with no version constraint |
-| `tf-lockfile-missing` | low | root module (backend, cloud or provider block) with no `.terraform.lock.hcl` |
+| `eval "$1"` / `eval $CMD` | `Invoke-Expression $var`, `$x \| iex` | `net user … /add`, admin group adds |
+| `rm -rf "$DIR/"` without `${DIR:?}` | `-ExecutionPolicy Bypass` | `net use … /user:x Password`, `runas /savecred`, `set PASSWORD=…` |
+| `curl -k`, `wget --no-check-certificate`, `git http.sslVerify false`, `NODE_TLS_REJECT_UNAUTHORIZED=0` | plaintext `ConvertTo-SecureString "…" -AsPlainText`, `$password = "…"` | `netsh advfirewall … state off` |
+| `chmod 777` / `o+w` | `ServerCertificateValidationCallback = {$true}`, `-SkipCertificateCheck` | |
+| `sshpass -p`, `mysql -pSecret`, `export DB_PASSWORD=literal` | SSL3 / TLS 1.0 / 1.1 | |
+| fixed `/tmp/…` files (low confidence), `NOPASSWD: ALL`, `StrictHostKeyChecking=no` | | |
 
-Modules pinned to a commit SHA or tag, local modules, and child modules without a lockfile are not flagged. Findings in `examples/` and `docs/` are lowered one level.
+Download-and-run (`curl … \| sh`, `iwr … \| iex`), encoded commands, certutil/bitsadmin downloads and Defender tampering are reported by the malware rules.
 
 ### Known-malicious dependencies
 

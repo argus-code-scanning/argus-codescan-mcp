@@ -3,7 +3,7 @@
  * Covers common issues in JS, TS, Python, Java, PHP, Go, Ruby without external tools.
  */
 
-import { lstatSync, readFileSync, readdirSync } from "node:fs";
+import { closeSync, lstatSync, openSync, readFileSync, readSync, readdirSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import {
   IGNORE_HINT,
@@ -17,7 +17,7 @@ import type { Confidence, Finding, ScanResult, Severity } from "./types.js";
 
 const SKIP_DIRS = new Set([
   "node_modules", ".git", "dist", "build", ".next", "coverage", "vendor",
-  "__pycache__", "target", "bin", "obj", ".venv", "venv",
+  "__pycache__", "target", "obj", ".venv", "venv",
 ]);
 
 const EXT_LANG: Record<string, string> = {
@@ -26,7 +26,44 @@ const EXT_LANG: Record<string, string> = {
   ".cs": "csharp", ".kt": "kotlin", ".kts": "kotlin", ".swift": "swift",
   ".jsp": "jsp", ".scala": "scala", ".pl": "perl",
   ".sh": "shell", ".bash": "shell", ".zsh": "shell",
+  ".ps1": "powershell", ".psm1": "powershell", ".psd1": "powershell",
+  ".bat": "batch", ".cmd": "batch",
 };
+
+const SHEBANG = /^#!\s*(?:\/usr)?(?:\/local)?\/bin\/(?:env\s+(?:-\S+\s+)*)?(\w+)/;
+const SHEBANG_LANG: Record<string, string> = {
+  sh: "shell", bash: "shell", zsh: "shell", dash: "shell", ksh: "shell", pwsh: "powershell", powershell: "powershell",
+};
+const BUILD_OUTPUT = /\.(?:dll|pdb|class|exe|jar|so|o)$/i;
+
+/** Extensionless scripts (bin/deploy, scripts/setup) by their #! line. */
+function shebangLanguage(file: string): string | undefined {
+  try {
+    const fd = openSync(file, "r");
+    const head = Buffer.alloc(200);
+    const n = readSync(fd, head, 0, 200, 0);
+    closeSync(fd);
+    const m = SHEBANG.exec(head.subarray(0, n).toString("utf8"));
+    return m ? SHEBANG_LANG[m[1]] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** bin/ holding .NET / Java build output is skipped; bin/ with scripts is scanned. */
+function isBuildOutput(dir: string): boolean {
+  try {
+    return readdirSync(dir).some((n) => n === "Debug" || n === "Release" || BUILD_OUTPUT.test(n));
+  } catch {
+    return true;
+  }
+}
+
+function isComment(line: string, lang: string): boolean {
+  const t = line.trim();
+  if (t.startsWith("//") || t.startsWith("#")) return true;
+  return lang === "batch" && (t.startsWith("::") || /^@?rem(?:\s|$)/i.test(t));
+}
 
 interface Rule {
   id: string;
@@ -101,6 +138,124 @@ const RULES: Rule[] = [
     confidence: "low",
     pattern: /\.(?:orderBy|addOrderBy|groupBy|addGroupBy)\s*\(\s*(?:`[^`\n]*\$\{\s*(?:req|request|query|body|params|dto|filter|filters|input|args|options|opts|sort\w*)\b|(?:req|request)\.(?:query|body|params)\b)/,
     languages: ["javascript", "typescript"],
+  },
+  // Shell, PowerShell and batch scripts (#219, #220): same ids and patterns as shell.yaml,
+  // powershell.yaml and batch.yaml in argus-languages.
+  {
+    id: "sh-eval-variable",
+    title: "eval runs a variable or argument as shell code",
+    severity: "high",
+    pattern: /(?:^|[;&|({]\s*|\bthen\s+|\bdo\s+)eval\s+["']?\$(?!\()(?:\{?[A-Za-z_@*0-9])/,
+    languages: ["shell"],
+  },
+  {
+    id: "sh-rm-unguarded-variable",
+    title: "rm -rf on a variable path with no empty-value guard (an empty variable deletes from /)",
+    severity: "high",
+    pattern: /\brm\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+(?:-[a-zA-Z-]+\s+)*(?:--\s+)?"?\$(?:\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)"?\/(?:\*|["'\s;]|$)/,
+    languages: ["shell"],
+  },
+  {
+    id: "sh-tls-verification-off",
+    title: "TLS certificate verification turned off",
+    severity: "high",
+    pattern: /\bcurl\b[^\n#]*\s(?:--insecure\b|-[a-zA-Z]*k[a-zA-Z]*(?=\s|$))|\bwget\b[^\n#]*--no-check-certificate|\bgit\b[^\n#]*http\.sslVerify[= ]+false|\bGIT_SSL_NO_VERIFY=["']?(?:1|true)|\bnpm\s+config\s+set\s+strict-ssl\s+false|\bNODE_TLS_REJECT_UNAUTHORIZED=["']?0|\bpip3?\s+install\b[^\n#]*--trusted-host/,
+    languages: ["shell"],
+  },
+  {
+    id: "sh-chmod-world-writable",
+    title: "chmod makes files world-writable (777 / 666 / o+w)",
+    severity: "moderate",
+    pattern: /\bchmod\s+(?:-[a-zA-Z]+\s+)*(?:0?[0-7]?(?:777|666)|[ugoa]*[oa][ugoa]*\+[rxX]*w)\b/,
+    languages: ["shell"],
+  },
+  {
+    id: "sh-password-on-command-line",
+    title: "Password or secret written into the script or passed on the command line",
+    severity: "high",
+    confidence: "medium",
+    pattern: /\bsshpass\s+-p\s*["']?[^\s"'$-]|\bmysql(?:dump|admin)?\b[^\n#]*\s(?:-p|--password=)["']?[^\s"'$-][^\s"']*|\b(?:PGPASSWORD|MYSQL_PWD)=["']?[^\s"'$]{3,}|\bexport\s+\w*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY)\w*=["']?[A-Za-z0-9\/+_.@!-]{6,}["']?\s*(?:$|#|;)/,
+    languages: ["shell"],
+  },
+  {
+    id: "sh-predictable-tmp-file",
+    title: "Script writes to a fixed /tmp path (symlink or race attacks)",
+    severity: "moderate",
+    confidence: "low",
+    pattern: /(?:>>?|\btee\s+(?:-a\s+)?)\s*["']?\/tmp\/(?:[\w.-]+|\$\$)(?:["'\s;]|$)/,
+    languages: ["shell"],
+  },
+  {
+    id: "sh-sudoers-nopasswd",
+    title: "Script grants passwordless sudo or edits sudoers directly",
+    severity: "high",
+    pattern: /NOPASSWD:\s*ALL\b|(?:>>?|\btee\s+(?:-a\s+)?)\s*["']?\/etc\/sudoers(?:\.d\/[\w.-]+)?\b/,
+    languages: ["shell"],
+  },
+  {
+    id: "sh-ssh-host-key-check-off",
+    title: "SSH host key checking turned off (man-in-the-middle)",
+    severity: "moderate",
+    pattern: /StrictHostKeyChecking[= ]+["']?no\b|UserKnownHostsFile[= ]+["']?\/dev\/null/,
+    languages: ["shell"],
+  },
+  {
+    id: "ps-invoke-expression-variable",
+    title: "Invoke-Expression runs a variable as PowerShell code",
+    severity: "high",
+    pattern: /\b(?:Invoke-Expression|iex)\s+(?:-Command\s+)?\$\w|\$\w+\s*\|\s*(?:Invoke-Expression|iex)\b/i,
+    languages: ["powershell"],
+  },
+  {
+    id: "ps-execution-policy-bypass",
+    title: "Execution policy set to Bypass / Unrestricted",
+    severity: "moderate",
+    pattern: /-(?:ExecutionPolicy|ep|exec)\s+["']?(?:Bypass|Unrestricted)\b|\bSet-ExecutionPolicy\s+(?:-ExecutionPolicy\s+)?["']?(?:Bypass|Unrestricted)\b/i,
+    languages: ["powershell",  "batch"],
+  },
+  {
+    id: "ps-plaintext-password",
+    title: "Plaintext password turned into a SecureString (ConvertTo-SecureString -AsPlainText)",
+    severity: "high",
+    confidence: "medium",
+    pattern: /\bConvertTo-SecureString\s+(?:-String\s+)?["'][^"'$]+["']\s+-AsPlainText/i,
+    languages: ["powershell"],
+  },
+  {
+    id: "ps-tls-validation-off",
+    title: "TLS certificate validation turned off",
+    severity: "high",
+    pattern: /ServerCertificateValidationCallback\s*=\s*\{\s*\$true\s*\}|-SkipCertificateCheck\b|\bTrustAllCertsPolicy\b|CheckValidationResult\s*\([^)]*\)\s*\{\s*return\s+true/i,
+    languages: ["powershell"],
+  },
+  {
+    id: "ps-weak-tls-protocol",
+    title: "Script enables SSL 3 / TLS 1.0 / TLS 1.1",
+    severity: "moderate",
+    pattern: /SecurityProtocolType\]::(?:Ssl3|Tls11|Tls)(?!\w)/i,
+    languages: ["powershell"],
+  },
+  {
+    id: "bat-add-admin-user",
+    title: "Script creates a local user or adds one to Administrators",
+    severity: "high",
+    pattern: /\bnet\s+user\s+\S+\s+\S+\s+\/add\b|\bnet\s+localgroup\s+administrators\s+\S+\s+\/add\b/i,
+    languages: ["batch",  "powershell"],
+  },
+  {
+    id: "bat-plaintext-credentials",
+    title: "Plaintext password in a batch script",
+    severity: "high",
+    confidence: "medium",
+    pattern: /\bnet\s+use\b[^\n]*\/user:\S+\s+(?!\*)(?!%)[^\s\/]+|\brunas\b[^\n]*\/savecred\b|^\s*set\s+"?\w*(?:PASSWORD|PASSWD|PWD|SECRET|TOKEN)\w*=[^%\s"]{4,}/i,
+    languages: ["batch"],
+  },
+  {
+    id: "bat-firewall-disabled",
+    title: "Script turns the Windows firewall off",
+    severity: "high",
+    pattern: /\bnetsh\s+advfirewall\s+set\s+\w+\s+state\s+off\b|\bnetsh\s+firewall\s+set\s+opmode\s+(?:mode=)?disable\b|Set-NetFirewallProfile\b[^\n]*-Enabled\s+(?:False|\$false|0)/i,
+    languages: ["batch",  "powershell"],
   },
   {
     id: "command-injection",
@@ -379,9 +534,10 @@ function isSpringConfig(name: string): boolean {
 }
 
 /** Language for a file name, or undefined when argus-native doesn't scan it. */
-function languageOf(name: string): string | undefined {
+function languageOf(name: string, full?: string): string | undefined {
   if (isSpringConfig(name)) return "spring-config";
   const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "";
+  if (!ext && full) return shebangLanguage(full);
   return EXT_LANG[ext];
 }
 
@@ -394,7 +550,7 @@ function walkFiles(dir: string, out: string[], depth = 0): void {
     const root = lstatSync(dir);
     if (root.isSymbolicLink()) return;
     if (!root.isDirectory()) {
-      if (languageOf(basename(dir))) out.push(dir);
+      if (languageOf(basename(dir), dir)) out.push(dir);
       return;
     }
   } catch {
@@ -409,6 +565,7 @@ function walkFiles(dir: string, out: string[], depth = 0): void {
   for (const name of entries) {
     if (SKIP_DIRS.has(name) || name.startsWith(".")) continue;
     const full = join(dir, name);
+    if (name === "bin" && isBuildOutput(full)) continue;
     let st;
     try {
       st = lstatSync(full);
@@ -419,7 +576,7 @@ function walkFiles(dir: string, out: string[], depth = 0): void {
     if (st.isDirectory()) {
       walkFiles(full, out, depth + 1);
     } else {
-      if (languageOf(name)) out.push(full);
+      if (languageOf(name, full)) out.push(full);
     }
   }
 }
@@ -442,7 +599,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
   }
 
   for (const file of files) {
-    const lang = languageOf(basename(file)) ?? "unknown";
+    const lang = languageOf(basename(file), file) ?? "unknown";
     let content: string;
     try {
       content = readFileSync(file, "utf8");
@@ -450,9 +607,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
       continue;
     }
     const lines = content.split("\n");
-    const scanSource = lines.map((line) =>
-      line.trim().startsWith("//") || line.trim().startsWith("#") ? "" : line,
-    ).join("\n");
+    const scanSource = lines.map((line) => (isComment(line, lang) ? "" : line)).join("\n");
     const rel = relative(lstatSync(target).isDirectory() ? target : dirname(target), file);
     const context = pathContext(rel);
     let pending: IgnoreMarker | undefined; // from a comment-only line just above
@@ -460,7 +615,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
     const markers: Array<IgnoreMarker | undefined> = [];
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith("//") || trimmed.startsWith("#")) {
+      if (isComment(trimmed, lang)) {
         pending = parseIgnore(line);
         markers.push(undefined);
         continue;
@@ -488,7 +643,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
       } else {
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          if (line.trim().startsWith("//") || line.trim().startsWith("#")) continue;
+          if (isComment(line, lang)) continue;
           if (rule.pattern.test(line)) matchedLines.add(i + 1);
         }
       }
