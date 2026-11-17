@@ -68,7 +68,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 |----------|-------|
 | **SAST** | Semgrep · Bandit · ESLint-security · flake8-bandit |
 | **DAST** | OWASP ZAP · Nikto |
-| **SCA** | Trivy · Safety · pip-audit · npm audit · built-in Maven/Gradle CVE check (OSV) · built-in OSV known-malicious package check (MAL- records) |
+| **SCA** | Trivy · Safety · pip-audit · npm audit · govulncheck · composer audit · built-in OSV check for every lockfile (npm, Python, Go, Flutter/Dart, Rust, Ruby, .NET, PHP, Maven/Gradle) · built-in OSV known-malicious package check (MAL- records) |
 | **Secrets** | Gitleaks · detect-secrets · TruffleHog |
 | **IaC** | Checkov · Trivy config · Terrascan · KICS |
 | **Terraform** | tfsec · tflint · terraform validate · KICS · Checkov |
@@ -91,6 +91,40 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | fixed `/tmp/…` files (low confidence), `NOPASSWD: ALL`, `StrictHostKeyChecking=no` | | |
 
 Download-and-run (`curl … \| sh`, `iwr … \| iex`), encoded commands, certutil/bitsadmin downloads and Defender tampering are reported by the malware rules.
+
+### Vulnerable dependencies in every language
+
+`argus scan sca` (Python) and `npx argus-codescan scan sca` (npm) check the exact versions in your lockfiles against [OSV](https://osv.dev), with nothing else to install:
+
+| Ecosystem | Files read |
+|---|---|
+| JavaScript / TypeScript | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` |
+| Python | `requirements*.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock` |
+| Go | `go.mod` (and the Go toolchain from its `toolchain` line) |
+| Dart / Flutter | `pubspec.lock` |
+| Rust | `Cargo.lock` |
+| Ruby | `Gemfile.lock` |
+| .NET | `packages.lock.json` |
+| PHP | `composer.lock` |
+| Java / Kotlin | `pom.xml`, Gradle lockfiles, build files and version catalogs |
+
+There is **one finding per package**, with every advisory for that version, the version that fixes all of them, how the package gets into your project (`via chrono › time`), and the command for that ecosystem (`cargo update -p time --precise 0.2.23`, `go get …`, `flutter pub upgrade …`). Dev-only packages are lowered one level. When an ecosystem's own tool is installed (npm audit, pip-audit, govulncheck, composer audit, or Trivy for all of them), that tool covers it instead, so nothing is reported twice. Only package names and versions are sent to OSV; `--no-network` (or `ARGUS_NO_NETWORK=1`) skips the check. In the npm package, `package-lock.json` stays with npm audit and every other lockfile goes to OSV.
+
+#### npm details
+
+
+`scan sca` runs `npm audit` for every lockfile and reports **one finding per advisory**, with:
+
+- the installed version (`picomatch@4.0.7`) and **how it gets into your project**, runtime paths first: `via typeorm › tinyglobby › picomatch, vitest › picomatch`
+- **fix advice** that won't break you: when npm's only "fix" is to downgrade one of your dependencies (`npm audit fix --force` moving `typeorm` 1.1.1 to 0.3.31), Argus says there is no safe fix yet instead
+- dev-only packages lowered one severity level and marked `dev dependency`
+- a note when `npm audit` shows a bigger number: it counts every package that *depends on* a vulnerable one, so 4 advisories can show up as "22 vulnerabilities"
+
+```
+HIGH     picomatch@4.0.7            picomatch vulnerable to ReDoS through sing
+         via typeorm › tinyglobby › picomatch, vitest › picomatch
+         fix: No safe fix yet: npm audit fix --force would downgrade typeorm 1.1.1 to 0.3.31. ...
+```
 
 ### Known-malicious dependencies
 

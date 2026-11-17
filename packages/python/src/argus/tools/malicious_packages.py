@@ -68,7 +68,7 @@ def network_disabled() -> bool:
 
 @dataclass(frozen=True)
 class Package:
-    ecosystem: str  # OSV ecosystem name: npm, PyPI, Packagist
+    ecosystem: str  # OSV ecosystem name: npm, PyPI, Packagist, Maven, Go, Pub, crates.io, ...
     name: str
     version: str
 
@@ -206,6 +206,119 @@ def _composer_lock(text: str) -> Iterator[Package]:
                 yield Package("Packagist", name, version)
 
 
+_GO_REQUIRE = re.compile(r"^\s*(?:require\s+)?([^\s()]+\.[^\s()]+)\s+(v\d[^\s]*)")
+_GO_TOOLCHAIN = re.compile(r"^\s*toolchain\s+go(\d+\.\d+(?:\.\d+)?)\s*$")
+
+
+def _go_mod(text: str) -> Iterator[Package]:
+    """go.mod ``require`` lines (single and block form) plus ``toolchain goX.Y.Z`` as stdlib.
+
+    The ``go 1.22`` directive is only a minimum language version, so it is not reported;
+    ``toolchain`` names the Go release that builds the module.
+    """
+    block = ""
+    for raw in text.splitlines():
+        line = raw.strip()
+        if block:
+            if line.startswith(")"):
+                block = ""
+                continue
+            if block != "require":
+                continue
+        elif line.endswith("(") and line.split()[0] in {"require", "replace", "exclude", "retract"}:
+            block = line.split()[0]
+            continue
+        elif not line.startswith("require ") and not _GO_TOOLCHAIN.match(line):
+            continue
+        toolchain = _GO_TOOLCHAIN.match(line)
+        if toolchain:
+            yield Package("Go", "stdlib", toolchain.group(1))
+            continue
+        match = _GO_REQUIRE.match(line)
+        if match:
+            yield Package("Go", match.group(1), match.group(2).removesuffix("+incompatible"))
+
+
+def _pubspec_lock(text: str) -> Iterator[Package]:
+    """Dart / Flutter pubspec.lock: hosted packages (pub.dev). SDK, git and path entries skipped."""
+    data = yaml.safe_load(text)
+    packages = data.get("packages") if isinstance(data, dict) else None
+    if not isinstance(packages, dict):
+        return
+    for name, entry in packages.items():
+        if not isinstance(entry, dict) or entry.get("source") != "hosted":
+            continue
+        version = entry.get("version")
+        if isinstance(version, str):
+            yield Package("Pub", str(name), version)
+
+
+def _cargo_lock(text: str) -> Iterator[Package]:
+    """Rust Cargo.lock: crates from a registry (workspace members and git crates skipped)."""
+    if _toml is None:
+        return
+    for entry in _toml.loads(text).get("package", []):
+        if not isinstance(entry, dict) or not str(entry.get("source", "")).startswith("registry+"):
+            continue
+        name, version = entry.get("name"), entry.get("version")
+        if isinstance(name, str) and isinstance(version, str):
+            yield Package("crates.io", name, version)
+
+
+_GEM_SPEC = re.compile(r"^    ([A-Za-z0-9][\w.-]*) \(([^)]+)\)$")
+
+
+def _gem_version(version: str) -> str:
+    # Platform gems: "1.15.4-arm64-darwin" -> "1.15.4"
+    return re.sub(r"-(?:[a-z]|x86|x64|java|universal).*$", "", version)
+
+
+def _gemfile_lock(text: str) -> Iterator[Package]:
+    """Ruby Gemfile.lock: gems under ``GEM`` / ``specs:`` (git and path gems skipped)."""
+    section = ""
+    for line in text.splitlines():
+        if line and not line[0].isspace():
+            section = line.strip()
+            continue
+        if section != "GEM":
+            continue
+        match = _GEM_SPEC.match(line)
+        if match:
+            yield Package("RubyGems", match.group(1), _gem_version(match.group(2)))
+
+
+def _nuget_lock(text: str) -> Iterator[Package]:
+    """.NET packages.lock.json: resolved NuGet packages for every target framework."""
+    data = json.loads(text)
+    frameworks = data.get("dependencies") if isinstance(data, dict) else None
+    if not isinstance(frameworks, dict):
+        return
+    for deps in frameworks.values():
+        if not isinstance(deps, dict):
+            continue
+        for name, entry in deps.items():
+            if not isinstance(entry, dict) or entry.get("type") == "Project":
+                continue
+            version = entry.get("resolved")
+            if isinstance(version, str):
+                yield Package("NuGet", name, version)
+
+
+def _pipfile_lock(text: str) -> Iterator[Package]:
+    """Pipfile.lock: ``default`` and ``develop`` packages pinned with ``==``."""
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        return
+    for section in ("default", "develop"):
+        entries = data.get(section)
+        if not isinstance(entries, dict):
+            continue
+        for name, entry in entries.items():
+            version = entry.get("version") if isinstance(entry, dict) else None
+            if isinstance(version, str) and version.startswith("=="):
+                yield Package("PyPI", name, version[2:])
+
+
 _PARSERS: dict[str, Callable[[str], Iterator[Package]]] = {
     "package-lock.json": _npm_package_lock,
     "npm-shrinkwrap.json": _npm_package_lock,
@@ -214,6 +327,13 @@ _PARSERS: dict[str, Callable[[str], Iterator[Package]]] = {
     "poetry.lock": _toml_packages,
     "uv.lock": _toml_packages,
     "composer.lock": _composer_lock,
+    "go.mod": _go_mod,
+    "pubspec.lock": _pubspec_lock,
+    "Cargo.lock": _cargo_lock,
+    "Gemfile.lock": _gemfile_lock,
+    "gems.locked": _gemfile_lock,
+    "packages.lock.json": _nuget_lock,
+    "Pipfile.lock": _pipfile_lock,
 }
 
 

@@ -10,12 +10,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 from argus.models import Finding, ScanResult, ScanType, Severity
+from argus.tools.dep_graph import read_graph
 from argus.utils import (
     collect_scan_results,
     find_scan_files,
@@ -322,11 +324,101 @@ async def run_pip_audit(
 NPM_LOCKFILES = ("package-lock.json", "npm-shrinkwrap.json")
 
 
-def _npm_fix_guidance(fix: object) -> str:
-    if isinstance(fix, dict):
-        major = " (major version upgrade)" if fix.get("isSemVerMajor") else ""
-        return f"Upgrade {fix.get('name')} to {fix.get('version')}{major}"
-    return "Run npm audit fix" if fix else "No fix available yet"
+def _version_key(version: str) -> tuple[int, int, int]:
+    parts = re.split(r"[.+-]", re.sub(r"^[^\d]*", "", version))[:3]
+    nums = [int(p) if p.isdigit() else 0 for p in parts]
+    return (nums + [0, 0, 0])[0], (nums + [0, 0, 0])[1], (nums + [0, 0, 0])[2]
+
+
+def _npm_fix_guidance(
+    fix: object,
+    package: str = "",
+    affected: str = "",
+    installed: dict[str, list[str]] | None = None,
+) -> str:
+    """What to do, from npm audit's ``fixAvailable``.
+
+    npm sometimes "fixes" an advisory by moving a direct dependency to an older major
+    version; that is called out instead of passed on. Same text as the npm scanner.
+    """
+    in_range = f" (affected: {affected})" if affected else ""
+    if fix is True:
+        return "Run npm audit fix (no breaking changes)."
+    if not isinstance(fix, dict) or not fix.get("name") or not fix.get("version"):
+        return (
+            f"No patched version of {package} is published yet{in_range}. "
+            'Update it when one is, or pin it with "overrides".'
+        )
+    name, version = str(fix["name"]), str(fix["version"])
+    versions = sorted((installed or {}).get(name, []), key=_version_key)
+    if versions and _version_key(version) < _version_key(versions[-1]):
+        return (
+            f"No safe fix yet: npm audit fix --force would downgrade {name} {versions[-1]} to "
+            f"{version}. Don't run it; wait for a patched {package}{in_range} and pin it with "
+            '"overrides".'
+        )
+    major = " (major version: check for breaking changes)" if fix.get("isSemVerMajor") else ""
+    return f"Upgrade {name} to {version}{major}."
+
+
+def _npm_installed_versions(lockfile: Path) -> dict[str, list[str]]:
+    """Installed versions from package-lock.json, keyed by name and by lockfile path."""
+    try:
+        data = json.loads(lockfile.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    found: dict[str, set[str]] = {}
+
+    def add(name: str, version: object) -> None:
+        if isinstance(version, str) and not version.startswith("file:"):
+            found.setdefault(name, set()).add(version)
+
+    for key, entry in (data.get("packages") or {}).items():
+        at = key.rfind("node_modules/")
+        if at < 0 or not isinstance(entry, dict):
+            continue
+        add(entry.get("name") or key[at + len("node_modules/") :], entry.get("version"))
+        add(key, entry.get("version"))
+    return {name: sorted(versions) for name, versions in found.items()}
+
+
+def _npm_dependency_paths(
+    vulnerabilities: dict[str, Any], package: str, runtime: set[str]
+) -> list[str]:
+    """Every way ``package`` is installed, from a direct dependency down (npm audit ``effects``).
+
+    Runtime paths come first, then shorter ones: ["typeorm › tinyglobby › picomatch", ...].
+    """
+    paths: list[list[str]] = []
+    queue: list[list[str]] = [[package]]
+    reached: set[str] = set()
+    while queue and len(paths) < 50:
+        chain = queue.pop(0)
+        entry = vulnerabilities.get(chain[0]) or {}
+        if entry.get("isDirect") and chain[0] not in reached:
+            reached.add(chain[0])
+            paths.append(chain)
+        for parent in entry.get("effects") or []:
+            if parent not in chain and len(chain) < 8:
+                queue.append([parent, *chain])
+    paths.sort(key=lambda c: (c[0] not in runtime, len(c), c[0]))
+    return [" \u203a ".join(chain) for chain in paths]
+
+
+def _npm_count_note(data: dict[str, Any], findings: list[Finding]) -> str:
+    """npm audit counts every vulnerable package, including ones that only depend on another."""
+    meta_total = ((data.get("metadata") or {}).get("vulnerabilities") or {}).get("total")
+    total = meta_total if isinstance(meta_total, int) else len(data.get("vulnerabilities") or {})
+    packages = len({f.package for f in findings})
+    if not findings or total <= packages:
+        return ""
+    advisories = len({(f.package, f.rule_id) for f in findings})
+    return (
+        f"{advisories} {'advisory' if advisories == 1 else 'advisories'} in {packages} "
+        f"{'package' if packages == 1 else 'packages'}. npm audit reports {total} vulnerable "
+        "packages because it also counts every package that depends on one; those are listed "
+        'under "via".'
+    )
 
 
 _DEV_DOWNGRADE = {
@@ -394,7 +486,10 @@ async def run_npm_audit(
         runtime = set(prod.get("vulnerabilities", {})) if isinstance(prod, dict) else set()
 
         seen: set[tuple[str, str]] = set()
-        for name, info in data.get("vulnerabilities", {}).items():
+        installed = _npm_installed_versions(lockfile)
+        vulnerabilities = data.get("vulnerabilities", {})
+        project_findings: list[Finding] = []
+        for name, info in vulnerabilities.items():
             # String entries in ``via`` point at another vulnerable package, which
             # carries the advisory itself; only advisory objects become findings.
             for via in info.get("via", []):
@@ -410,7 +505,11 @@ async def run_npm_audit(
                 cwes = via.get("cwe") or []
                 sev = str(via.get("severity") or info.get("severity", "moderate")).lower()
                 severity, context = _scoped(ADVISORY_SEVERITY_MAP.get(sev, Severity.MEDIUM), scope)
-                result.findings.append(
+                nodes = info.get("nodes") or []
+                versions = sorted(
+                    {v for n in nodes for v in installed.get(n, [])}
+                ) or installed.get(name, [])
+                project_findings.append(
                     Finding(
                         title=(
                             title
@@ -427,12 +526,22 @@ async def run_npm_audit(
                         description=f"[{scope} dependency] {name} {via.get('range', '')}: {title}",
                         cwe=cwes[0] if cwes else "",
                         cve=advisory,
-                        fix_guidance=_npm_fix_guidance(info.get("fixAvailable")),
+                        fix_guidance=_npm_fix_guidance(
+                            info.get("fixAvailable"), name, via.get("range", ""), installed
+                        ),
                         rule_id=advisory,
                         references=[url] if url else [],
                         raw=via,
+                        package=name,
+                        version=", ".join(versions),
+                        dependency_paths=_npm_dependency_paths(vulnerabilities, name, runtime),
                     )
                 )
+        result.findings.extend(project_findings)
+        note = _npm_count_note(data, project_findings)
+        if note:
+            prefix = f"{lockfile}: " if len(projects) > 1 else ""
+            result.metadata.setdefault("notes", []).append(prefix + note)
 
     return result
 
@@ -486,6 +595,7 @@ async def run_govulncheck(
             continue
 
         osv_entries = {m["osv"]["id"]: m["osv"] for m in messages if "osv" in m}
+        go_graph = read_graph(module / "go.mod")
         levels = {"required": 0, "imported": 1, "called": 2}
         best: dict[str, tuple[int, dict[str, Any]]] = {}
         for message in messages:
@@ -538,6 +648,9 @@ async def run_govulncheck(
                     rule_id=vuln_id,
                     references=[f"https://pkg.go.dev/vuln/{vuln_id}"],
                     raw=finding,
+                    package=vulnerable.get("module", ""),
+                    version=vulnerable.get("version", ""),
+                    dependency_paths=go_graph.paths_to(vulnerable.get("module", "")),
                 )
             )
 
@@ -595,6 +708,7 @@ async def run_composer_audit(
                     title=f"{pkg}: {advisory.get('title', advisory_id)}",
                     severity=severity,
                     context=context,
+                    package=pkg,
                     scan_type=ScanType.SCA,
                     tool="composer-audit",
                     file=str(project / "composer.lock"),
@@ -620,6 +734,7 @@ async def run_all_sca(
     """Run all available SCA tools against a target."""
     from argus.tools.malicious_packages import run_malicious_package_check
     from argus.tools.maven_deps import run_java_dependency_check
+    from argus.tools.osv_deps import run_osv_dependency_check
     from argus.tools.terraform_deps import run_terraform_dependency_check
     from argus.tools.typosquats import run_typosquat_check
 
@@ -634,6 +749,9 @@ async def run_all_sca(
         run_java_dependency_check(target),
         # Terraform module and provider pinning (offline).
         run_terraform_dependency_check(target),
+        # Every other lockfile (yarn, pnpm, poetry, uv, Pipfile, go.mod, pubspec.lock, Cargo.lock,
+        # Gemfile.lock, packages.lock.json, composer.lock) via OSV, unless its own tool covers it.
+        run_osv_dependency_check(target),
         # Typosquatted dependency names (offline) and, with --registry-check, missing or brand-new
         # packages on npm / PyPI (#142).
         run_typosquat_check(target),

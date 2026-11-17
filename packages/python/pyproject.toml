@@ -31,6 +31,7 @@ dependencies = [
     "anyio>=4.0.0",
     "argus-languages>=0.7.0",
     "pyyaml>=6.0",
+    "tomli>=2.0; python_version < '3.11'",  # TOML lockfiles (Cargo, poetry, uv) on Python 3.10
 ]
 
 [project.optional-dependencies]
