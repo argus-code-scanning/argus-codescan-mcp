@@ -475,8 +475,23 @@ def _print_table(report_dict: dict) -> None:
                 f"{title}"
             )
             print(_color(row, sev))
+            pad = " " * (col_w["sev"] + 2)
+            accepted = f.get("accepted_risk")
+            if accepted:
+                why = f": {accepted['reason']}" if accepted.get("reason") else ""
+                print(
+                    f"{pad}accepted risk until {accepted['expires']}{why} (does not fail the gate)"
+                )
+            elif f.get("accepted_risk_expired"):
+                print(f"{pad}accepted risk EXPIRED on {f['accepted_risk_expired']}: counts again")
 
     print()
+
+
+def _print_policy_notes(report_dict: dict) -> None:
+    """Accepted risks that expired, expire soon, matched nothing or lack a date."""
+    for note in report_dict.get("policy_notes", []):
+        print(f"Policy: {note}", file=sys.stderr)
 
 
 def _count_failing(report_dict: dict, fail_on: str, include_low_confidence: bool = False) -> int:
@@ -824,6 +839,7 @@ async def _run_scan(args: argparse.Namespace) -> int:
 
     report = AggregatedReport(target=report_target, results=results)
     report_dict = apply_policy(report.to_dict(), policy)
+    _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
     if baseline_path:
@@ -989,6 +1005,7 @@ async def _run_review(args: argparse.Namespace) -> int:
         print(line, file=sys.stderr)
 
     report_dict = apply_policy(report.to_dict(), policy)
+    _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
     if baseline_path:
