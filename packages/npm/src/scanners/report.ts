@@ -93,7 +93,7 @@ export function formatTable(report: ScanReport): string {
       } else if (f.acceptedRiskExpired) {
         lines.push(`         accepted risk EXPIRED on ${f.acceptedRiskExpired}: counts again`);
       }
-      if (f.paths?.length) {
+      if (f.paths?.some((p) => p.includes(" \u203a "))) {
         const more = f.paths.length > 3 ? ` (+${f.paths.length - 3} more)` : "";
         lines.push(`         via ${f.paths.slice(0, 3).join(", ")}${more}`);
       }

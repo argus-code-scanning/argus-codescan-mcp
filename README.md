@@ -68,7 +68,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 |----------|-------|
 | **SAST** | Semgrep · Bandit · ESLint-security · flake8-bandit |
 | **DAST** | OWASP ZAP · Nikto |
-| **SCA** | Trivy · Safety · pip-audit · npm audit · built-in Maven/Gradle CVE check (OSV) · built-in OSV known-malicious package check (MAL- records) |
+| **SCA** | Trivy · Safety · pip-audit · npm audit · govulncheck · composer audit · built-in OSV check for every lockfile (npm, Python, Go, Flutter/Dart, Rust, Ruby, .NET, PHP, Maven/Gradle) · built-in OSV known-malicious package check (MAL- records) |
 | **Secrets** | Gitleaks · detect-secrets · TruffleHog |
 | **IaC** | Checkov · Trivy config · Terrascan · KICS |
 | **Terraform** | tfsec · tflint · terraform validate · KICS · Checkov |
@@ -92,7 +92,26 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 
 Download-and-run (`curl … \| sh`, `iwr … \| iex`), encoded commands, certutil/bitsadmin downloads and Defender tampering are reported by the malware rules.
 
-### Vulnerable npm dependencies
+### Vulnerable dependencies in every language
+
+`argus scan sca` checks the exact versions in your lockfiles against [OSV](https://osv.dev), with nothing else to install:
+
+| Ecosystem | Files read |
+|---|---|
+| JavaScript / TypeScript | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` |
+| Python | `requirements*.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock` |
+| Go | `go.mod` (and the Go toolchain from its `toolchain` line) |
+| Dart / Flutter | `pubspec.lock` |
+| Rust | `Cargo.lock` |
+| Ruby | `Gemfile.lock` |
+| .NET | `packages.lock.json` |
+| PHP | `composer.lock` |
+| Java / Kotlin | `pom.xml`, Gradle lockfiles, build files and version catalogs |
+
+There is **one finding per package**, with every advisory for that version, the version that fixes all of them, how the package gets into your project (`via chrono › time`), and the command for that ecosystem (`cargo update -p time --precise 0.2.23`, `go get …`, `flutter pub upgrade …`). Dev-only packages are lowered one level. When an ecosystem's own tool is installed (npm audit, pip-audit, govulncheck, composer audit, or Trivy for all of them), that tool covers it instead, so nothing is reported twice. Only package names and versions are sent to OSV; `--no-network` skips the check.
+
+#### npm details
+
 
 `scan sca` runs `npm audit` for every lockfile and reports **one finding per advisory**, with:
 
