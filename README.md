@@ -94,7 +94,7 @@ Download-and-run (`curl … \| sh`, `iwr … \| iex`), encoded commands, certuti
 
 ### Vulnerable dependencies in every language
 
-`argus scan sca` checks the exact versions in your lockfiles against [OSV](https://osv.dev), with nothing else to install:
+`argus scan sca` (Python) and `npx argus-codescan scan sca` (npm) check the exact versions in your lockfiles against [OSV](https://osv.dev), with nothing else to install:
 
 | Ecosystem | Files read |
 |---|---|
@@ -108,7 +108,7 @@ Download-and-run (`curl … \| sh`, `iwr … \| iex`), encoded commands, certuti
 | PHP | `composer.lock` |
 | Java / Kotlin | `pom.xml`, Gradle lockfiles, build files and version catalogs |
 
-There is **one finding per package**, with every advisory for that version, the version that fixes all of them, how the package gets into your project (`via chrono › time`), and the command for that ecosystem (`cargo update -p time --precise 0.2.23`, `go get …`, `flutter pub upgrade …`). Dev-only packages are lowered one level. When an ecosystem's own tool is installed (npm audit, pip-audit, govulncheck, composer audit, or Trivy for all of them), that tool covers it instead, so nothing is reported twice. Only package names and versions are sent to OSV; `--no-network` skips the check.
+There is **one finding per package**, with every advisory for that version, the version that fixes all of them, how the package gets into your project (`via chrono › time`), and the command for that ecosystem (`cargo update -p time --precise 0.2.23`, `go get …`, `flutter pub upgrade …`). Dev-only packages are lowered one level. When an ecosystem's own tool is installed (npm audit, pip-audit, govulncheck, composer audit, or Trivy for all of them), that tool covers it instead, so nothing is reported twice. Only package names and versions are sent to OSV; `--no-network` (or `ARGUS_NO_NETWORK=1`) skips the check. In the npm package, `package-lock.json` stays with npm audit and every other lockfile goes to OSV.
 
 #### npm details
 
