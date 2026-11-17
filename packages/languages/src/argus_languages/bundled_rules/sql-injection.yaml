@@ -52,3 +52,48 @@
   languages:
   - go
   fix_guidance: Use placeholders and pass the values as arguments, for example db.Query("... WHERE id = $1", id) (or ? for MySQL), never fmt.Sprintf or + into the SQL string.
+
+# ORM and query-builder escape hatches (#182): TypeORM conditions, Knex *Raw, Prisma *Unsafe,
+# sequelize.literal. ${UPPER_CASE} constants and helper calls with literal arguments are SQL
+# fragments, not input, and are not flagged. Same ids in the npm scanner (native-sast.ts).
+- id: js-typeorm-sql-interpolation
+  title: Possible SQL injection — variable interpolated into a TypeORM query-builder condition
+  severity: high
+  pattern: \.(?:where|andWhere|orWhere|having|andHaving|orHaving)\s*\(\s*(?:`[^`\n]*?(?:=|<>|<|>|\b(?:I?LIKE|i?like)\b|\b(?:IN|in)\s*\()\s*['"(%]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|(["'])[^"'\n]*?(?:=|<>|<|>|\b(?:I?LIKE|i?like)\b|\b(?:IN|in)\s*\()\s*['"(%]*\1\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(])
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: 'Use named parameters: .where(''user.name = :name'', { name }). Interpolating a value into the condition string bypasses TypeORM''s escaping.'
+- id: js-knex-raw-interpolation
+  title: Possible SQL injection — variable passed into a Knex raw SQL method
+  severity: high
+  pattern: (?:\.(?:whereRaw|orWhereRaw|andWhereRaw|havingRaw|orHavingRaw|orderByRaw|groupByRaw|joinRaw|selectRaw|fromRaw)|\b(?:knex|trx|db)\.raw)\s*\(\s*(?:`[^`\n]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|["'][^"'\n]*["']\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(]|(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$][\w$.]*\s*[,)])
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: Use ? placeholders with a bindings array, for example .whereRaw('name = ?', [name]), and ?? for identifiers.
+- id: js-prisma-raw-unsafe
+  title: Possible SQL injection — Prisma $queryRawUnsafe / $executeRawUnsafe or Prisma.raw with a built string
+  severity: high
+  pattern: \$(?:query|execute)RawUnsafe\s*\(\s*(?:`[^`\n]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|["'][^"'\n]*["']\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(]|(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$][\w$.]*\s*[,)])|\bPrisma\.raw\s*\(\s*(?!["'`])(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$]
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: Use the tagged template prisma.$queryRaw`... WHERE id = ${id}` (or Prisma.sql), which sends values as parameters. Keep *Unsafe for fixed SQL with $1 placeholders.
+- id: js-sequelize-literal-interpolation
+  title: Possible SQL injection — variable passed into sequelize.literal()
+  severity: high
+  pattern: \b[Ss]equelize\.literal\s*\(\s*(?:`[^`\n]*\$\{(?!\s*[A-Z][A-Z0-9_]*\s*\})(?!\s*[A-Za-z_$][\w$]*\(\s*(?:'[^'\n]*'|"[^"\n]*")?\s*\)\s*\})|["'][^"'\n]*["']\s*\+\s*(?![A-Z][A-Z0-9_]*\b)[\w$(]|(?![A-Z][A-Z0-9_]*\b)[A-Za-z_$][\w$.]*\s*[,)])
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: sequelize.literal() is inserted unescaped. Use where/replacements/bind, or Sequelize.col() for column names from an allow-list.
+- id: js-orm-order-by-input
+  title: ORDER BY / GROUP BY built from request input — check it is limited to an allow-list
+  severity: moderate
+  confidence: low
+  pattern: \.(?:orderBy|addOrderBy|groupBy|addGroupBy)\s*\(\s*(?:`[^`\n]*\$\{\s*(?:req|request|query|body|params|dto|filter|filters|input|args|options|opts|sort\w*)\b|(?:req|request)\.(?:query|body|params)\b)
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: Map the requested field through a fixed allow-list (or validate it with @IsIn / an enum) before it reaches orderBy; column names cannot be bound as parameters.

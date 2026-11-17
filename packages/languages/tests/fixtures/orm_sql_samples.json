@@ -1,0 +1,232 @@
+[
+ {
+  "file": "repo.ts",
+  "code": "return qb.where(`u.name = '${name}'`).getMany();",
+  "rule": "js-typeorm-sql-interpolation"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.andWhere(`u.email LIKE '%${q}%'`);",
+  "rule": "js-typeorm-sql-interpolation"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orWhere(`u.id IN (${ids.join(',')})`);",
+  "rule": "js-typeorm-sql-interpolation"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.where(\"user.id = \" + id);",
+  "rule": "js-typeorm-sql-interpolation"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.having(`COUNT(*) > ${req.query.min}`);",
+  "rule": "js-typeorm-sql-interpolation"
+ },
+ {
+  "file": "repo.js",
+  "code": "builder.andWhere(`t.status = '${dto.status}'`)",
+  "rule": "js-typeorm-sql-interpolation"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.where('u.name = :name', { name });",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.andWhere(`plan.dueAt >= ${SINCE_IN_ZONE}`);",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.andWhere(`${VISITING_WORKER} = :workerId`, { workerId });",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.where(`${column} >= ${inZone('since')}`);",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orWhere(`EXISTS ${visiting}`, { workerId });",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.where(`${alias}.organisationId IN (:...ids)`, { ids });",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.andWhere(`NOT (${live})`).orderBy('shift.startsAt', 'DESC');",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "const where = { id: `${prefix}-${id}` };",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.where(`status = :pending AND shift_id IN ${started}`, { pending });",
+  "rule": null
+ },
+ {
+  "file": "db.ts",
+  "code": "knex('users').whereRaw(`name = '${name}'`);",
+  "rule": "js-knex-raw-interpolation"
+ },
+ {
+  "file": "db.ts",
+  "code": "query.orderByRaw(sort);",
+  "rule": "js-knex-raw-interpolation"
+ },
+ {
+  "file": "db.ts",
+  "code": "db.whereRaw(\"id = \" + req.params.id);",
+  "rule": "js-knex-raw-interpolation"
+ },
+ {
+  "file": "db.ts",
+  "code": "const rows = await knex.raw(`SELECT * FROM t WHERE a = ${a}`);",
+  "rule": "js-knex-raw-interpolation"
+ },
+ {
+  "file": "db.ts",
+  "code": "await trx.raw(sql);",
+  "rule": "js-knex-raw-interpolation"
+ },
+ {
+  "file": "db.ts",
+  "code": "knex('users').whereRaw('name = ?', [name]);",
+  "rule": null
+ },
+ {
+  "file": "db.ts",
+  "code": "query.orderByRaw('created_at DESC NULLS LAST');",
+  "rule": null
+ },
+ {
+  "file": "db.ts",
+  "code": "await knex.raw('select 1');",
+  "rule": null
+ },
+ {
+  "file": "db.ts",
+  "code": "q.whereRaw(ACTIVE_CLAUSE);",
+  "rule": null
+ },
+ {
+  "file": "svc.ts",
+  "code": "await prisma.$queryRawUnsafe(`SELECT * FROM users WHERE email = '${email}'`);",
+  "rule": "js-prisma-raw-unsafe"
+ },
+ {
+  "file": "svc.ts",
+  "code": "await prisma.$executeRawUnsafe(sql);",
+  "rule": "js-prisma-raw-unsafe"
+ },
+ {
+  "file": "svc.ts",
+  "code": "await this.prisma.$queryRawUnsafe('SELECT * FROM t WHERE id = ' + id);",
+  "rule": "js-prisma-raw-unsafe"
+ },
+ {
+  "file": "svc.ts",
+  "code": "const frag = Prisma.raw(req.query.order);",
+  "rule": "js-prisma-raw-unsafe"
+ },
+ {
+  "file": "svc.ts",
+  "code": "await prisma.$queryRaw`SELECT * FROM users WHERE email = ${email}`;",
+  "rule": null
+ },
+ {
+  "file": "svc.ts",
+  "code": "await prisma.$queryRawUnsafe('SELECT * FROM users WHERE id = $1', id);",
+  "rule": null
+ },
+ {
+  "file": "svc.ts",
+  "code": "await prisma.$executeRaw(Prisma.sql`DELETE FROM t WHERE id = ${id}`);",
+  "rule": null
+ },
+ {
+  "file": "svc.ts",
+  "code": "const frag = Prisma.raw('ASC');",
+  "rule": null
+ },
+ {
+  "file": "model.js",
+  "code": "where: sequelize.literal(`status = '${status}'`),",
+  "rule": "js-sequelize-literal-interpolation"
+ },
+ {
+  "file": "model.js",
+  "code": "order: [[Sequelize.literal(req.query.sort), 'DESC']],",
+  "rule": "js-sequelize-literal-interpolation"
+ },
+ {
+  "file": "model.js",
+  "code": "attributes: [sequelize.literal(\"(SELECT COUNT(*) FROM c WHERE c.pid = \" + id + \")\")],",
+  "rule": "js-sequelize-literal-interpolation"
+ },
+ {
+  "file": "model.js",
+  "code": "where: sequelize.literal('deleted_at IS NULL'),",
+  "rule": null
+ },
+ {
+  "file": "model.js",
+  "code": "attributes: [[sequelize.literal(`(${COUNT_SUBQUERY})`), 'n']],",
+  "rule": null
+ },
+ {
+  "file": "model.js",
+  "code": "await sequelize.query('SELECT * FROM t WHERE id = :id', { replacements: { id } });",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": ".orderBy(`ticket.${query.sortBy ?? 'lastMessageAt'}`, query.sortOrder)",
+  "rule": "js-orm-order-by-input"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orderBy(req.query.sort, 'ASC');",
+  "rule": "js-orm-order-by-input"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.addOrderBy(`u.${dto.sortField}`);",
+  "rule": "js-orm-order-by-input"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orderBy(`u.${sortBy}`, 'ASC');",
+  "rule": "js-orm-order-by-input"
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orderBy(`u.${SORT_COLUMN}`, 'ASC');",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orderBy('u.createdAt', query.sortOrder);",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orderBy(STATUS_RANK, 'ASC');",
+  "rule": null
+ },
+ {
+  "file": "repo.ts",
+  "code": "qb.orderBy(`${alias}.createdAt`, 'DESC');",
+  "rule": null
+ }
+]

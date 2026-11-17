@@ -140,7 +140,10 @@ def test_npm_audit_one_finding_per_advisory_with_scope(tmp_path, monkeypatch):
     }
     assert by_id["GHSA-5p4m-2wfm-xmqj"].description.startswith("[runtime dependency]")
     assert by_id["GHSA-5xrq-8626-4rwp"].description.startswith("[dev dependency]")
-    assert by_id["GHSA-5xrq-8626-4rwp"].severity == Severity.CRITICAL
+    # Dev-only: the critical advisory is lowered one level and tagged, like findings in tests.
+    assert by_id["GHSA-5xrq-8626-4rwp"].severity == Severity.HIGH
+    assert by_id["GHSA-5xrq-8626-4rwp"].context == "dev-dependency"
+    assert by_id["GHSA-5p4m-2wfm-xmqj"].context == ""
     assert by_id["GHSA-q2hr-2g5m-vwhr"].severity == Severity.MEDIUM
     assert by_id["GHSA-5p4m-2wfm-xmqj"].cwe == "CWE-407"
     assert by_id["GHSA-mh99-v99m-4gvg"].title == (
@@ -349,7 +352,9 @@ def test_composer_audit_scope_and_severity(tmp_path, monkeypatch):
     assert by_pkg["guzzlehttp/guzzle"].cve == "CVE-2026-69246"
     assert by_pkg["twig/twig"].description.startswith("[dev dependency]")
     assert by_pkg["twig/twig"].cve == "PKSA-8zx5-v2nz-58pb"
-    assert by_pkg["twig/twig"].severity == Severity.HIGH
+    # twig is dev-only, so its high advisory is reported one level lower.
+    assert by_pkg["twig/twig"].severity == Severity.MEDIUM
+    assert by_pkg["twig/twig"].context == "dev-dependency"
 
 
 def test_composer_audit_clean_project(tmp_path, monkeypatch):
@@ -376,3 +381,14 @@ def test_run_all_sca_adds_go_and_php_only_when_manifests_exist(tmp_path, monkeyp
     (tmp_path / "composer.lock").write_text("{}")
     tools = {r.tool for r in asyncio.run(sca.run_all_sca(str(tmp_path)))}
     assert {"govulncheck", "composer-audit"} <= tools
+
+
+def test_constant_key_property_injection_is_low_confidence():
+    from argus.tools.sast import has_only_constant_keys
+
+    rule = "javascript.express.security.audit.remote-property-injection.remote-property-injection"
+    assert has_only_constant_keys(rule, "    request.headers[REQUEST_ID_HEADER] = id;")
+    assert has_only_constant_keys(rule, "    res.locals['user'] = user;")
+    assert not has_only_constant_keys(rule, "    target[req.body.key] = req.body.value;")
+    assert not has_only_constant_keys(rule, "    store[name] = value;")
+    assert not has_only_constant_keys("other-rule", "    headers[X] = 1;")

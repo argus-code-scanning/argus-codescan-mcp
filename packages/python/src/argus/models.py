@@ -60,7 +60,8 @@ class Finding:
     references: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
     # Set by the built-in rule packs: "high" / "medium" / "low", and "test" / "docs" /
-    # "generated" when the file probably does not ship (severity already lowered).
+    # "generated" when the file probably does not ship, "dev-dependency" for advisories in
+    # dev-only packages (severity already lowered).
     confidence: str = ""
     context: str = ""
 
@@ -155,5 +156,10 @@ class AggregatedReport:
 
 
 def counts_toward_failure(finding: dict[str, Any], include_low_confidence: bool = False) -> bool:
-    """Low-confidence rule matches are shown but do not fail --fail-on unless asked."""
+    """Low-confidence rule matches are shown but do not fail --fail-on unless asked.
+
+    Findings covered by an unexpired accepted risk (.argus.yml ``accepted_risks``) never fail.
+    """
+    if finding.get("accepted_risk"):
+        return False
     return include_low_confidence or finding.get("confidence") != "low"

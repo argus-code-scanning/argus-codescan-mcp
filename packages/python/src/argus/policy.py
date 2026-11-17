@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import fnmatch
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -42,6 +43,67 @@ class Suppression:
         return True
 
 
+_ADVISORY_ID = re.compile(
+    r"\b(?:GHSA(?:-[23456789cfghjmpqrvwx]{4}){3}|CVE-\d{4}-\d{4,}|GO-\d{4}-\d{4,}"
+    r"|PYSEC-\d{4}-\d+|RUSTSEC-\d{4}-\d{4}|OSV-\d{4}-\d+|MAL-\d{4}-\d+)\b"
+)
+EXPIRY_WARNING_DAYS = 14
+
+
+def finding_ids(finding: dict[str, Any]) -> set[str]:
+    """Every advisory / rule id a finding carries (rule id, CVEs, ids in text and links).
+
+    A dependency finding can cover several advisories, so an accepted GHSA may not be its
+    main rule id.
+    """
+    ids = {str(finding.get("rule_id") or "")}
+    text = " ".join(
+        [
+            str(finding.get("cve") or ""),
+            str(finding.get("description") or ""),
+            " ".join(str(r) for r in finding.get("references") or []),
+        ]
+    )
+    ids.update(_ADVISORY_ID.findall(text))
+    ids.update(c.strip() for c in str(finding.get("cve") or "").split(","))
+    ids.discard("")
+    return ids
+
+
+@dataclass
+class AcceptedRisk:
+    """A known finding the team has decided to live with until ``expires``.
+
+    It stays in the report, marked as accepted, and does not fail ``--fail-on`` until it
+    expires. Unlike a suppression it is never hidden.
+    """
+
+    id: str
+    package: str = ""
+    path: str = ""
+    reason: str = ""
+    expires: str = ""
+
+    def expiry(self) -> date | None:
+        try:
+            return date.fromisoformat(str(self.expires))
+        except ValueError:
+            return None
+
+    def matches(self, finding: dict[str, Any]) -> bool:
+        if self.id not in finding_ids(finding):
+            return False
+        if self.package and finding.get("package") and finding.get("package") != self.package:
+            return False
+        if self.path:
+            file_path = str(finding.get("file", ""))
+            if not fnmatch.fnmatch(file_path, self.path) and not fnmatch.fnmatch(
+                Path(file_path).name, self.path
+            ):
+                return False
+        return True
+
+
 @dataclass
 class PolicyConfig:
     fail_on: str = "never"
@@ -53,6 +115,7 @@ class PolicyConfig:
     fail_on_new_only: bool = False
     fail_on_low_confidence: bool = False
     suppressions: list[Suppression] = field(default_factory=list)
+    accepted_risks: list[AcceptedRisk] = field(default_factory=list)
     scans: list[str] | None = None
 
     @classmethod
@@ -68,6 +131,17 @@ class PolicyConfig:
                         expires=item.get("expires"),
                     )
                 )
+        accepted = [
+            AcceptedRisk(
+                id=str(item.get("id", "")).strip(),
+                package=str(item.get("package", "") or ""),
+                path=str(item.get("path", "") or ""),
+                reason=str(item.get("reason", "") or ""),
+                expires=str(item.get("expires", "") or ""),
+            )
+            for item in data.get("accepted_risks", []) or []
+            if isinstance(item, dict) and item.get("id")
+        ]
         semgrep = data.get("semgrep") or {}
         return cls(
             fail_on=str(data.get("fail_on", "never")),
@@ -79,6 +153,7 @@ class PolicyConfig:
             fail_on_new_only=bool(data.get("fail_on_new_only", False)),
             fail_on_low_confidence=bool(data.get("fail_on_low_confidence", False)),
             suppressions=suppressions,
+            accepted_risks=accepted,
             scans=[str(s) for s in data["scans"]] if data.get("scans") else None,
         )
 
@@ -145,8 +220,68 @@ def apply_policy(report_dict: dict[str, Any], policy: PolicyConfig) -> dict[str,
             filtered.append(finding)
         result["findings"] = filtered
 
+    notes = _apply_accepted_risks(report, policy.accepted_risks)
+    if notes:
+        report["policy_notes"] = notes
     refresh_report_summary(report)
     return report
+
+
+def _apply_accepted_risks(
+    report: dict[str, Any], risks: list[AcceptedRisk], today: date | None = None
+) -> list[str]:
+    """Mark findings covered by an unexpired accepted risk; return notes for the run."""
+    today = today or date.today()
+    notes: list[str] = []
+    active: list[AcceptedRisk] = []
+    for risk in risks:
+        expiry = risk.expiry()
+        if expiry is None:
+            notes.append(
+                f"Accepted risk {risk.id} is ignored: add expires: YYYY-MM-DD (and a reason) "
+                "so it gets reviewed."
+            )
+        else:
+            active.append(risk)
+    used: set[int] = set()
+    for result in report.get("results", []):
+        for finding in result.get("findings", []):
+            for index, risk in enumerate(active):
+                if not risk.matches(finding):
+                    continue
+                used.add(index)
+                expiry = risk.expiry()
+                assert expiry is not None
+                if expiry < today:
+                    finding["accepted_risk_expired"] = risk.expires
+                    continue
+                finding["accepted_risk"] = {
+                    "id": risk.id,
+                    "reason": risk.reason,
+                    "expires": risk.expires,
+                }
+                break
+    for index, risk in enumerate(active):
+        expiry = risk.expiry()
+        assert expiry is not None
+        why = f" ({risk.reason})" if risk.reason else ""
+        if index not in used:
+            notes.append(
+                f"Accepted risk {risk.id} matched no finding: it may be fixed; remove it from "
+                ".argus.yml."
+            )
+        elif expiry < today:
+            notes.append(
+                f"Accepted risk {risk.id} expired on {risk.expires} and counts again{why}. "
+                "Fix it or review it and set a new expiry date."
+            )
+        elif (expiry - today).days <= EXPIRY_WARNING_DAYS:
+            days = (expiry - today).days
+            notes.append(
+                f"Accepted risk {risk.id} expires in {days} day{'s' if days != 1 else ''} "
+                f"({risk.expires}){why}."
+            )
+    return notes
 
 
 def merge_cli_policy(

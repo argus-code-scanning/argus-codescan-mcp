@@ -329,6 +329,21 @@ def _npm_fix_guidance(fix: object) -> str:
     return "Run npm audit fix" if fix else "No fix available yet"
 
 
+_DEV_DOWNGRADE = {
+    Severity.CRITICAL: Severity.HIGH,
+    Severity.HIGH: Severity.MEDIUM,
+    Severity.MEDIUM: Severity.LOW,
+    Severity.LOW: Severity.INFO,
+}
+
+
+def _scoped(severity: Severity, scope: str) -> tuple[Severity, str]:
+    """Dev-only packages don't ship: lower one level and tag them, like findings in tests."""
+    if scope == "dev":
+        return _DEV_DOWNGRADE.get(severity, severity), "dev-dependency"
+    return severity, ""
+
+
 async def run_npm_audit(
     target: str,
     timeout: int = 120,
@@ -394,6 +409,7 @@ async def run_npm_audit(
                 title = via.get("title", "")
                 cwes = via.get("cwe") or []
                 sev = str(via.get("severity") or info.get("severity", "moderate")).lower()
+                severity, context = _scoped(ADVISORY_SEVERITY_MAP.get(sev, Severity.MEDIUM), scope)
                 result.findings.append(
                     Finding(
                         title=(
@@ -403,7 +419,8 @@ async def run_npm_audit(
                             if title
                             else name
                         ),
-                        severity=ADVISORY_SEVERITY_MAP.get(sev, Severity.MEDIUM),
+                        severity=severity,
+                        context=context,
                         scan_type=ScanType.SCA,
                         tool="npm-audit",
                         file=str(lockfile),
@@ -571,11 +588,13 @@ async def run_composer_audit(
             severity = ADVISORY_SEVERITY_MAP.get(label) or await _advisory_severity(
                 [cve] if cve else []
             )
+            severity, context = _scoped(severity, scope)
             link = advisory.get("link") or ""
             result.findings.append(
                 Finding(
                     title=f"{pkg}: {advisory.get('title', advisory_id)}",
                     severity=severity,
+                    context=context,
                     scan_type=ScanType.SCA,
                     tool="composer-audit",
                     file=str(project / "composer.lock"),
@@ -601,6 +620,7 @@ async def run_all_sca(
     """Run all available SCA tools against a target."""
     from argus.tools.malicious_packages import run_malicious_package_check
     from argus.tools.maven_deps import run_java_dependency_check
+    from argus.tools.terraform_deps import run_terraform_dependency_check
     from argus.tools.typosquats import run_typosquat_check
 
     tasks = [
@@ -612,6 +632,8 @@ async def run_all_sca(
         run_malicious_package_check(target),
         # Maven / Gradle CVEs from OSV when Trivy isn't installed; built in, no JVM needed.
         run_java_dependency_check(target),
+        # Terraform module and provider pinning (offline).
+        run_terraform_dependency_check(target),
         # Typosquatted dependency names (offline) and, with --registry-check, missing or brand-new
         # packages on npm / PyPI (#142).
         run_typosquat_check(target),

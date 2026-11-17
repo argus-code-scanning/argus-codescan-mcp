@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ScanReport, ScanResult, Severity } from "./types.js";
 import { countsTowardFailure } from "./noise.js";
+import { applyPolicy, loadPolicy } from "./policy.js";
 
 function countBySeverity(results: ScanResult[]) {
   const counts = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };
@@ -21,6 +22,14 @@ export function buildReport(
 ): ScanReport {
   const summary = countBySeverity(results);
   return { target, scanType, results, summary };
+}
+
+const LOCATION_WIDTH = 26;
+
+/** Keep the end of long paths (file name and line), not the start. */
+export function fitLocation(location: string, width = LOCATION_WIDTH): string {
+  const text = location.length > width ? `\u2026${location.slice(-(width - 1))}` : location;
+  return text.padEnd(width);
 }
 
 export function formatTable(report: ScanReport): string {
@@ -45,6 +54,12 @@ export function formatTable(report: ScanReport): string {
     }
   }
 
+  if (report.notes?.length) {
+    lines.push("[policy] notes:");
+    for (const note of report.notes) lines.push(`  ${note}`);
+    lines.push("");
+  }
+
   if (report.summary.total === 0) {
     lines.push("No security findings.");
     return lines.join("\n");
@@ -56,9 +71,7 @@ export function formatTable(report: ScanReport): string {
   for (const result of report.results) {
     for (const f of result.findings) {
       const sev = f.severity.toUpperCase().padEnd(8);
-      const loc = f.file
-        ? `${f.file}${f.line ? `:${f.line}` : ""}`.slice(0, 26).padEnd(26)
-        : (f.package ?? f.tool).slice(0, 26).padEnd(26);
+      const loc = fitLocation(f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : (f.package ?? f.tool));
       lines.push(`${sev} ${loc} ${f.title.slice(0, 42)}`);
       if (f.ruleId) {
         const tags = [
@@ -66,6 +79,12 @@ export function formatTable(report: ScanReport): string {
           f.context ? `in ${f.context}` : "",
         ].filter(Boolean);
         lines.push(`         [${f.tool}] ${f.ruleId}${tags.length ? ` (${tags.join(", ")})` : ""}`);
+      }
+      if (f.acceptedRisk) {
+        const why = f.acceptedRisk.reason ? `: ${f.acceptedRisk.reason}` : "";
+        lines.push(`         accepted risk until ${f.acceptedRisk.expires}${why} (does not fail the gate)`);
+      } else if (f.acceptedRiskExpired) {
+        lines.push(`         accepted risk EXPIRED on ${f.acceptedRiskExpired}: counts again`);
       }
       if (f.url) lines.push(`         ${f.url}`);
       if (f.description) lines.push(`         ${f.description}`);
@@ -168,8 +187,11 @@ export function printScanReport(
   report: ScanReport,
   format: "json" | "table" | "csv",
   failOn: Severity | "never",
-  options: { csvPath?: string; writeCsv?: boolean; includeLowConfidence?: boolean } = {},
+  options: { csvPath?: string; writeCsv?: boolean; includeLowConfidence?: boolean; policyPath?: string } = {},
 ): number {
+  applyPolicy(report, loadPolicy(report.target, options.policyPath));
+  report.summary = countBySeverity(report.results); // suppressions may have removed findings
+  for (const note of report.notes ?? []) console.error(`Policy: ${note}`);
   const writeCsv = options.writeCsv !== false;
   const csvPath = options.csvPath ?? defaultCsvPath(report);
 

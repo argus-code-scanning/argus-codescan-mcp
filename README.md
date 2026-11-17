@@ -257,6 +257,20 @@ suppressions:
     expires: "2026-12-31"
 ```
 
+#### Accepted risks (audit gate with an expiry)
+
+When a finding can't be fixed yet (for example, no patched version exists), accept it for a limited time instead of turning the gate off:
+
+```yaml
+accepted_risks:
+  - id: GHSA-fc5q-39xc-vjpf        # advisory, CVE or rule id
+    package: picomatch             # optional
+    reason: "No patched version; reached via typeorm > tinyglobby"
+    expires: "2026-12-17"          # required
+```
+
+The finding stays in the report (`accepted risk until 2026-12-17`) but doesn't fail `--fail-on`. Every other finding still does. Argus prints a note when an acceptance expires within 14 days, when it has expired (the finding fails again), when an entry has no `expires`, and when an entry no longer matches anything (it can be removed). This replaces hand-written `npm audit | jq` allow-list scripts, and works for every scanner and ecosystem, in both `argus` and `npx argus-codescan` (which now reads `.argus.yml` too; `--policy <file>` to choose one).
+
 Argus auto-discovers `.argus.yml` when scanning. Override with `--policy path/to/.argus.yml`.
 
 ### Cutting false positives
@@ -304,6 +318,8 @@ argus scan secrets . --format json   # fix_guidance on each finding
 ### Database security rules
 
 Built-in static rules for SQL injection, connection strings, migration GRANTs, ORM raw queries:
+
+- **JavaScript / TypeScript ORMs** (both packages): values interpolated into TypeORM `.where()` / `.andWhere()` / `.having()`, Knex `whereRaw` / `orderByRaw` / `knex.raw`, Prisma `$queryRawUnsafe` / `$executeRawUnsafe` / `Prisma.raw`, and `sequelize.literal()`. Named parameters, bindings and tagged templates are not flagged, nor are `${UPPER_CASE}` constants. An `ORDER BY` column taken from the request is reported as low confidence: check it is limited to an allow-list.
 
 ```bash
 argus scan code .    # includes database.yaml rules via argus-languages

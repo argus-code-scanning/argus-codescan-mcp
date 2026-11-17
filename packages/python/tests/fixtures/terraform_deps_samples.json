@@ -1,0 +1,127 @@
+[
+ {
+  "name": "git module without ref",
+  "tf": "module \"vpc\" {\n  source = \"git::https://github.com/acme/tf-vpc.git\"\n}\n",
+  "expect": [
+   [
+    "tf-module-git-unpinned",
+    1
+   ]
+  ]
+ },
+ {
+  "name": "github shorthand on a branch",
+  "tf": "module \"net\" {\n  source = \"github.com/acme/net?ref=main\"\n}\n",
+  "expect": [
+   [
+    "tf-module-git-unpinned",
+    1
+   ]
+  ]
+ },
+ {
+  "name": "git module pinned to a SHA",
+  "tf": "module \"vpc\" {\n  source = \"git::https://github.com/acme/tf-vpc.git?ref=0123456789abcdef0123456789abcdef01234567\"\n}\n",
+  "expect": []
+ },
+ {
+  "name": "git module pinned to a tag",
+  "tf": "module \"vpc\" {\n  source = \"git@github.com:acme/tf-vpc.git?ref=v1.4.2\"\n}\n",
+  "expect": []
+ },
+ {
+  "name": "plain http source",
+  "tf": "module \"legacy\" {\n  source = \"http://modules.example.com/legacy.zip\"\n}\n",
+  "expect": [
+   [
+    "tf-module-insecure-source",
+    1
+   ]
+  ]
+ },
+ {
+  "name": "git protocol source",
+  "tf": "module \"legacy\" {\n  source = \"git::git://example.com/legacy.git?ref=v1\"\n}\n",
+  "expect": [
+   [
+    "tf-module-insecure-source",
+    1
+   ]
+  ]
+ },
+ {
+  "name": "registry module without version",
+  "tf": "\nmodule \"vpc\" {\n  source = \"terraform-aws-modules/vpc/aws\"\n  cidr   = \"10.0.0.0/16\"\n}\n",
+  "expect": [
+   [
+    "tf-module-registry-unpinned",
+    2
+   ]
+  ]
+ },
+ {
+  "name": "registry module with version",
+  "tf": "module \"vpc\" {\n  source  = \"terraform-aws-modules/vpc/aws\"\n  version = \"5.8.1\"\n}\n",
+  "expect": []
+ },
+ {
+  "name": "private registry submodule without version",
+  "tf": "module \"db\" {\n  source = \"app.terraform.io/acme/rds/aws//modules/db\"\n}\n",
+  "expect": [
+   [
+    "tf-module-registry-unpinned",
+    1
+   ]
+  ]
+ },
+ {
+  "name": "local module",
+  "tf": "module \"local\" {\n  source = \"../modules/vpc\"\n}\n",
+  "expect": []
+ },
+ {
+  "name": "version inside a nested block does not count",
+  "tf": "module \"vpc\" {\n  source = \"terraform-aws-modules/vpc/aws\"\n  tags = {\n    version = \"1\"\n  }\n}\n",
+  "expect": [
+   [
+    "tf-module-registry-unpinned",
+    1
+   ]
+  ]
+ },
+ {
+  "name": "provider without version",
+  "tf": "terraform {\n  required_providers {\n    aws = {\n      source = \"hashicorp/aws\"\n    }\n  }\n}\n",
+  "expect": [
+   [
+    "tf-provider-unpinned",
+    3
+   ]
+  ]
+ },
+ {
+  "name": "provider with version on one line",
+  "tf": "terraform {\n  required_providers {\n    aws = { source = \"hashicorp/aws\", version = \">= 5.70.0, < 6.0.0\" }\n  }\n}\n",
+  "expect": []
+ },
+ {
+  "name": "legacy provider constraint string",
+  "tf": "terraform {\n  required_providers {\n    aws = \"~> 4.0\"\n  }\n}\n",
+  "expect": []
+ },
+ {
+  "name": "source in a comment is ignored",
+  "tf": "module \"x\" {\n  # source = \"github.com/acme/x\"\n  source = \"../x\"\n}\n",
+  "expect": []
+ },
+ {
+  "name": "provider line after blank lines",
+  "tf": "\n\nterraform {\n  required_providers {\n    google = {\n      source = \"hashicorp/google\"\n    }\n  }\n}\n",
+  "expect": [
+   [
+    "tf-provider-unpinned",
+    5
+   ]
+  ]
+ }
+]

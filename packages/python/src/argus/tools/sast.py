@@ -7,6 +7,7 @@ Integrates: Semgrep, Bandit (Python), ESLint security plugin (JS/TS),
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from argus.models import Finding, ScanResult, ScanType, Severity
@@ -19,6 +20,20 @@ from argus.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Bracket keys that cannot come from a request: UPPER_CASE constants, string and number literals.
+_CONSTANT_KEY = re.compile(
+    r"""^\s*(?:[A-Z][A-Z0-9_]*(?:\.[A-Z][A-Z0-9_]*)*|'[^']*'|"[^"]*"|\d+)\s*$"""
+)
+
+
+def has_only_constant_keys(rule_id: str, lines: str | None) -> bool:
+    """remote-property-injection on obj[CONSTANT] = value (same check as the npm scanner)."""
+    if not rule_id.endswith("remote-property-injection") or not lines:
+        return False
+    keys = re.findall(r"\[([^\[\]]*)\]", lines)
+    return bool(keys) and all(_CONSTANT_KEY.match(key) for key in keys)
+
 
 SEVERITY_MAP_SEMGREP: dict[str, Severity] = {
     "ERROR": Severity.HIGH,
@@ -100,6 +115,9 @@ async def run_semgrep(
             cwe=str(metadata.get("cwe", "")),
             fix_guidance=extra.get("fix", ""),
             references=references,
+            confidence="low"
+            if has_only_constant_keys(item.get("check_id", ""), extra.get("lines"))
+            else "",
             raw=item,
         )
         result.findings.append(finding)
