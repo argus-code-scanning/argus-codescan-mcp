@@ -1,0 +1,377 @@
+[
+ {
+  "file": "deploy.sh",
+  "code": "eval \"$1\"",
+  "rule": "sh-eval-variable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "eval $CMD",
+  "rule": "sh-eval-variable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "  then eval \"${cmd}\"; fi",
+  "rule": "sh-eval-variable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "eval \"$(ssh-agent -s)\"",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "eval \"$(/opt/homebrew/bin/brew shellenv)\"",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "# eval \"$1\" is dangerous",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "rm -rf \"$INSTALL_DIR/\"",
+  "rule": "sh-rm-unguarded-variable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "rm -rf $BUILD/*",
+  "rule": "sh-rm-unguarded-variable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "rm -fr \"${PREFIX}\"/",
+  "rule": "sh-rm-unguarded-variable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "rm -rf \"${INSTALL_DIR:?}/\"",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "rm -rf \"$TMPDIR/build-cache\"",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "rm -rf ./dist/",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "curl -k https://internal/api",
+  "rule": "sh-tls-verification-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "curl -sSLk -o x.tgz https://x",
+  "rule": "sh-tls-verification-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "curl --insecure https://x",
+  "rule": "sh-tls-verification-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "wget --no-check-certificate https://x/a.tgz",
+  "rule": "sh-tls-verification-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "git config --global http.sslVerify false",
+  "rule": "sh-tls-verification-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "export NODE_TLS_REJECT_UNAUTHORIZED=0",
+  "rule": "sh-tls-verification-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "pip install --trusted-host pypi.internal -r req.txt",
+  "rule": "sh-tls-verification-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "curl -fsSL -o get.sh https://example.com/get.sh",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "curl --cacert ca.pem https://internal/api",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "chmod 777 /var/www",
+  "rule": "sh-chmod-world-writable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "chmod -R 0777 uploads",
+  "rule": "sh-chmod-world-writable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "chmod o+w shared.log",
+  "rule": "sh-chmod-world-writable"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "chmod 755 bin/run",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "chmod +x deploy.sh",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "chmod u+w file",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "sshpass -p hunter2 ssh deploy@host",
+  "rule": "sh-password-on-command-line"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "mysql -u root -pS3cretPass mydb",
+  "rule": "sh-password-on-command-line"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "export DB_PASSWORD=SuperSecret123",
+  "rule": "sh-password-on-command-line"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "PGPASSWORD=prodpass psql -h db",
+  "rule": "sh-password-on-command-line"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "sshpass -e ssh deploy@host",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "mysql -u root -p mydb",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "export DB_PASSWORD=\"$1\"",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "mysql -u root -p\"$MYSQL_PASSWORD\" db",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "echo \"$DATA\" > /tmp/app.log",
+  "rule": "sh-predictable-tmp-file"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "curl -o x | tee /tmp/out.txt",
+  "rule": "sh-predictable-tmp-file"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "tmp=$(mktemp); echo hi > \"$tmp\"",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "echo \"deploy ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers",
+  "rule": "sh-sudoers-nopasswd"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "echo \"$USER ALL=(ALL) ALL\" | sudo tee /etc/sudoers.d/dev",
+  "rule": "sh-sudoers-nopasswd"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart app",
+  "rule": null
+ },
+ {
+  "file": "deploy.sh",
+  "code": "ssh -o StrictHostKeyChecking=no deploy@host",
+  "rule": "sh-ssh-host-key-check-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "scp -o UserKnownHostsFile=/dev/null a host:",
+  "rule": "sh-ssh-host-key-check-off"
+ },
+ {
+  "file": "deploy.sh",
+  "code": "ssh -o StrictHostKeyChecking=accept-new deploy@host",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "Invoke-Expression $command",
+  "rule": "ps-invoke-expression-variable"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "iex $script",
+  "rule": "ps-invoke-expression-variable"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "$payload | iex",
+  "rule": "ps-invoke-expression-variable"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "& $exe @arguments",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "Invoke-Expression \"Get-Date\"",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "powershell -ExecutionPolicy Bypass -File build.ps1",
+  "rule": "ps-execution-policy-bypass"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "Set-ExecutionPolicy Unrestricted -Force",
+  "rule": "ps-execution-policy-bypass"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "$pw = ConvertTo-SecureString \"P@ssw0rd!\" -AsPlainText -Force",
+  "rule": "ps-plaintext-password"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "$dbPassword = \"Winter2026!\"",
+  "rule": "ps-plaintext-password"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "$pw = ConvertTo-SecureString $env:DB_PASS -AsPlainText -Force",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "$cred = Get-Credential",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "$password = \"\"",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}",
+  "rule": "ps-tls-validation-off"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "Invoke-RestMethod https://x -SkipCertificateCheck",
+  "rule": "ps-tls-validation-off"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls",
+  "rule": "ps-weak-tls-protocol"
+ },
+ {
+  "file": "setup.ps1",
+  "code": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "Invoke-WebRequest -Uri https://example.com/app.zip -OutFile app.zip",
+  "rule": null
+ },
+ {
+  "file": "setup.ps1",
+  "code": "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False",
+  "rule": "bat-firewall-disabled"
+ },
+ {
+  "file": "install.bat",
+  "code": "net user backup P@ssw0rd /add",
+  "rule": "bat-add-admin-user"
+ },
+ {
+  "file": "install.bat",
+  "code": "net localgroup administrators backup /add",
+  "rule": "bat-add-admin-user"
+ },
+ {
+  "file": "install.bat",
+  "code": "net user %USERNAME%",
+  "rule": null
+ },
+ {
+  "file": "install.bat",
+  "code": "net use Z: \\\\fs\\share /user:corp\\svc Winter2026",
+  "rule": "bat-plaintext-credentials"
+ },
+ {
+  "file": "install.bat",
+  "code": "runas /savecred /user:admin cmd",
+  "rule": "bat-plaintext-credentials"
+ },
+ {
+  "file": "install.bat",
+  "code": "set DB_PASSWORD=Winter2026",
+  "rule": "bat-plaintext-credentials"
+ },
+ {
+  "file": "install.bat",
+  "code": "net use Z: \\\\fs\\share /user:corp\\svc *",
+  "rule": null
+ },
+ {
+  "file": "install.bat",
+  "code": "set DB_PASSWORD=%1",
+  "rule": null
+ },
+ {
+  "file": "install.bat",
+  "code": "netsh advfirewall set allprofiles state off",
+  "rule": "bat-firewall-disabled"
+ },
+ {
+  "file": "install.bat",
+  "code": "netsh advfirewall firewall add rule name=\"app\" dir=in action=allow protocol=TCP localport=8080",
+  "rule": null
+ },
+ {
+  "file": "install.bat",
+  "code": "powershell -ExecutionPolicy Bypass -File setup.ps1",
+  "rule": "ps-execution-policy-bypass"
+ },
+ {
+  "file": "install.bat",
+  "code": ":: net user test pass /add",
+  "rule": null
+ }
+]

@@ -35,6 +35,9 @@ RULE_FILES = (
     "exposed-endpoints.yaml",
     "ssti.yaml",
     "agent-rules.yaml",
+    "shell.yaml",
+    "powershell.yaml",
+    "batch.yaml",
 )
 
 

@@ -77,6 +77,21 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 | **Malware** | Built-in heuristics — crypto miners, reverse shells, BAT/PS1 droppers, web shells (not AV) |
 
+### Shell, PowerShell and batch scripts
+
+`scan code` / `scan sast` (both packages) check `.sh` `.bash` `.zsh`, `.ps1` `.psm1` `.psd1` and `.bat` `.cmd` files, plus extensionless scripts found by their `#!` line (`bin/deploy`, `scripts/setup`). `bin/` is scanned unless it holds build output (`Debug/`, `Release/`, `.dll`).
+
+| Shell | PowerShell | Batch |
+|---|---|---|
+| `eval "$1"` / `eval $CMD` | `Invoke-Expression $var`, `$x \| iex` | `net user … /add`, admin group adds |
+| `rm -rf "$DIR/"` without `${DIR:?}` | `-ExecutionPolicy Bypass` | `net use … /user:x Password`, `runas /savecred`, `set PASSWORD=…` |
+| `curl -k`, `wget --no-check-certificate`, `git http.sslVerify false`, `NODE_TLS_REJECT_UNAUTHORIZED=0` | plaintext `ConvertTo-SecureString "…" -AsPlainText`, `$password = "…"` | `netsh advfirewall … state off` |
+| `chmod 777` / `o+w` | `ServerCertificateValidationCallback = {$true}`, `-SkipCertificateCheck` | |
+| `sshpass -p`, `mysql -pSecret`, `export DB_PASSWORD=literal` | SSL3 / TLS 1.0 / 1.1 | |
+| fixed `/tmp/…` files (low confidence), `NOPASSWD: ALL`, `StrictHostKeyChecking=no` | | |
+
+Download-and-run (`curl … \| sh`, `iwr … \| iex`), encoded commands, certutil/bitsadmin downloads and Defender tampering are reported by the malware rules.
+
 ### Known-malicious dependencies
 
 `argus scan sca` (and `scan all`, and the MCP `scan_sca` tool) also checks every package in your lockfiles against OSV's **known-malicious** records (`MAL-…`, from the OpenSSF malicious-packages feed). A match is always **critical**: it means the exact version you lock was published as malware.

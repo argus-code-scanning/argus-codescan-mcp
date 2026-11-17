@@ -6,7 +6,7 @@ from pathlib import Path
 
 SKIP_DIRS = {
     "node_modules", ".git", "dist", "build", ".next", "coverage", "vendor",
-    "__pycache__", "target", "bin", "obj", ".venv", "venv", ".terraform",
+    "__pycache__", "target", "obj", ".venv", "venv", ".terraform",
     ".idea", ".vscode", "Pods", "DerivedData", ".dart_tool", ".pub-cache",
     ".gradle",
 }
@@ -138,6 +138,35 @@ def _is_generated_dart(name: str) -> bool:
     return any(lower.endswith(suffix) for suffix in GENERATED_DART_SUFFIXES)
 
 
+_BUILD_OUTPUT_SUFFIXES = (".dll", ".pdb", ".class", ".exe", ".jar", ".so", ".o")
+
+
+def _is_build_output(directory: Path) -> bool:
+    """.NET / Java / C build output (bin/Debug, bin/*.dll) rather than a folder of scripts."""
+    try:
+        for child in directory.iterdir():
+            if child.name in {"Debug", "Release", "net8.0", "net6.0"}:
+                return True
+            if child.suffix.lower() in _BUILD_OUTPUT_SUFFIXES:
+                return True
+    except OSError:
+        return True
+    return False
+
+
+_SHEBANG = re.compile(r"^#!\s*(?:/usr)?(?:/local)?/bin/(?:env\s+(?:-\S+\s+)*)?(\w+)")
+_SHEBANG_LANG = {
+    "sh": "shell", "bash": "shell", "zsh": "shell", "dash": "shell", "ksh": "shell",
+    "pwsh": "powershell", "powershell": "powershell",
+}
+
+
+def _shebang_language(content: str) -> LanguageId | None:
+    """Extensionless scripts (bin/deploy, scripts/setup) by their #! line."""
+    match = _SHEBANG.match(content[:200])
+    return _SHEBANG_LANG.get(match.group(1)) if match else None  # type: ignore[return-value]
+
+
 def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
     rel = path.relative_to(root).as_posix()
     name = path.name.lower()
@@ -192,6 +221,8 @@ def classify_file(path: Path, root: Path, content: str) -> LanguageId | None:
     if ext == ".properties" and _is_spring_config(name):
         return "spring-config"
 
+    if not ext:
+        return _shebang_language(content)
     return EXT_MAP.get(ext)
 
 
@@ -202,6 +233,8 @@ def discover_files(target: Path) -> list[ScannedFile]:
     def should_skip_dir(entry: Path, name: str) -> bool:
         if name in SKIP_DIRS:
             return True
+        if name == "bin":
+            return _is_build_output(entry)  # bin/ with scripts (bin/setup, bin/deploy) is scanned
         if name == ".github":
             return False  # workflows live in .github/workflows
         if name in AGENT_DIRS or name.lower() in AGENT_RULES_FILES:

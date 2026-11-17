@@ -1,0 +1,43 @@
+# Insecure PowerShell scripts (#220). Download-and-run cradles, -EncodedCommand and Defender
+# tampering are reported by malware.yaml; these rules cover ordinary insecure scripts.
+
+- id: ps-invoke-expression-variable
+  title: Invoke-Expression runs a variable as PowerShell code
+  severity: high
+  pattern: '\b(?:Invoke-Expression|iex)\s+(?:-Command\s+)?\$\w|\$\w+\s*\|\s*(?:Invoke-Expression|iex)\b'
+  flags: [i]
+  languages: [powershell]
+  fix_guidance: Call the command directly (& $command @arguments) or validate against an allow-list; Invoke-Expression re-parses the string as code.
+
+- id: ps-execution-policy-bypass
+  title: Execution policy set to Bypass / Unrestricted
+  severity: medium
+  pattern: '-(?:ExecutionPolicy|ep|exec)\s+["'']?(?:Bypass|Unrestricted)\b|\bSet-ExecutionPolicy\s+(?:-ExecutionPolicy\s+)?["'']?(?:Bypass|Unrestricted)\b'
+  flags: [i]
+  languages: [powershell, batch]
+  fix_guidance: Sign your scripts and use RemoteSigned or AllSigned; Bypass lets any script run, including tampered ones.
+
+- id: ps-plaintext-password
+  title: Plaintext password in a PowerShell script
+  severity: high
+  pattern: '\bConvertTo-SecureString\s+(?:-String\s+)?["''][^"''$]+["'']\s+-AsPlainText|\$\w*(?:password|passwd|pwd|secret|apikey|api_key|token)\w*\s*=\s*["''][^"''$\s]{6,}["'']'
+  flags: [i]
+  languages: [powershell]
+  confidence: medium
+  fix_guidance: Read the secret at run time (Get-Credential, Microsoft.PowerShell.SecretManagement, an environment variable from your CI secret store) instead of writing it into the script.
+
+- id: ps-tls-validation-off
+  title: TLS certificate validation turned off
+  severity: high
+  pattern: 'ServerCertificateValidationCallback\s*=\s*\{\s*\$true\s*\}|-SkipCertificateCheck\b|\bTrustAllCertsPolicy\b|CheckValidationResult\s*\([^)]*\)\s*\{\s*return\s+true'
+  flags: [i]
+  languages: [powershell]
+  fix_guidance: Keep validation on and trust the right CA (import it into the certificate store) instead of accepting every certificate.
+
+- id: ps-weak-tls-protocol
+  title: Script enables SSL 3 / TLS 1.0 / TLS 1.1
+  severity: medium
+  pattern: 'SecurityProtocolType\]::(?:Ssl3|Tls11|Tls)(?!\w)'
+  flags: [i]
+  languages: [powershell]
+  fix_guidance: Use [Net.SecurityProtocolType]::Tls12 (or Tls13); older protocols are broken.
