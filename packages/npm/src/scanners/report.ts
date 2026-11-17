@@ -80,7 +80,7 @@ export function formatTable(report: ScanReport): string {
         ].filter(Boolean);
         lines.push(`         [${f.tool}] ${f.ruleId}${tags.length ? ` (${tags.join(", ")})` : ""}`);
       }
-      if (f.paths?.length) {
+      if (f.paths?.some((p) => p.includes(" \u203a "))) {
         const more = f.paths.length > 3 ? ` (+${f.paths.length - 3} more)` : "";
         lines.push(`         via ${f.paths.slice(0, 3).join(", ")}${more}`);
       }

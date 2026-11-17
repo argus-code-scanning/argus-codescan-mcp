@@ -234,6 +234,8 @@ def _vulnerability_finding(
             else f"Upgrade {package.name}; see the advisory for patched versions."
         ),
         references=[f"https://osv.dev/vulnerability/{vuln_id}"],
+        package=package.name,
+        version=package.version,
     )
 
 

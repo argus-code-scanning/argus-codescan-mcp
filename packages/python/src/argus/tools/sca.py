@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from argus.models import Finding, ScanResult, ScanType, Severity
+from argus.tools.dep_graph import read_graph
 from argus.utils import (
     collect_scan_results,
     find_scan_files,
@@ -594,6 +595,7 @@ async def run_govulncheck(
             continue
 
         osv_entries = {m["osv"]["id"]: m["osv"] for m in messages if "osv" in m}
+        go_graph = read_graph(module / "go.mod")
         levels = {"required": 0, "imported": 1, "called": 2}
         best: dict[str, tuple[int, dict[str, Any]]] = {}
         for message in messages:
@@ -646,6 +648,9 @@ async def run_govulncheck(
                     rule_id=vuln_id,
                     references=[f"https://pkg.go.dev/vuln/{vuln_id}"],
                     raw=finding,
+                    package=vulnerable.get("module", ""),
+                    version=vulnerable.get("version", ""),
+                    dependency_paths=go_graph.paths_to(vulnerable.get("module", "")),
                 )
             )
 
@@ -729,6 +734,7 @@ async def run_all_sca(
     """Run all available SCA tools against a target."""
     from argus.tools.malicious_packages import run_malicious_package_check
     from argus.tools.maven_deps import run_java_dependency_check
+    from argus.tools.osv_deps import run_osv_dependency_check
     from argus.tools.typosquats import run_typosquat_check
 
     tasks = [
@@ -740,6 +746,9 @@ async def run_all_sca(
         run_malicious_package_check(target),
         # Maven / Gradle CVEs from OSV when Trivy isn't installed; built in, no JVM needed.
         run_java_dependency_check(target),
+        # Every other lockfile (yarn, pnpm, poetry, uv, Pipfile, go.mod, pubspec.lock, Cargo.lock,
+        # Gemfile.lock, packages.lock.json, composer.lock) via OSV, unless its own tool covers it.
+        run_osv_dependency_check(target),
         # Typosquatted dependency names (offline) and, with --registry-check, missing or brand-new
         # packages on npm / PyPI (#142).
         run_typosquat_check(target),
