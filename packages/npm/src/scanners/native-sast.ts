@@ -178,10 +178,10 @@ const RULES: Rule[] = [
   },
   {
     id: "ps-plaintext-password",
-    title: "Plaintext password in a PowerShell script",
+    title: "Plaintext password turned into a SecureString (ConvertTo-SecureString -AsPlainText)",
     severity: "high",
     confidence: "medium",
-    pattern: /\bConvertTo-SecureString\s+(?:-String\s+)?["'][^"'$]+["']\s+-AsPlainText|\$\w*(?:password|passwd|pwd|secret|apikey|api_key|token)\w*\s*=\s*["'][^"'$\s]{6,}["']/i,
+    pattern: /\bConvertTo-SecureString\s+(?:-String\s+)?["'][^"'$]+["']\s+-AsPlainText/i,
     languages: ["powershell"],
   },
   {

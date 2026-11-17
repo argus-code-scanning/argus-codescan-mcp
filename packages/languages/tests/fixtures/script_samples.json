@@ -267,7 +267,7 @@
  {
   "file": "setup.ps1",
   "code": "$dbPassword = \"Winter2026!\"",
-  "rule": "ps-plaintext-password"
+  "rule": null
  },
  {
   "file": "setup.ps1",

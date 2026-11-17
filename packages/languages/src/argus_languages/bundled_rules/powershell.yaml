@@ -18,9 +18,10 @@
   fix_guidance: Sign your scripts and use RemoteSigned or AllSigned; Bypass lets any script run, including tampered ones.
 
 - id: ps-plaintext-password
-  title: Plaintext password in a PowerShell script
+  title: Plaintext password turned into a SecureString (ConvertTo-SecureString -AsPlainText)
   severity: high
-  pattern: '\bConvertTo-SecureString\s+(?:-String\s+)?["''][^"''$]+["'']\s+-AsPlainText|\$\w*(?:password|passwd|pwd|secret|apikey|api_key|token)\w*\s*=\s*["''][^"''$\s]{6,}["'']'
+  # $password = "..." is already reported by the generic hardcoded-password rule.
+  pattern: '\bConvertTo-SecureString\s+(?:-String\s+)?["''][^"''$]+["'']\s+-AsPlainText'
   flags: [i]
   languages: [powershell]
   confidence: medium
