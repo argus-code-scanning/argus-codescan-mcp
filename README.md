@@ -290,6 +290,8 @@ argus scan secrets . --format json   # fix_guidance on each finding
 
 Built-in static rules for SQL injection, connection strings, migration GRANTs, ORM raw queries:
 
+- **JavaScript / TypeScript ORMs** (both packages): values interpolated into TypeORM `.where()` / `.andWhere()` / `.having()`, Knex `whereRaw` / `orderByRaw` / `knex.raw`, Prisma `$queryRawUnsafe` / `$executeRawUnsafe` / `Prisma.raw`, and `sequelize.literal()`. Named parameters, bindings and tagged templates are not flagged, nor are `${UPPER_CASE}` constants. An `ORDER BY` column taken from the request is reported as low confidence: check it is limited to an allow-list.
+
 ```bash
 argus scan code .    # includes database.yaml rules via argus-languages
 ```
