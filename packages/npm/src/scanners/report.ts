@@ -23,6 +23,14 @@ export function buildReport(
   return { target, scanType, results, summary };
 }
 
+const LOCATION_WIDTH = 26;
+
+/** Keep the end of long paths (file name and line), not the start. */
+export function fitLocation(location: string, width = LOCATION_WIDTH): string {
+  const text = location.length > width ? `\u2026${location.slice(-(width - 1))}` : location;
+  return text.padEnd(width);
+}
+
 export function formatTable(report: ScanReport): string {
   const lines: string[] = [];
   lines.push(`Argus ${report.scanType.toUpperCase()} scan — ${report.target}`);
@@ -56,9 +64,7 @@ export function formatTable(report: ScanReport): string {
   for (const result of report.results) {
     for (const f of result.findings) {
       const sev = f.severity.toUpperCase().padEnd(8);
-      const loc = f.file
-        ? `${f.file}${f.line ? `:${f.line}` : ""}`.slice(0, 26).padEnd(26)
-        : (f.package ?? f.tool).slice(0, 26).padEnd(26);
+      const loc = fitLocation(f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : (f.package ?? f.tool));
       lines.push(`${sev} ${loc} ${f.title.slice(0, 42)}`);
       if (f.ruleId) {
         const tags = [
