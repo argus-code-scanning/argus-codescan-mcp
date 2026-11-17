@@ -13,12 +13,12 @@ export interface Finding {
   ruleId?: string;
   /** Built-in rules: how likely a match is a real issue. Low does not fail --fail-on by default. */
   confidence?: Confidence;
-  /** Set when the file probably does not ship; the severity was lowered one level. */
+  /** Set when the code probably does not ship (tests, docs, bundles, dev-only dependencies); the severity was lowered one level. */
   context?: FindingContext;
 }
 
 export type Confidence = "high" | "medium" | "low";
-export type FindingContext = "test" | "docs" | "generated";
+export type FindingContext = "test" | "docs" | "generated" | "dev-dependency";
 
 export interface ScanResult {
   tool: string;

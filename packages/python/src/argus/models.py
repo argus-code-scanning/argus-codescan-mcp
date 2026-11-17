@@ -60,7 +60,8 @@ class Finding:
     references: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
     # Set by the built-in rule packs: "high" / "medium" / "low", and "test" / "docs" /
-    # "generated" when the file probably does not ship (severity already lowered).
+    # "generated" when the file probably does not ship, "dev-dependency" for advisories in
+    # dev-only packages (severity already lowered).
     confidence: str = ""
     context: str = ""
 

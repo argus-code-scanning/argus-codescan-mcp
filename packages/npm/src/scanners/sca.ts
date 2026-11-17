@@ -1,6 +1,7 @@
 import { execa } from "execa";
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { downgrade } from "./noise.js";
 import type { Finding, ScanResult, Severity } from "./types.js";
 
 interface NpmAuditAdvisory {
@@ -164,13 +165,16 @@ export function parseAuditFindings(
       const scope = runtime.has(pkgName) ? "runtime" : "dev";
       const title = via.title ?? "";
       const range = via.range ?? entry.range ?? "";
+      const severity = normalizeSeverity(via.severity ?? entry.severity);
+      // Dev-only packages don't ship, so they are lowered one level like findings in tests.
       findings.push({
         title: !title
           ? `Vulnerable dependency: ${pkgName}`
           : title.toLowerCase().startsWith(pkgName.toLowerCase())
             ? title
             : `${pkgName}: ${title}`,
-        severity: normalizeSeverity(via.severity ?? entry.severity),
+        severity: scope === "dev" ? downgrade(severity) : severity,
+        ...(scope === "dev" ? { context: "dev-dependency" as const } : {}),
         tool: "npm-audit",
         file: lockfile,
         package: pkgName,

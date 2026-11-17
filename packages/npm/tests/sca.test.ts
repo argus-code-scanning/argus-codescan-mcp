@@ -157,7 +157,11 @@ describe("runNpmAuditSca", () => {
     );
     // Relative to the scanned folder, with forward slashes on every OS.
     expect(byId["GHSA-5p4m-2wfm-xmqj"].file).toBe("package-lock.json");
-    expect(result.findings[0].severity).toBe("critical");
+    // vitest is dev-only: its critical advisory is lowered one level and tagged, like findings in tests.
+    expect(byId["GHSA-5xrq-8626-4rwp"].severity).toBe("high");
+    expect(byId["GHSA-5xrq-8626-4rwp"].context).toBe("dev-dependency");
+    expect(byId["GHSA-5p4m-2wfm-xmqj"].context).toBeUndefined();
+    expect(result.findings[0].severity).toBe("high");
   });
 
   it("accepts a package.json path as the target", async () => {

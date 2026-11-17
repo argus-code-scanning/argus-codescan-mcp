@@ -329,6 +329,21 @@ def _npm_fix_guidance(fix: object) -> str:
     return "Run npm audit fix" if fix else "No fix available yet"
 
 
+_DEV_DOWNGRADE = {
+    Severity.CRITICAL: Severity.HIGH,
+    Severity.HIGH: Severity.MEDIUM,
+    Severity.MEDIUM: Severity.LOW,
+    Severity.LOW: Severity.INFO,
+}
+
+
+def _scoped(severity: Severity, scope: str) -> tuple[Severity, str]:
+    """Dev-only packages don't ship: lower one level and tag them, like findings in tests."""
+    if scope == "dev":
+        return _DEV_DOWNGRADE.get(severity, severity), "dev-dependency"
+    return severity, ""
+
+
 async def run_npm_audit(
     target: str,
     timeout: int = 120,
@@ -394,6 +409,7 @@ async def run_npm_audit(
                 title = via.get("title", "")
                 cwes = via.get("cwe") or []
                 sev = str(via.get("severity") or info.get("severity", "moderate")).lower()
+                severity, context = _scoped(ADVISORY_SEVERITY_MAP.get(sev, Severity.MEDIUM), scope)
                 result.findings.append(
                     Finding(
                         title=(
@@ -403,7 +419,8 @@ async def run_npm_audit(
                             if title
                             else name
                         ),
-                        severity=ADVISORY_SEVERITY_MAP.get(sev, Severity.MEDIUM),
+                        severity=severity,
+                        context=context,
                         scan_type=ScanType.SCA,
                         tool="npm-audit",
                         file=str(lockfile),
@@ -571,11 +588,13 @@ async def run_composer_audit(
             severity = ADVISORY_SEVERITY_MAP.get(label) or await _advisory_severity(
                 [cve] if cve else []
             )
+            severity, context = _scoped(severity, scope)
             link = advisory.get("link") or ""
             result.findings.append(
                 Finding(
                     title=f"{pkg}: {advisory.get('title', advisory_id)}",
                     severity=severity,
+                    context=context,
                     scan_type=ScanType.SCA,
                     tool="composer-audit",
                     file=str(project / "composer.lock"),
