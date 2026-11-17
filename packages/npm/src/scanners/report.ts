@@ -43,9 +43,10 @@ export function formatTable(report: ScanReport): string {
   lines.push("");
 
   for (const result of report.results) {
-    if (result.errors.length > 0) {
+    const notes = [...result.errors, ...(result.notes ?? [])];
+    if (notes.length > 0) {
       lines.push(`[${result.tool}] notes:`);
-      for (const err of result.errors) {
+      for (const err of notes) {
         for (const line of err.split("\n")) {
           lines.push(`  ${line}`);
         }
@@ -71,12 +72,18 @@ export function formatTable(report: ScanReport): string {
   for (const result of report.results) {
     for (const f of result.findings) {
       const sev = f.severity.toUpperCase().padEnd(8);
-      const loc = fitLocation(f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : (f.package ?? f.tool));
+      const loc = fitLocation(
+        f.package
+          ? `${f.package}${f.version ? `@${f.version.split(", ").pop()}` : ""}`
+          : f.file
+            ? `${f.file}${f.line ? `:${f.line}` : ""}`
+            : f.tool,
+      );
       lines.push(`${sev} ${loc} ${f.title.slice(0, 42)}`);
       if (f.ruleId) {
         const tags = [
           f.confidence === "low" ? "low confidence" : "",
-          f.context ? `in ${f.context}` : "",
+          f.context === "dev-dependency" ? "dev dependency" : f.context ? `in ${f.context}` : "",
         ].filter(Boolean);
         lines.push(`         [${f.tool}] ${f.ruleId}${tags.length ? ` (${tags.join(", ")})` : ""}`);
       }
@@ -86,6 +93,12 @@ export function formatTable(report: ScanReport): string {
       } else if (f.acceptedRiskExpired) {
         lines.push(`         accepted risk EXPIRED on ${f.acceptedRiskExpired}: counts again`);
       }
+      if (f.paths?.length) {
+        const more = f.paths.length > 3 ? ` (+${f.paths.length - 3} more)` : "";
+        lines.push(`         via ${f.paths.slice(0, 3).join(", ")}${more}`);
+      }
+      if (f.package && f.file && f.file.includes("/")) lines.push(`         lockfile: ${f.file}`);
+      if (f.fix) lines.push(`         fix: ${f.fix}`);
       if (f.url) lines.push(`         ${f.url}`);
       if (f.description) lines.push(`         ${f.description}`);
     }
@@ -145,6 +158,8 @@ export function formatCsv(report: ScanReport): string {
     "url",
     "confidence",
     "context",
+    "via",
+    "fix",
   ];
   const rows = [headers.join(",")];
 
@@ -165,6 +180,8 @@ export function formatCsv(report: ScanReport): string {
           csvCell(f.url),
           csvCell(f.confidence),
           csvCell(f.context),
+          csvCell(f.paths?.join("; ")),
+          csvCell(f.fix),
         ].join(","),
       );
     }

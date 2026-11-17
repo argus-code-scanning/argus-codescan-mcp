@@ -150,9 +150,85 @@ def test_npm_audit_one_finding_per_advisory_with_scope(tmp_path, monkeypatch):
         "brace-expansion: DoS via unbounded expansion length"
     )
     assert by_id["GHSA-5xrq-8626-4rwp"].fix_guidance == (
-        "Upgrade vitest to 5.0.5 (major version upgrade)"
+        "Upgrade vitest to 5.0.5 (major version: check for breaking changes)."
     )
+    assert by_id["GHSA-5xrq-8626-4rwp"].package == "vitest"
     assert by_id["GHSA-5p4m-2wfm-xmqj"].file.endswith("package-lock.json")
+
+
+# Shape of a real NestJS + TypeORM project: picomatch is reached at runtime through
+# typeorm › tinyglobby and in dev through vitest; npm's only "fix" is a typeorm downgrade.
+PICO_AUDIT = {
+    "metadata": {"vulnerabilities": {"total": 4}},
+    "vulnerabilities": {
+        "picomatch": {
+            "severity": "high",
+            "isDirect": False,
+            "via": [
+                {
+                    "source": 1,
+                    "title": "picomatch vulnerable to ReDoS",
+                    "url": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+                    "severity": "high",
+                    "range": "<=4.0.7",
+                }
+            ],
+            "effects": ["tinyglobby", "vitest"],
+            "nodes": ["node_modules/picomatch"],
+            "fixAvailable": {"name": "typeorm", "version": "0.3.31", "isSemVerMajor": True},
+        },
+        "tinyglobby": {"severity": "high", "via": ["picomatch"], "effects": ["typeorm"]},
+        "typeorm": {"severity": "high", "isDirect": True, "via": ["tinyglobby"], "effects": []},
+        "vitest": {"severity": "high", "isDirect": True, "via": ["picomatch"], "effects": []},
+    },
+}
+PICO_LOCK = {
+    "packages": {
+        "": {"name": "app"},
+        "node_modules/typeorm": {"version": "1.1.1"},
+        "node_modules/picomatch": {"version": "4.0.7"},
+    }
+}
+
+
+def test_npm_audit_paths_fix_advice_and_count_note(tmp_path, monkeypatch):
+    (tmp_path / "package.json").write_text("{}")
+    (tmp_path / "package-lock.json").write_text(json.dumps(PICO_LOCK))
+    prod = {"vulnerabilities": {k: {} for k in ("picomatch", "tinyglobby", "typeorm")}}
+    _fake_runner(
+        monkeypatch,
+        lambda cmd, cwd: (1, json.dumps(prod if "--omit=dev" in cmd else PICO_AUDIT), ""),
+    )
+
+    result = asyncio.run(sca.run_npm_audit(str(tmp_path)))
+    [finding] = result.findings
+
+    assert finding.package == "picomatch"
+    assert finding.version == "4.0.7"
+    assert finding.dependency_paths == [
+        "typeorm \u203a tinyglobby \u203a picomatch",
+        "vitest \u203a picomatch",
+    ]
+    assert finding.fix_guidance.startswith(
+        "No safe fix yet: npm audit fix --force would downgrade typeorm 1.1.1 to 0.3.31."
+    )
+    assert "patched picomatch (affected: <=4.0.7)" in finding.fix_guidance
+    assert result.metadata["notes"] == [
+        "1 advisory in 1 package. npm audit reports 4 vulnerable packages because it also "
+        'counts every package that depends on one; those are listed under "via".'
+    ]
+
+
+def test_npm_fix_guidance_variants():
+    assert sca._npm_fix_guidance(True) == "Run npm audit fix (no breaking changes)."
+    assert sca._npm_fix_guidance(False, "x", "<2").startswith(
+        "No patched version of x is published yet (affected: <2)."
+    )
+    upgrade = {"name": "lodash", "version": "4.17.21", "isSemVerMajor": False}
+    assert (
+        sca._npm_fix_guidance(upgrade, "lodash", "", {"lodash": ["4.17.20"]})
+        == "Upgrade lodash to 4.17.21."
+    )
 
 
 # ── pip-audit ────────────────────────────────────────────────────────────────

@@ -20,10 +20,15 @@ interface NpmAuditEntry {
   range?: string;
   /** Lockfile paths of the affected installs, e.g. node_modules/glob/node_modules/minimatch. */
   nodes?: string[];
+  /** Vulnerable packages that depend on this one. */
+  effects?: string[];
+  isDirect?: boolean;
+  fixAvailable?: boolean | { name?: string; version?: string; isSemVerMajor?: boolean };
 }
 
 interface NpmAuditJson {
   auditReportVersion?: number;
+  metadata?: { vulnerabilities?: { total?: number } };
   vulnerabilities?: Record<string, NpmAuditEntry>;
   error?: { code?: string; summary?: string };
 }
@@ -145,6 +150,80 @@ function affectedVersions(
   return versions.join(", ") || undefined;
 }
 
+/**
+ * Every way `pkgName` is installed, from a direct dependency down, following npm audit's
+ * `effects` (the vulnerable packages that depend on it). Paths through runtime dependencies
+ * come first, then shorter ones: ["typeorm › tinyglobby › picomatch", "vitest › picomatch"].
+ */
+export function dependencyPaths(data: NpmAuditJson, pkgName: string, runtime: Set<string>): string[] {
+  const vulns = data.vulnerabilities ?? {};
+  const paths: string[][] = [];
+  const queue: string[][] = [[pkgName]];
+  const reached = new Set<string>();
+  while (queue.length > 0 && paths.length < 50) {
+    const chain = queue.shift() as string[];
+    const head = chain[0];
+    const entry = vulns[head];
+    if (entry?.isDirect && !reached.has(head)) {
+      reached.add(head);
+      paths.push(chain);
+    }
+    for (const parent of entry?.effects ?? []) {
+      if (!chain.includes(parent) && chain.length < 8) queue.push([parent, ...chain]);
+    }
+  }
+  const rank = (chain: string[]) => (runtime.has(chain[0]) ? 0 : 1);
+  return paths
+    .sort((a, b) => rank(a) - rank(b) || a.length - b.length || a[0].localeCompare(b[0]))
+    .map((chain) => chain.join(" \u203a "));
+}
+
+function compareVersions(a: string, b: string): number {
+  const parts = (v: string) => v.replace(/^[^\d]*/, "").split(/[.+-]/).slice(0, 3).map((n) => Number.parseInt(n, 10) || 0);
+  const [x, y] = [parts(a), parts(b)];
+  for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0);
+  return 0;
+}
+
+/**
+ * What to do about an advisory, from npm audit's `fixAvailable`. npm sometimes "fixes" an
+ * advisory by moving a direct dependency to an older major version; that is called out.
+ */
+export function fixGuidance(
+  entry: NpmAuditEntry,
+  pkgName: string,
+  range: string,
+  installed?: Map<string, string[]>,
+): string {
+  const fix = entry.fixAvailable;
+  const affected = range ? ` (affected: ${range})` : "";
+  if (fix === true) return "Run npm audit fix (no breaking changes).";
+  if (!fix || typeof fix !== "object" || !fix.name || !fix.version) {
+    return `No patched version of ${pkgName} is published yet${affected}. Update it when one is, or pin it with "overrides".`;
+  }
+  const current = (installed?.get(fix.name) ?? []).slice().sort(compareVersions).pop();
+  if (current && compareVersions(fix.version, current) < 0) {
+    return (
+      `No safe fix yet: npm audit fix --force would downgrade ${fix.name} ${current} to ${fix.version}. ` +
+      `Don't run it; wait for a patched ${pkgName}${affected} and pin it with "overrides".`
+    );
+  }
+  return `Upgrade ${fix.name} to ${fix.version}${fix.isSemVerMajor ? " (major version: check for breaking changes)" : ""}.`;
+}
+
+/** npm audit counts every vulnerable package, including ones that only depend on another. */
+export function auditCountNote(data: NpmAuditJson, findings: Finding[]): string | undefined {
+  const total = data.metadata?.vulnerabilities?.total ?? Object.keys(data.vulnerabilities ?? {}).length;
+  const packages = new Set(findings.map((f) => f.package)).size;
+  if (!findings.length || total <= packages) return undefined;
+  const advisories = new Set(findings.map((f) => `${f.package}\0${f.ruleId}`)).size;
+  return (
+    `${advisories} ${advisories === 1 ? "advisory" : "advisories"} in ${packages} ${packages === 1 ? "package" : "packages"}. ` +
+    `npm audit reports ${total} vulnerable packages because it also counts every package that depends on one; ` +
+    `those are listed under "via".`
+  );
+}
+
 export function parseAuditFindings(
   data: NpmAuditJson,
   runtime: Set<string>,
@@ -182,6 +261,8 @@ export function parseAuditFindings(
         description: `[${scope} dependency] ${pkgName} ${range}${title ? `: ${title}` : ""}`,
         url: via.url,
         ruleId: advisory,
+        paths: dependencyPaths(data, pkgName, runtime),
+        fix: fixGuidance(entry, pkgName, range, installed),
       });
     }
   }
@@ -271,7 +352,10 @@ export async function runNpmAuditSca(target: string): Promise<ScanResult> {
       } catch {
         installed = undefined;
       }
-      result.findings.push(...parseAuditFindings(data, runtime, lockfileRel, installed));
+      const findings = parseAuditFindings(data, runtime, lockfileRel, installed);
+      result.findings.push(...findings);
+      const note = auditCountNote(data, findings);
+      if (note) (result.notes ??= []).push(projects.length > 1 ? `${lockfileRel}: ${note}` : note);
       result.projects?.push(project);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
