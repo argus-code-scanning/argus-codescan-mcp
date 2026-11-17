@@ -77,6 +77,21 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 | **Malware** | Built-in heuristics — crypto miners, reverse shells, BAT/PS1 droppers, web shells (not AV) |
 
+### Vulnerable npm dependencies
+
+`scan sca` runs `npm audit` for every lockfile and reports **one finding per advisory**, with:
+
+- the installed version (`picomatch@4.0.7`) and **how it gets into your project**, runtime paths first: `via typeorm › tinyglobby › picomatch, vitest › picomatch`
+- **fix advice** that won't break you: when npm's only "fix" is to downgrade one of your dependencies (`npm audit fix --force` moving `typeorm` 1.1.1 to 0.3.31), Argus says there is no safe fix yet instead
+- dev-only packages lowered one severity level and marked `dev dependency`
+- a note when `npm audit` shows a bigger number: it counts every package that *depends on* a vulnerable one, so 4 advisories can show up as "22 vulnerabilities"
+
+```
+HIGH     picomatch@4.0.7            picomatch vulnerable to ReDoS through sing
+         via typeorm › tinyglobby › picomatch, vitest › picomatch
+         fix: No safe fix yet: npm audit fix --force would downgrade typeorm 1.1.1 to 0.3.31. ...
+```
+
 ### Known-malicious dependencies
 
 `argus scan sca` (and `scan all`, and the MCP `scan_sca` tool) also checks every package in your lockfiles against OSV's **known-malicious** records (`MAL-…`, from the OpenSSF malicious-packages feed). A match is always **critical**: it means the exact version you lock was published as malware.

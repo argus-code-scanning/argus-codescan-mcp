@@ -64,6 +64,11 @@ class Finding:
     # dev-only packages (severity already lowered).
     confidence: str = ""
     context: str = ""
+    # SCA: the vulnerable package, its installed version(s), and how it is installed from a
+    # direct dependency down ("typeorm › tinyglobby › picomatch").
+    package: str = ""
+    version: str = ""
+    dependency_paths: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -83,6 +88,9 @@ class Finding:
             "references": self.references,
             "confidence": self.confidence,
             "context": self.context,
+            "package": self.package,
+            "version": self.version,
+            "dependency_paths": self.dependency_paths,
         }
 
 

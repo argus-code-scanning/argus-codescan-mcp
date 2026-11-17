@@ -172,7 +172,7 @@ describe("--fail-on and confidence", () => {
   it("adds confidence and context columns to the CSV", () => {
     const csv = formatCsv(buildReport(".", "sast", [lowOnly]));
     const [header, row] = csv.trim().split("\n");
-    expect(header.endsWith(",confidence,context")).toBe(true);
-    expect(row.endsWith(",low,")).toBe(true);
+    expect(header.endsWith(",confidence,context,via,fix")).toBe(true);
+    expect(row.endsWith(",low,,,")).toBe(true);
   });
 });
