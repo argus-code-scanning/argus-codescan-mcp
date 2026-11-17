@@ -25,8 +25,11 @@ import yaml
 
 try:  # Python 3.11+
     import tomllib as _toml
-except ModuleNotFoundError:  # pragma: no cover
-    _toml = None  # type: ignore[assignment]
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10
+    try:
+        import tomli as _toml  # type: ignore[no-redef]
+    except ModuleNotFoundError:
+        _toml = None  # type: ignore[assignment]
 
 ARROW = " \u203a "
 _MAX_PATHS = 20

@@ -734,8 +734,8 @@ async def run_all_sca(
     """Run all available SCA tools against a target."""
     from argus.tools.malicious_packages import run_malicious_package_check
     from argus.tools.maven_deps import run_java_dependency_check
-    from argus.tools.terraform_deps import run_terraform_dependency_check
     from argus.tools.osv_deps import run_osv_dependency_check
+    from argus.tools.terraform_deps import run_terraform_dependency_check
     from argus.tools.typosquats import run_typosquat_check
 
     tasks = [
