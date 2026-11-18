@@ -1,0 +1,31 @@
+# Argus scanning its own repository (CI "Argus Security Scan" and local `argus scan`).
+#
+# The tests deliberately contain the attacks the rules must catch (malware, SQL injection,
+# card data, reverse shells), so they are excluded. Everything else is scanned; the few
+# remaining matches are reviewed below with a reason.
+
+exclude_paths:
+  - "tests/**"
+  - "**/tests/**"
+  - "**/fixtures/**"
+  # The npm scanner's rule list: its regexes and titles describe the attacks, so they match themselves.
+  - "packages/npm/src/scanners/native-sast.ts"
+
+suppressions:
+  # Install instructions Argus prints for optional tools (Trivy, TruffleHog, tflint, tfsec).
+  # Shown to the user as text, never executed by Argus.
+  - rule_id: malware-curl-pipe-shell
+    path: "**/argus/server.py"
+    reason: "install hints shown to users, not executed"
+  - rule_id: malware-curl-pipe-shell
+    path: "**/argus/tools/terraform.py"
+    reason: "install hints shown to users, not executed"
+  # The docstring explains which .pth payloads are detected; malware rules read docstrings
+  # on purpose, so this one is reviewed here.
+  - rule_id: malware-eval-base64
+    path: "**/argus/tools/supply_chain_checks.py"
+    reason: "docstring describing the detected pattern"
+
+# Not suppressed on purpose (real hardening work, see the PR):
+# - GitHub Actions pinned by tag instead of commit SHA (gha-*-action-not-pinned)
+# - packages/shell/codetesting-mcp.sh self-update runs install.sh from main without a check
