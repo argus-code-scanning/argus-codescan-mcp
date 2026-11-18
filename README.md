@@ -678,6 +678,10 @@ Created and maintained by **Okiri Gabriel** ([@OkiriGabriel](https://github.com/
 
 Argus is free and open source under the MIT license, built in the open with its contributors. Anyone can use, modify and redistribute it, and contributions are welcome (see [Contributing](#contributing)).
 
+### Credit
+
+If you use, fork or build on Argus, please credit it: keep the copyright notice and [LICENSE](LICENSE) (the MIT license requires this), and mention **Argus by Okiri Gabriel** with a link to this repository in your README, docs or about page. Third-party scanners and data Argus works with are listed in [NOTICE](NOTICE).
+
 ## License
 
 MIT - see [LICENSE](LICENSE)

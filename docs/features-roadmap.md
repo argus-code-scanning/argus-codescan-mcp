@@ -262,15 +262,6 @@ Follow-ups: npm `argus-codescan review` (#81), docs/cookbook polish (#82), pre-c
 | CIS PostgreSQL/MySQL checks | Planned |
 | ORM-specific Semgrep packs | Planned |
 
-### Compliance & reporting
-
-| Feature | Tier | Status |
-|---------|------|--------|
-| SBOM export (CycloneDX/SPDX) | Pro | Planned |
-| PCI/HIPAA rule packs | Pro | Planned |
-| Org-wide policy engine (cloud) | Team | Planned |
-| Audit log for suppressions | Team | Planned |
-
 ---
 
 ## Quick reference
