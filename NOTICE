@@ -1,0 +1,33 @@
+Argus
+Copyright (c) 2026 Okiri Gabriel and argus-scan contributors
+https://github.com/argus-code-scanning/argus-codescan-mcp
+
+Argus is licensed under the MIT License (see LICENSE). If you use, fork or
+redistribute it, keep this notice and the license, and please credit
+"Argus by Okiri Gabriel" with a link to the repository.
+
+-------------------------------------------------------------------------------
+Third-party software
+
+Argus runs the following tools as separate programs when they are installed.
+It does not include or modify them, and each keeps its own license. The Docker
+image installs some of them; their license and notice files apply there.
+
+  Trivy          Aqua Security                  Apache-2.0
+  Gitleaks       Zachary Rice and contributors  MIT
+  KICS           Checkmarx                      Apache-2.0  (pinned in the Docker image)
+  Opengrep       The Opengrep project           LGPL-2.1
+  Semgrep CE     Semgrep, Inc.                  LGPL-2.1 (engine). Registry rules
+                                                (--config auto) are under the Semgrep
+                                                Rules License, not this project's license.
+  Checkov        Bridgecrew / Palo Alto Networks Apache-2.0
+  pip-audit      PyPA / Trail of Bits           Apache-2.0
+  govulncheck    The Go Authors                 BSD-3-Clause
+
+-------------------------------------------------------------------------------
+Vulnerability data
+
+Dependency results use public advisory data:
+
+  OSV.dev                    https://osv.dev                CC-BY 4.0
+  GitHub Advisory Database   https://github.com/advisories  CC-BY 4.0
