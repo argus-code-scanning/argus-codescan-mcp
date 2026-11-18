@@ -44,7 +44,8 @@ def test_python_docstrings_are_documentation_not_code(tmp_path: Path) -> None:
         "    query = \"SELECT * FROM users WHERE name = '\" + name + \"'\"\n"
         "    return query\n"
     )
-    lines = {f.line for f in scan_directory(tmp_path).findings if f.rule_id == "python-sql-string-build"}
+    findings = scan_directory(tmp_path).findings
+    lines = {f.line for f in findings if f.rule_id == "python-sql-string-build"}
     assert lines == {7}  # the real code, not the docstring on line 3
 
 

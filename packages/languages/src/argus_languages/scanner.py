@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-
 from bisect import bisect_right
 from pathlib import Path
 
