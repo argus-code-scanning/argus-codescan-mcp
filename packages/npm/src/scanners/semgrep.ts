@@ -80,6 +80,14 @@ function relativePath(file: string | undefined, root: string): string | undefine
   return rel.startsWith("..") ? file : rel.split(sep).join("/");
 }
 
+/** First sentence of a rule message, so finding lists stay readable; the full text goes in the description. */
+export function shortTitle(message: string | undefined, ruleId: string): string {
+  const text = (message ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return ruleId;
+  const sentence = text.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? text;
+  return sentence.length <= 120 ? sentence : `${sentence.slice(0, 117).trimEnd()}…`;
+}
+
 export function parseSemgrepJson(
   stdout: string,
   result: ScanResult,
@@ -101,7 +109,7 @@ export function parseSemgrepJson(
   for (const r of data.results ?? []) {
     const ruleId = r.check_id ?? "unknown";
     result.findings.push({
-      title: r.extra?.message ?? ruleId,
+      title: shortTitle(r.extra?.message, ruleId),
       severity: mapSemgrepSeverity(r.extra?.severity),
       tool,
       file: root ? relativePath(r.path, root) : r.path,
@@ -109,6 +117,7 @@ export function parseSemgrepJson(
       ruleId,
       ...(hasOnlyConstantKeys(ruleId, r.extra?.lines) ? { confidence: "low" as const } : {}),
       description: [
+        r.extra?.message ?? "",
         r.extra?.metadata?.cwe?.length ? `CWE: ${r.extra.metadata.cwe.join(", ")}` : "",
         r.extra?.metadata?.owasp?.length ? `OWASP: ${r.extra.metadata.owasp.join(", ")}` : "",
       ]
