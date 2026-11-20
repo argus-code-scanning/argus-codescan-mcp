@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
 import { buildReport, printScanReport } from "./scanners/report.js";
 import { runAllSast } from "./scanners/sast.js";
+import { runOsvDependencyCheck } from "./scanners/osv-deps.js";
 import { runNpmAuditSca } from "./scanners/sca.js";
+import { runTerraformDependencyCheck } from "./scanners/terraform-deps.js";
 import { runAllSecrets } from "./scanners/secrets.js";
 import { runToolsCommand } from "./scanners/tools.js";
 import type { Severity } from "./scanners/types.js";
@@ -28,6 +30,8 @@ OPTIONS:
   --no-csv                    Skip writing CSV file
   --fail-on critical|high|moderate
   --fail-on-low-confidence    Let low-confidence rule matches trigger --fail-on too
+  --policy <file>             .argus.yml to use (default: found by walking up from the target)
+  --no-network                Skip the OSV dependency lookup (also ARGUS_NO_NETWORK=1)
 
 FALSE POSITIVES:
   Add  // argus-ignore[rule-id]: reason  on the line (or the line above) to silence
@@ -48,12 +52,14 @@ function parseScanArgs(args: string[]): {
   csvPath?: string;
   writeCsv: boolean;
   includeLowConfidence: boolean;
+  policyPath?: string;
 } {
   let format: "json" | "table" | "csv" = "table";
   let failOn: Severity | "never" = "never";
   let csvPath: string | undefined;
   let writeCsv = true;
   let includeLowConfidence = false;
+  let policyPath: string | undefined;
   const positional: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -64,6 +70,10 @@ function parseScanArgs(args: string[]): {
       csvPath = resolve(args[++i]);
     } else if (arg === "--no-csv") {
       writeCsv = false;
+    } else if (arg === "--policy" && args[i + 1]) {
+      policyPath = resolve(args[++i]);
+    } else if (arg === "--no-network") {
+      process.env.ARGUS_NO_NETWORK = "1";
     } else if (arg === "--fail-on-low-confidence") {
       includeLowConfidence = true;
     } else if (arg === "--fail-on" && args[i + 1]) {
@@ -80,6 +90,7 @@ function parseScanArgs(args: string[]): {
     csvPath,
     writeCsv,
     includeLowConfidence,
+    policyPath,
   };
 }
 
@@ -94,21 +105,29 @@ export async function runScanCli(args: string[]): Promise<number> {
   }
 
   const scanType = args[0];
-  const { format, failOn, target, csvPath, writeCsv, includeLowConfidence } = parseScanArgs(
+  const { format, failOn, target, csvPath, writeCsv, includeLowConfidence, policyPath } = parseScanArgs(
     args.slice(1),
   );
-  const reportOpts = { csvPath, writeCsv, includeLowConfidence };
+  const reportOpts = { csvPath, writeCsv, includeLowConfidence, policyPath };
 
   if (scanType === "sca") {
-    console.error(`Running SCA scan (npm audit) on: ${target}`);
-    const scaResult = await runNpmAuditSca(target);
-    // Fatal only when no project could be audited; skipped packages without a
+    console.error(`Running SCA scan (npm audit + OSV for every other lockfile + Terraform pinning) on: ${target}`);
+    const [scaResult, osv, terraform] = await Promise.all([
+      runNpmAuditSca(target),
+      runOsvDependencyCheck(target),
+      runTerraformDependencyCheck(target),
+    ]);
+    // Fatal only when nothing could be checked; skipped packages without a
     // lockfile are listed as notes in the report.
-    if (scaResult.findings.length === 0 && !scaResult.projects?.length) {
+    const extra = [osv, terraform].filter((r) => r.projects?.length);
+    const checked = scaResult.projects?.length || extra.length;
+    if (scaResult.findings.length === 0 && extra.every((r) => r.findings.length === 0) && !checked) {
       for (const err of scaResult.errors) console.error(`Error: ${err}`);
       return 1;
     }
-    return printScanReport(buildReport(target, "sca", [scaResult]), format, failOn, reportOpts);
+    if (!scaResult.projects?.length) scaResult.errors = [];
+    const results = [scaResult, ...extra];
+    return printScanReport(buildReport(target, "sca", results), format, failOn, reportOpts);
   }
 
   if (scanType === "sast") {
@@ -127,12 +146,15 @@ export async function runScanCli(args: string[]): Promise<number> {
   if (scanType === "all") {
     console.error(`Running full scan on: ${target}`);
     console.error("  sca + sast (built-in) + secrets\n");
-    const [sca, sastResults, secretResults] = await Promise.all([
+    const [sca, osv, terraform, sastResults, secretResults] = await Promise.all([
       runNpmAuditSca(target),
+      runOsvDependencyCheck(target),
+      runTerraformDependencyCheck(target),
       runAllSast(target),
       runAllSecrets(target),
     ]);
-    const results = [sca, ...sastResults, ...secretResults];
+    const deps = [osv, terraform].filter((r) => r.projects?.length);
+    const results = [sca, ...deps, ...sastResults, ...secretResults];
     return printScanReport(buildReport(target, "all", results), format, failOn, reportOpts);
   }
 

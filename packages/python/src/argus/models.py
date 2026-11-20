@@ -60,9 +60,15 @@ class Finding:
     references: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
     # Set by the built-in rule packs: "high" / "medium" / "low", and "test" / "docs" /
-    # "generated" when the file probably does not ship (severity already lowered).
+    # "generated" when the file probably does not ship, "dev-dependency" for advisories in
+    # dev-only packages (severity already lowered).
     confidence: str = ""
     context: str = ""
+    # SCA: the vulnerable package, its installed version(s), and how it is installed from a
+    # direct dependency down ("typeorm › tinyglobby › picomatch").
+    package: str = ""
+    version: str = ""
+    dependency_paths: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,6 +88,9 @@ class Finding:
             "references": self.references,
             "confidence": self.confidence,
             "context": self.context,
+            "package": self.package,
+            "version": self.version,
+            "dependency_paths": self.dependency_paths,
         }
 
 
@@ -155,5 +164,10 @@ class AggregatedReport:
 
 
 def counts_toward_failure(finding: dict[str, Any], include_low_confidence: bool = False) -> bool:
-    """Low-confidence rule matches are shown but do not fail --fail-on unless asked."""
+    """Low-confidence rule matches are shown but do not fail --fail-on unless asked.
+
+    Findings covered by an unexpired accepted risk (.argus.yml ``accepted_risks``) never fail.
+    """
+    if finding.get("accepted_risk"):
+        return False
     return include_low_confidence or finding.get("confidence") != "low"

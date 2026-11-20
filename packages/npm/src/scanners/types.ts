@@ -13,12 +13,20 @@ export interface Finding {
   ruleId?: string;
   /** Built-in rules: how likely a match is a real issue. Low does not fail --fail-on by default. */
   confidence?: Confidence;
-  /** Set when the file probably does not ship; the severity was lowered one level. */
+  /** SCA: how the vulnerable package is installed, from a direct dependency down ("typeorm › tinyglobby › picomatch"). */
+  paths?: string[];
+  /** SCA: what to do about it. */
+  fix?: string;
+  /** Set when the code probably does not ship (tests, docs, bundles, dev-only dependencies); the severity was lowered one level. */
   context?: FindingContext;
+  /** Covered by an unexpired .argus.yml accepted risk: shown, but never fails --fail-on. */
+  acceptedRisk?: { id: string; reason: string; expires: string };
+  /** The accepted risk that covered this finding expired on this date. */
+  acceptedRiskExpired?: string;
 }
 
 export type Confidence = "high" | "medium" | "low";
-export type FindingContext = "test" | "docs" | "generated";
+export type FindingContext = "test" | "docs" | "generated" | "dev-dependency";
 
 export interface ScanResult {
   tool: string;
@@ -26,6 +34,8 @@ export interface ScanResult {
   target: string;
   findings: Finding[];
   errors: string[];
+  /** Informational messages printed with the results (not failures). */
+  notes?: string[];
   /** Project directories that were scanned successfully (SCA: one per lockfile). */
   projects?: string[];
   /** Findings silenced by argus-ignore comments (with their reasons). */
@@ -36,6 +46,8 @@ export interface ScanReport {
   target: string;
   scanType: string;
   results: ScanResult[];
+  /** Policy notes (.argus.yml accepted risks that expired, expire soon or matched nothing). */
+  notes?: string[];
   summary: {
     total: number;
     critical: number;

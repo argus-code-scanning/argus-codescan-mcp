@@ -140,16 +140,95 @@ def test_npm_audit_one_finding_per_advisory_with_scope(tmp_path, monkeypatch):
     }
     assert by_id["GHSA-5p4m-2wfm-xmqj"].description.startswith("[runtime dependency]")
     assert by_id["GHSA-5xrq-8626-4rwp"].description.startswith("[dev dependency]")
-    assert by_id["GHSA-5xrq-8626-4rwp"].severity == Severity.CRITICAL
+    # Dev-only: the critical advisory is lowered one level and tagged, like findings in tests.
+    assert by_id["GHSA-5xrq-8626-4rwp"].severity == Severity.HIGH
+    assert by_id["GHSA-5xrq-8626-4rwp"].context == "dev-dependency"
+    assert by_id["GHSA-5p4m-2wfm-xmqj"].context == ""
     assert by_id["GHSA-q2hr-2g5m-vwhr"].severity == Severity.MEDIUM
     assert by_id["GHSA-5p4m-2wfm-xmqj"].cwe == "CWE-407"
     assert by_id["GHSA-mh99-v99m-4gvg"].title == (
         "brace-expansion: DoS via unbounded expansion length"
     )
     assert by_id["GHSA-5xrq-8626-4rwp"].fix_guidance == (
-        "Upgrade vitest to 5.0.5 (major version upgrade)"
+        "Upgrade vitest to 5.0.5 (major version: check for breaking changes)."
     )
+    assert by_id["GHSA-5xrq-8626-4rwp"].package == "vitest"
     assert by_id["GHSA-5p4m-2wfm-xmqj"].file.endswith("package-lock.json")
+
+
+# Shape of a real NestJS + TypeORM project: picomatch is reached at runtime through
+# typeorm › tinyglobby and in dev through vitest; npm's only "fix" is a typeorm downgrade.
+PICO_AUDIT = {
+    "metadata": {"vulnerabilities": {"total": 4}},
+    "vulnerabilities": {
+        "picomatch": {
+            "severity": "high",
+            "isDirect": False,
+            "via": [
+                {
+                    "source": 1,
+                    "title": "picomatch vulnerable to ReDoS",
+                    "url": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+                    "severity": "high",
+                    "range": "<=4.0.7",
+                }
+            ],
+            "effects": ["tinyglobby", "vitest"],
+            "nodes": ["node_modules/picomatch"],
+            "fixAvailable": {"name": "typeorm", "version": "0.3.31", "isSemVerMajor": True},
+        },
+        "tinyglobby": {"severity": "high", "via": ["picomatch"], "effects": ["typeorm"]},
+        "typeorm": {"severity": "high", "isDirect": True, "via": ["tinyglobby"], "effects": []},
+        "vitest": {"severity": "high", "isDirect": True, "via": ["picomatch"], "effects": []},
+    },
+}
+PICO_LOCK = {
+    "packages": {
+        "": {"name": "app"},
+        "node_modules/typeorm": {"version": "1.1.1"},
+        "node_modules/picomatch": {"version": "4.0.7"},
+    }
+}
+
+
+def test_npm_audit_paths_fix_advice_and_count_note(tmp_path, monkeypatch):
+    (tmp_path / "package.json").write_text("{}")
+    (tmp_path / "package-lock.json").write_text(json.dumps(PICO_LOCK))
+    prod = {"vulnerabilities": {k: {} for k in ("picomatch", "tinyglobby", "typeorm")}}
+    _fake_runner(
+        monkeypatch,
+        lambda cmd, cwd: (1, json.dumps(prod if "--omit=dev" in cmd else PICO_AUDIT), ""),
+    )
+
+    result = asyncio.run(sca.run_npm_audit(str(tmp_path)))
+    [finding] = result.findings
+
+    assert finding.package == "picomatch"
+    assert finding.version == "4.0.7"
+    assert finding.dependency_paths == [
+        "typeorm \u203a tinyglobby \u203a picomatch",
+        "vitest \u203a picomatch",
+    ]
+    assert finding.fix_guidance.startswith(
+        "No safe fix yet: npm audit fix --force would downgrade typeorm 1.1.1 to 0.3.31."
+    )
+    assert "patched picomatch (affected: <=4.0.7)" in finding.fix_guidance
+    assert result.metadata["notes"] == [
+        "1 advisory in 1 package. npm audit reports 4 vulnerable packages because it also "
+        'counts every package that depends on one; those are listed under "via".'
+    ]
+
+
+def test_npm_fix_guidance_variants():
+    assert sca._npm_fix_guidance(True) == "Run npm audit fix (no breaking changes)."
+    assert sca._npm_fix_guidance(False, "x", "<2").startswith(
+        "No patched version of x is published yet (affected: <2)."
+    )
+    upgrade = {"name": "lodash", "version": "4.17.21", "isSemVerMajor": False}
+    assert (
+        sca._npm_fix_guidance(upgrade, "lodash", "", {"lodash": ["4.17.20"]})
+        == "Upgrade lodash to 4.17.21."
+    )
 
 
 # ── pip-audit ────────────────────────────────────────────────────────────────
@@ -349,7 +428,9 @@ def test_composer_audit_scope_and_severity(tmp_path, monkeypatch):
     assert by_pkg["guzzlehttp/guzzle"].cve == "CVE-2026-69246"
     assert by_pkg["twig/twig"].description.startswith("[dev dependency]")
     assert by_pkg["twig/twig"].cve == "PKSA-8zx5-v2nz-58pb"
-    assert by_pkg["twig/twig"].severity == Severity.HIGH
+    # twig is dev-only, so its high advisory is reported one level lower.
+    assert by_pkg["twig/twig"].severity == Severity.MEDIUM
+    assert by_pkg["twig/twig"].context == "dev-dependency"
 
 
 def test_composer_audit_clean_project(tmp_path, monkeypatch):
@@ -376,3 +457,14 @@ def test_run_all_sca_adds_go_and_php_only_when_manifests_exist(tmp_path, monkeyp
     (tmp_path / "composer.lock").write_text("{}")
     tools = {r.tool for r in asyncio.run(sca.run_all_sca(str(tmp_path)))}
     assert {"govulncheck", "composer-audit"} <= tools
+
+
+def test_constant_key_property_injection_is_low_confidence():
+    from argus.tools.sast import has_only_constant_keys
+
+    rule = "javascript.express.security.audit.remote-property-injection.remote-property-injection"
+    assert has_only_constant_keys(rule, "    request.headers[REQUEST_ID_HEADER] = id;")
+    assert has_only_constant_keys(rule, "    res.locals['user'] = user;")
+    assert not has_only_constant_keys(rule, "    target[req.body.key] = req.body.value;")
+    assert not has_only_constant_keys(rule, "    store[name] = value;")
+    assert not has_only_constant_keys("other-rule", "    headers[X] = 1;")

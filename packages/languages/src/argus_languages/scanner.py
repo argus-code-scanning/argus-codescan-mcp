@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from bisect import bisect_right
 from pathlib import Path
 
@@ -27,6 +28,7 @@ COMMENT_PREFIX: dict[str, tuple[str, ...]] = {
     "dotenv-example": ("#",),
     "spring-config": ("#", "!"),
     "github-actions": ("#",),
+    "agent-rules": (),  # Markdown: "#" starts a heading, not a comment
     "go": ("//",),
     "ruby": ("#",),
     "csharp": ("//", "/*"),
@@ -47,6 +49,24 @@ COMMENT_PREFIX: dict[str, tuple[str, ...]] = {
 }
 
 
+def _python_inert_string_lines(content: str) -> set[int]:
+    """Lines of Python string literals that are statements on their own (docstrings and
+    string "comments"). They never run, so they are documentation, not code."""
+    try:
+        tree = ast.parse(content)
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
+        return set()
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            lines.update(range(node.lineno, (node.end_lineno or node.lineno) + 1))
+    return lines
+
+
 def _skip_line(line: str, language: str) -> bool:
     stripped = line.strip()
     for prefix in COMMENT_PREFIX.get(language, ("//", "#")):
@@ -59,7 +79,7 @@ def _skip_line(line: str, language: str) -> bool:
 # misfire on JSON and KEY=value lines.
 CONFIG_LANGUAGES = frozenset(
     {"composer", "dotenv-production", "dotenv-example", "spring-config", "github-actions",
-     "npm-manifest", "python-requirements", "python-manifest", "dependency-source"}
+     "npm-manifest", "python-requirements", "python-manifest", "dependency-source", "agent-rules"}
 )
 
 
@@ -89,6 +109,9 @@ def _scan_content(
     lines = content.splitlines()
     context = path_context(relative)
     pending: IgnoreMarker | None = None  # from a comment-only line just above
+    # Python docstrings are documentation. Malware rules (allow_inline_ignore=False) still
+    # read them: a payload can sit in a docstring and run via exec(__doc__).
+    docstrings = _python_inert_string_lines(content) if language == "python" else set()
     markers: list[IgnoreMarker | None] = []
     for line in lines:
         if _skip_line(line, language):
@@ -102,8 +125,12 @@ def _scan_content(
         if not _rule_applies(rule, language):
             continue
 
+        skip_docs = docstrings if rule.allow_inline_ignore else set()
         if rule.multiline:
-            source = "\n".join("" if _skip_line(line, language) else line for line in lines)
+            source = "\n".join(
+                "" if _skip_line(line, language) or n in skip_docs else line
+                for n, line in enumerate(lines, start=1)
+            )
             line_starts = [0]
             line_starts.extend(
                 index + 1 for index, character in enumerate(source) if character == "\n"
@@ -116,7 +143,9 @@ def _scan_content(
             matching_lines = {
                 i
                 for i, line in enumerate(lines, start=1)
-                if not _skip_line(line, language) and rule.pattern.search(line)
+                if not _skip_line(line, language)
+                and i not in skip_docs
+                and rule.pattern.search(line)
             }
 
         for i in sorted(matching_lines):

@@ -140,6 +140,12 @@ def build_parser() -> argparse.ArgumentParser:
             "(same as ARGUS_NO_NETWORK=1)",
         )
         p.add_argument(
+            "--registry-check",
+            action="store_true",
+            help="Look up dependencies on npm / PyPI: flag names that don't exist (possibly "
+            "AI-hallucinated) and packages first published in the last 30 days",
+        )
+        p.add_argument(
             "--fail-on-low-confidence",
             action="store_true",
             help="Also let low-confidence rule matches trigger --fail-on (off by default)",
@@ -455,6 +461,10 @@ def _print_table(report_dict: dict) -> None:
         for f in result.get("findings", []):
             sev = f.get("severity", "unknown")
             file_short = Path(f.get("file", "")).name or f.get("file", "")
+            if f.get("package"):
+                # SCA: the package and installed version say more than the lockfile name.
+                version = (f.get("version") or "").split(", ")[-1]
+                file_short = f"{f['package']}@{version}" if version else f["package"]
             if len(file_short) > col_w["file"]:
                 file_short = "…" + file_short[-(col_w["file"] - 1) :]
             title = f.get("title", "")
@@ -465,12 +475,42 @@ def _print_table(report_dict: dict) -> None:
                 f"{sev:<{col_w['sev']}}  "
                 f"{result['tool']:<{col_w['tool']}}  "
                 f"{file_short:<{col_w['file']}}  "
-                f"{str(f.get('line', '')):<{col_w['line']}}  "
+                f"{str(f.get('line') or ''):<{col_w['line']}}  "
                 f"{title}"
             )
             print(_color(row, sev))
+            pad = " " * (col_w["sev"] + 2)
+            accepted = f.get("accepted_risk")
+            if accepted:
+                why = f": {accepted['reason']}" if accepted.get("reason") else ""
+                print(
+                    f"{pad}accepted risk until {accepted['expires']}{why} (does not fail the gate)"
+                )
+            elif f.get("accepted_risk_expired"):
+                print(f"{pad}accepted risk EXPIRED on {f['accepted_risk_expired']}: counts again")
+            paths = f.get("dependency_paths") or []
+            if any(" \u203a " in p for p in paths):  # direct dependencies need no "via"
+                more = f" (+{len(paths) - 3} more)" if len(paths) > 3 else ""
+                print(f"{pad}via {', '.join(paths[:3])}{more}")
+            if f.get("package") and f.get("fix_guidance"):
+                print(f"{pad}fix: {f['fix_guidance']}")
 
+    notes = [
+        note
+        for result in report_dict.get("results", [])
+        for note in (result.get("metadata") or {}).get("notes", [])
+    ]
+    if notes:
+        print()
+        for note in notes:
+            print(f"  Note: {note}")
     print()
+
+
+def _print_policy_notes(report_dict: dict) -> None:
+    """Accepted risks that expired, expire soon, matched nothing or lack a date."""
+    for note in report_dict.get("policy_notes", []):
+        print(f"Policy: {note}", file=sys.stderr)
 
 
 def _count_failing(report_dict: dict, fail_on: str, include_low_confidence: bool = False) -> int:
@@ -749,6 +789,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
     scan_type = args.scan_type
     if getattr(args, "no_network", False):
         os.environ["ARGUS_NO_NETWORK"] = "1"
+    if getattr(args, "registry_check", False):
+        os.environ["ARGUS_REGISTRY_CHECK"] = "1"
     timer = ScanTimer()
     timeout = args.timeout
     fmt = args.format
@@ -816,6 +858,7 @@ async def _run_scan(args: argparse.Namespace) -> int:
 
     report = AggregatedReport(target=report_target, results=results)
     report_dict = apply_policy(report.to_dict(), policy)
+    _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
     if baseline_path:
@@ -981,6 +1024,7 @@ async def _run_review(args: argparse.Namespace) -> int:
         print(line, file=sys.stderr)
 
     report_dict = apply_policy(report.to_dict(), policy)
+    _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
     if baseline_path:

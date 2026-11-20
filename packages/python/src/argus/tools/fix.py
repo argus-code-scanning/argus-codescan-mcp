@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from argus.remediation import github_actions
 from argus.remediation.secrets import format_fix_guidance, remediation_to_dict
 from argus.utils import is_tool_available, run_command
 
@@ -22,9 +23,11 @@ AUTOFIX_TOOLS = frozenset({"eslint", "eslint-security", "semgrep"})
 GUIDANCE_ONLY_SCAN_TYPES = frozenset({"secrets", "sca", "dast", "container", "ml"})
 
 
-def _autofix_available(tool: str, scan_type: str) -> bool:
+def _autofix_available(tool: str, scan_type: str, rule_id: str = "") -> bool:
     if scan_type in GUIDANCE_ONLY_SCAN_TYPES:
         return False
+    if github_actions.handles(rule_id):
+        return True
     normalized = tool.lower().replace("_", "-")
     if normalized.startswith("eslint"):
         return is_tool_available("eslint") or is_tool_available("npx")
@@ -114,7 +117,7 @@ async def apply_finding_fix(
             file_path = target_path / file_path
     resolved_file = str(file_path.resolve())
 
-    autofix = _autofix_available(tool, scan_type)
+    autofix = _autofix_available(tool, scan_type, rule_id)
     normalized_tool = tool.lower().replace("_", "-")
 
     result: dict[str, Any] = {
@@ -176,7 +179,13 @@ async def apply_finding_fix(
         result["message"] = f"File not found: {resolved_file}"
         return result
 
-    if normalized_tool.startswith("eslint"):
+    if github_actions.handles(rule_id):
+        original = file_path.read_text(encoding="utf-8")
+        outcome = await github_actions.fix_github_actions(original, rule_id, line)
+        if outcome.ok:
+            file_path.write_text(outcome.text, encoding="utf-8")
+        ok, message = outcome.ok, outcome.message
+    elif normalized_tool.startswith("eslint"):
         ok, message = await _run_eslint_fix(resolved_file, timeout)
     elif normalized_tool == "semgrep":
         ok, message = await _run_semgrep_autofix(resolved_file, semgrep_config, timeout)

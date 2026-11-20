@@ -3,7 +3,15 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { findPackageDirs, parseAuditFindings, runNpmAuditSca } from "../src/scanners/sca.js";
+import { buildReport, formatTable } from "../src/scanners/report.js";
+import {
+  auditCountNote,
+  dependencyPaths,
+  findPackageDirs,
+  fixGuidance,
+  parseAuditFindings,
+  runNpmAuditSca,
+} from "../src/scanners/sca.js";
 
 vi.mock("execa", () => ({ execa: vi.fn() }));
 
@@ -157,7 +165,11 @@ describe("runNpmAuditSca", () => {
     );
     // Relative to the scanned folder, with forward slashes on every OS.
     expect(byId["GHSA-5p4m-2wfm-xmqj"].file).toBe("package-lock.json");
-    expect(result.findings[0].severity).toBe("critical");
+    // vitest is dev-only: its critical advisory is lowered one level and tagged, like findings in tests.
+    expect(byId["GHSA-5xrq-8626-4rwp"].severity).toBe("high");
+    expect(byId["GHSA-5xrq-8626-4rwp"].context).toBe("dev-dependency");
+    expect(byId["GHSA-5p4m-2wfm-xmqj"].context).toBeUndefined();
+    expect(result.findings[0].severity).toBe("high");
   });
 
   it("accepts a package.json path as the target", async () => {
@@ -218,5 +230,65 @@ describe("findPackageDirs / parseAuditFindings", () => {
   it("skips string-only via entries", () => {
     const findings = parseAuditFindings(NPM_FULL, new Set());
     expect(findings.map((f) => f.package)).not.toContain("vite-node");
+  });
+});
+
+describe("dependency paths, fix advice and counts (npm audit)", () => {
+  // Shape of a real NestJS + TypeORM project: picomatch is reached at runtime through
+  // typeorm › tinyglobby and in dev through vitest; npm's only "fix" is a typeorm downgrade.
+  const audit = {
+    metadata: { vulnerabilities: { total: 5 } },
+    vulnerabilities: {
+      picomatch: {
+        severity: "high",
+        isDirect: false,
+        via: [{ source: 1, title: "picomatch vulnerable to ReDoS", url: "https://github.com/advisories/GHSA-fc5q-39xc-vjpf", severity: "high", range: "<=4.0.7" }],
+        effects: ["tinyglobby", "vitest"],
+        fixAvailable: { name: "typeorm", version: "0.3.31", isSemVerMajor: true },
+      },
+      tinyglobby: { severity: "high", isDirect: false, via: ["picomatch"], effects: ["typeorm"], fixAvailable: { name: "typeorm", version: "0.3.31", isSemVerMajor: true } },
+      typeorm: { severity: "high", isDirect: true, via: ["tinyglobby"], effects: [], fixAvailable: { name: "typeorm", version: "0.3.31", isSemVerMajor: true } },
+      vitest: { severity: "high", isDirect: true, via: ["picomatch"], effects: [], fixAvailable: true },
+      lodash: {
+        severity: "moderate",
+        isDirect: true,
+        via: [{ source: 2, title: "lodash issue", url: "https://github.com/advisories/GHSA-aaaa-bbbb-cccc", severity: "moderate", range: "<4.17.21" }],
+        effects: [],
+        fixAvailable: { name: "lodash", version: "4.17.21", isSemVerMajor: false },
+      },
+    },
+  };
+  const installed = new Map([["typeorm", ["1.1.1"]], ["picomatch", ["4.0.7"]], ["lodash", ["4.17.20"]]]);
+  const runtime = new Set(["picomatch", "tinyglobby", "typeorm", "lodash"]);
+
+  it("lists how the package is installed, runtime paths first", () => {
+    expect(dependencyPaths(audit, "picomatch", runtime)).toEqual([
+      "typeorm › tinyglobby › picomatch",
+      "vitest › picomatch",
+    ]);
+    expect(dependencyPaths(audit, "lodash", runtime)).toEqual(["lodash"]);
+  });
+
+  it("warns when npm's fix is a downgrade, and gives plain upgrades otherwise", () => {
+    const [pico, lodash] = parseAuditFindings(audit, runtime, "package-lock.json", installed);
+    expect(pico.fix).toMatch(/^No safe fix yet: npm audit fix --force would downgrade typeorm 1\.1\.1 to 0\.3\.31/);
+    expect(pico.fix).toContain("patched picomatch (affected: <=4.0.7)");
+    expect(lodash.fix).toBe("Upgrade lodash to 4.17.21.");
+    expect(fixGuidance({ fixAvailable: true }, "x", "")).toBe("Run npm audit fix (no breaking changes).");
+    expect(fixGuidance({ fixAvailable: false }, "x", "<2")).toMatch(/^No patched version of x is published yet \(affected: <2\)/);
+  });
+
+  it("explains npm audit's larger package count", () => {
+    const findings = parseAuditFindings(audit, runtime, "package-lock.json", installed);
+    expect(auditCountNote(audit, findings)).toMatch(/^2 advisories in 2 packages\. npm audit reports 5 vulnerable packages/);
+    expect(auditCountNote({ metadata: { vulnerabilities: { total: 2 } } }, findings)).toBeUndefined();
+  });
+
+  it("shows package@version, the path and the fix in the table", () => {
+    const findings = parseAuditFindings(audit, runtime, "package-lock.json", installed);
+    const table = formatTable(buildReport(".", "sca", [{ tool: "npm-audit", scanType: "sca", target: ".", findings, errors: [] }]));
+    expect(table).toContain("HIGH     picomatch@4.0.7");
+    expect(table).toContain("via typeorm › tinyglobby › picomatch, vitest › picomatch");
+    expect(table).toContain("fix: No safe fix yet");
   });
 });

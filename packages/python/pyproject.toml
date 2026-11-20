@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "argus-scan"
-version = "0.6.0"
+version = "0.10.1"
 description = "Argus - open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -29,8 +29,9 @@ classifiers = [
 dependencies = [
     "mcp>=1.0.0,<2",
     "anyio>=4.0.0",
-    "argus-languages>=0.5.0",
+    "argus-languages>=0.8.1",
     "pyyaml>=6.0",
+    "tomli>=2.0; python_version < '3.11'",  # TOML lockfiles (Cargo, poetry, uv) on Python 3.10
 ]
 
 [project.optional-dependencies]

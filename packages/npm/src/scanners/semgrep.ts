@@ -13,8 +13,22 @@ interface SemgrepResult {
   extra?: {
     message?: string;
     severity?: string;
+    lines?: string;
     metadata?: { cwe?: string[]; owasp?: string[] };
   };
+}
+
+// Bracket keys that cannot come from a request: UPPER_CASE constants, string and number literals.
+const CONSTANT_KEY = /^\s*(?:[A-Z][A-Z0-9_]*(?:\.[A-Z][A-Z0-9_]*)*|'[^']*'|"[^"]*"|\d+)\s*$/;
+
+/**
+ * Opengrep's remote-property-injection fires on any obj[key] = value in an Express handler, even
+ * when the key is a constant (headers[REQUEST_ID_HEADER] = id). Those are kept, at low confidence.
+ */
+export function hasOnlyConstantKeys(ruleId: string, lines: string | undefined): boolean {
+  if (!ruleId.endsWith("remote-property-injection") || !lines) return false;
+  const keys = [...lines.matchAll(/\[([^\[\]]*)\]/g)].map((m) => m[1]);
+  return keys.length > 0 && keys.every((key) => CONSTANT_KEY.test(key));
 }
 
 interface SemgrepOutput {
@@ -66,6 +80,14 @@ function relativePath(file: string | undefined, root: string): string | undefine
   return rel.startsWith("..") ? file : rel.split(sep).join("/");
 }
 
+/** First sentence of a rule message, so finding lists stay readable; the full text goes in the description. */
+export function shortTitle(message: string | undefined, ruleId: string): string {
+  const text = (message ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return ruleId;
+  const sentence = text.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? text;
+  return sentence.length <= 120 ? sentence : `${sentence.slice(0, 117).trimEnd()}…`;
+}
+
 export function parseSemgrepJson(
   stdout: string,
   result: ScanResult,
@@ -87,13 +109,15 @@ export function parseSemgrepJson(
   for (const r of data.results ?? []) {
     const ruleId = r.check_id ?? "unknown";
     result.findings.push({
-      title: r.extra?.message ?? ruleId,
+      title: shortTitle(r.extra?.message, ruleId),
       severity: mapSemgrepSeverity(r.extra?.severity),
       tool,
       file: root ? relativePath(r.path, root) : r.path,
       line: r.start?.line,
       ruleId,
+      ...(hasOnlyConstantKeys(ruleId, r.extra?.lines) ? { confidence: "low" as const } : {}),
       description: [
+        r.extra?.message ?? "",
         r.extra?.metadata?.cwe?.length ? `CWE: ${r.extra.metadata.cwe.join(", ")}` : "",
         r.extra?.metadata?.owasp?.length ? `OWASP: ${r.extra.metadata.owasp.join(", ")}` : "",
       ]

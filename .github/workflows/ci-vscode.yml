@@ -51,6 +51,7 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment: vscode-marketplace
     env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
       OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - uses: actions/checkout@v4
@@ -59,10 +60,13 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm run build
+      # Skipped (green) until VSCE_PAT is set — see docs/launch/trusted-publishing.md
       - name: Publish to VS Code Marketplace
+        if: env.VSCE_PAT != ''
         run: npx vsce publish --no-dependencies
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Skip Marketplace (no VSCE_PAT)
+        if: env.VSCE_PAT == ''
+        run: echo "VSCE_PAT not set — skipping Marketplace publish."
       # Cursor, VSCodium and Windsurf install from Open VSX. Skipped until OVSX_PAT is set.
       - name: Publish to Open VSX
         if: env.OVSX_PAT != ''

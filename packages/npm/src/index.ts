@@ -19,4 +19,6 @@ export const VERSION = "0.4.0";
 
 export { runScanCli } from "./scan-cli.js";
 export { runNpmAuditSca } from "./scanners/sca.js";
+export { checkTerraformFile, runTerraformDependencyCheck } from "./scanners/terraform-deps.js";
+export { runOsvDependencyCheck } from "./scanners/osv-deps.js";
 export type { Finding, ScanReport, ScanResult } from "./scanners/types.js";

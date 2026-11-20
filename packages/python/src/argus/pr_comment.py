@@ -50,7 +50,7 @@ def _inline(text: str, limit: int = 200) -> str:
         flat = flat[: limit - 1].rstrip() + "…"
     flat = flat.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     flat = flat.replace("|", "\\|")
-    return _MENTION_RE.sub("@​", flat)
+    return _MENTION_RE.sub("@\u200b", flat)
 
 
 def _code(text: str, limit: int = 120) -> str:
@@ -230,7 +230,7 @@ def _ai_prompt(groups: list[dict[str, Any]]) -> list[str]:
         "<summary>Prompt for an AI assistant</summary>",
         "",
         "````text",
-        _MENTION_RE.sub("@​", text),
+        _MENTION_RE.sub("@\u200b", text),
         "````",
         "",
         "</details>",

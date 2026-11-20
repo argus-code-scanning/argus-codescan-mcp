@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runNativeSast } from "../src/scanners/native-sast.js";
 import { installedVersions, parseAuditFindings } from "../src/scanners/sca.js";
+import { fitLocation } from "../src/scanners/report.js";
 import { parseSemgrepJson } from "../src/scanners/semgrep.js";
 import type { ScanResult } from "../src/scanners/types.js";
 
@@ -83,6 +84,32 @@ describe("report paths and versions", () => {
     });
     parseSemgrepJson(stdout, result, "opengrep", root);
     expect(result.findings.map((f) => f.file)).toEqual([".github/workflows/ci.yml", "src/app.ts"]);
+  });
+
+  it("keeps remote-property-injection on constant keys at low confidence", () => {
+    const result: ScanResult = { tool: "opengrep", scanType: "sast", target: root, findings: [], errors: [] };
+    const id = "javascript.express.security.audit.remote-property-injection.remote-property-injection";
+    const hit = (line: number, lines: string) => ({ check_id: id, path: "src/a.ts", start: { line }, extra: { lines } });
+    parseSemgrepJson(
+      JSON.stringify({
+        results: [
+          hit(1, "    request.headers[REQUEST_ID_HEADER] = id;"),
+          hit(2, "    res.locals['user'] = user;"),
+          hit(3, "    target[req.body.key] = req.body.value;"),
+          hit(4, "    store[name] = value;"),
+        ],
+      }),
+      result,
+      "opengrep",
+    );
+    expect(result.findings.map((f) => f.confidence)).toEqual(["low", "low", undefined, undefined]);
+  });
+
+  it("keeps the file name and line visible in the table location column", () => {
+    const loc = fitLocation(".github/workflows/deploy.yml:101");
+    expect(loc).toHaveLength(26);
+    expect(loc.trimEnd().endsWith("deploy.yml:101")).toBe(true);
+    expect(fitLocation("src/app.ts:3").trimEnd()).toBe("src/app.ts:3");
   });
 
   it("fills in the installed version for npm audit findings", () => {

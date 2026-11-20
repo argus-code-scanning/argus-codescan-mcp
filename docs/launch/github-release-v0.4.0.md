@@ -55,8 +55,6 @@ npx argus-codescan@0.7.0 scan all . --fail-on high
 
 The v0.3.0 tag run could not publish, so these must be in place first:
 
-1. **PyPI**: on pypi.org, open each of `argus-scan` and `argus-languages`, go to Publishing, and add a GitHub trusted publisher: owner `argus-code-scanning`, repository `argus-codescan-mcp`, workflow `ci-python.yml`, environment `pypi`.
-2. **npm**: on npmjs.com, open `argus-codescan`, then Settings, then Trusted publisher, and choose GitHub Actions: organization `argus-code-scanning`, repository `argus-codescan-mcp`, workflow `ci-npm.yml`, environment `npm`. Alternatively, add an `NPM_TOKEN` secret.
-3. **VS Code Marketplace**: add a `VSCE_PAT` secret (an Azure DevOps token with the Marketplace "Manage" scope for publisher `arestechub`). Optionally add `OVSX_PAT` to also publish to Open VSX for Cursor and VSCodium.
+1. **PyPI / npm / VSCE** — follow [trusted-publishing.md](trusted-publishing.md) (OIDC for PyPI + npm; `VSCE_PAT` for Marketplace).
 
 Then push the tag from `main`: `git tag v0.4.0 && git push origin v0.4.0`

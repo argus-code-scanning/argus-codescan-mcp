@@ -35,6 +35,10 @@ RULE_FILES = (
     "exposed-endpoints.yaml",
     "ssti.yaml",
     "xpath.yaml",
+    "agent-rules.yaml",
+    "shell.yaml",
+    "powershell.yaml",
+    "batch.yaml",
 )
 
 
@@ -61,7 +65,7 @@ CONFIDENCE_LEVELS = ("high", "medium", "low")
 
 # Malware rules look at code that may be hostile: the author of that code must not be
 # able to silence them with a comment or by putting the payload under tests/.
-_UNTRUSTED_SOURCE_FILES = frozenset({"malware.yaml", "dependency-sources.yaml"})
+_UNTRUSTED_SOURCE_FILES = frozenset({"malware.yaml", "dependency-sources.yaml", "agent-rules.yaml"})
 
 
 def _compile_pattern(raw: str, flags: list[str] | None) -> re.Pattern[str]:

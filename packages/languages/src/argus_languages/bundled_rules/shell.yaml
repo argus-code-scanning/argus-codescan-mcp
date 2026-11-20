@@ -1,0 +1,60 @@
+# Insecure shell scripts (#219): bash / sh / zsh, plus extensionless files with a sh shebang.
+# Download-and-run (curl | sh) is reported by malware.yaml (malware-curl-pipe-shell).
+
+- id: sh-eval-variable
+  title: eval runs a variable or argument as shell code
+  severity: high
+  pattern: '(?:^|[;&|({]\s*|\bthen\s+|\bdo\s+)eval\s+["'']?\$(?!\()(?:\{?[A-Za-z_@*0-9])'
+  languages: [shell]
+  fix_guidance: Call the command directly with quoted arguments ("$cmd" "$@") or use a case statement over allowed values; eval re-parses the text as code, so any input in it can run commands.
+
+- id: sh-rm-unguarded-variable
+  title: rm -rf on a variable path with no empty-value guard (an empty variable deletes from /)
+  severity: high
+  pattern: '\brm\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+(?:-[a-zA-Z-]+\s+)*(?:--\s+)?"?\$(?:\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)"?/(?:\*|["''\s;]|$)'
+  languages: [shell]
+  fix_guidance: 'Fail on an empty value before deleting: rm -rf "${DIR:?}/" (or check [ -n "$DIR" ] and that it is not /). The Steam installer bug wiped home directories this way.'
+
+- id: sh-tls-verification-off
+  title: TLS certificate verification turned off
+  severity: high
+  pattern: '\bcurl\b[^\n#]*\s(?:--insecure\b|-[a-zA-Z]*k[a-zA-Z]*(?=\s|$))|\bwget\b[^\n#]*--no-check-certificate|\bgit\b[^\n#]*http\.sslVerify[= ]+false|\bGIT_SSL_NO_VERIFY=["'']?(?:1|true)|\bnpm\s+config\s+set\s+strict-ssl\s+false|\bNODE_TLS_REJECT_UNAUTHORIZED=["'']?0|\bpip3?\s+install\b[^\n#]*--trusted-host'
+  languages: [shell]
+  fix_guidance: Keep certificate checks on and fix the trust store instead (install the internal CA, or point curl --cacert / git http.sslCAInfo / NODE_EXTRA_CA_CERTS at it).
+
+- id: sh-chmod-world-writable
+  title: chmod makes files world-writable (777 / 666 / o+w)
+  severity: medium
+  pattern: '\bchmod\s+(?:-[a-zA-Z]+\s+)*(?:0?[0-7]?(?:777|666)|[ugoa]*[oa][ugoa]*\+[rxX]*w)\b'
+  languages: [shell]
+  fix_guidance: Grant only what is needed (755 for directories and executables, 644 for files) and set the owner with chown instead of opening the file to every user.
+
+- id: sh-password-on-command-line
+  title: Password or secret written into the script or passed on the command line
+  severity: high
+  pattern: '\bsshpass\s+-p\s*["'']?[^\s"''$-]|\bmysql(?:dump|admin)?\b[^\n#]*\s(?:-p|--password=)["'']?[^\s"''$-][^\s"'']*|\b(?:PGPASSWORD|MYSQL_PWD)=["'']?[^\s"''$]{3,}|\bexport\s+\w*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY)\w*=["'']?[A-Za-z0-9/+_.@!-]{6,}["'']?\s*(?:$|#|;)'
+  languages: [shell]
+  confidence: medium
+  fix_guidance: Read secrets from the environment or a secret store at run time (sshpass -e, MYSQL_PWD from a secret, ~/.pgpass with 600 permissions); command lines are visible to every user in ps and end up in shell history.
+
+- id: sh-predictable-tmp-file
+  title: Script writes to a fixed /tmp path (symlink or race attacks)
+  severity: medium
+  pattern: '(?:>>?|\btee\s+(?:-a\s+)?)\s*["'']?/tmp/(?:[\w.-]+|\$\$)(?:["''\s;]|$)'
+  languages: [shell]
+  confidence: low
+  fix_guidance: Create temporary files with tmp=$(mktemp) (or mktemp -d) and clean them up with trap 'rm -f "$tmp"' EXIT.
+
+- id: sh-sudoers-nopasswd
+  title: Script grants passwordless sudo or edits sudoers directly
+  severity: high
+  pattern: 'NOPASSWD:\s*ALL\b|(?:>>?|\btee\s+(?:-a\s+)?)\s*["'']?/etc/sudoers(?:\.d/[\w.-]+)?\b'
+  languages: [shell]
+  fix_guidance: Grant sudo only for the specific commands needed, in a file under /etc/sudoers.d checked with visudo -cf; never ALL without a password.
+
+- id: sh-ssh-host-key-check-off
+  title: SSH host key checking turned off (man-in-the-middle)
+  severity: medium
+  pattern: 'StrictHostKeyChecking[= ]+["'']?no\b|UserKnownHostsFile[= ]+["'']?/dev/null'
+  languages: [shell]
+  fix_guidance: Add the server key to known_hosts ahead of time (ssh-keyscan once and commit or store it, then verify its fingerprint), or use StrictHostKeyChecking=accept-new at the very least.

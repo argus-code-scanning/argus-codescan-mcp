@@ -58,6 +58,7 @@ async def run_pci_scan(target: str) -> ScanResult:
                 confidence=getattr(item, "confidence", ""),
                 context=getattr(item, "context", ""),
                 fix_guidance=(
+                    # argus-ignore[pci-cvv-storage]: advice text shown to users, not card data
                     "Remove or tokenize cardholder data. Never log PANs. Never store CVV/CVC "
                     "after authorization. Send card data only over HTTPS."
                 ),

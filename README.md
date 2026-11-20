@@ -68,7 +68,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 |----------|-------|
 | **SAST** | Semgrep · Bandit · ESLint-security · flake8-bandit |
 | **DAST** | OWASP ZAP · Nikto |
-| **SCA** | Trivy · Safety · pip-audit · npm audit · built-in Maven/Gradle CVE check (OSV) · built-in OSV known-malicious package check (MAL- records) |
+| **SCA** | Trivy · Safety · pip-audit · npm audit · govulncheck · composer audit · built-in OSV check for every lockfile (npm, Python, Go, Flutter/Dart, Rust, Ruby, .NET, PHP, Maven/Gradle) · built-in OSV known-malicious package check (MAL- records) |
 | **Secrets** | Gitleaks · detect-secrets · TruffleHog |
 | **IaC** | Checkov · Trivy config · Terrascan · KICS |
 | **Terraform** | tfsec · tflint · terraform validate · KICS · Checkov |
@@ -77,6 +77,55 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 | **Malware** | Built-in heuristics — crypto miners, reverse shells, BAT/PS1 droppers, web shells (not AV) |
 
+### Shell, PowerShell and batch scripts
+
+`scan code` / `scan sast` (both packages) check `.sh` `.bash` `.zsh`, `.ps1` `.psm1` `.psd1` and `.bat` `.cmd` files, plus extensionless scripts found by their `#!` line (`bin/deploy`, `scripts/setup`). `bin/` is scanned unless it holds build output (`Debug/`, `Release/`, `.dll`).
+
+| Shell | PowerShell | Batch |
+|---|---|---|
+| `eval "$1"` / `eval $CMD` | `Invoke-Expression $var`, `$x \| iex` | `net user … /add`, admin group adds |
+| `rm -rf "$DIR/"` without `${DIR:?}` | `-ExecutionPolicy Bypass` | `net use … /user:x Password`, `runas /savecred`, `set PASSWORD=…` |
+| `curl -k`, `wget --no-check-certificate`, `git http.sslVerify false`, `NODE_TLS_REJECT_UNAUTHORIZED=0` | plaintext `ConvertTo-SecureString "…" -AsPlainText`, `$password = "…"` | `netsh advfirewall … state off` |
+| `chmod 777` / `o+w` | `ServerCertificateValidationCallback = {$true}`, `-SkipCertificateCheck` | |
+| `sshpass -p`, `mysql -pSecret`, `export DB_PASSWORD=literal` | SSL3 / TLS 1.0 / 1.1 | |
+| fixed `/tmp/…` files (low confidence), `NOPASSWD: ALL`, `StrictHostKeyChecking=no` | | |
+
+Download-and-run (`curl … \| sh`, `iwr … \| iex`), encoded commands, certutil/bitsadmin downloads and Defender tampering are reported by the malware rules.
+
+### Vulnerable dependencies in every language
+
+`argus scan sca` (Python) and `npx argus-codescan scan sca` (npm) check the exact versions in your lockfiles against [OSV](https://osv.dev), with nothing else to install:
+
+| Ecosystem | Files read |
+|---|---|
+| JavaScript / TypeScript | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` |
+| Python | `requirements*.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock` |
+| Go | `go.mod` (and the Go toolchain from its `toolchain` line) |
+| Dart / Flutter | `pubspec.lock` |
+| Rust | `Cargo.lock` |
+| Ruby | `Gemfile.lock` |
+| .NET | `packages.lock.json` |
+| PHP | `composer.lock` |
+| Java / Kotlin | `pom.xml`, Gradle lockfiles, build files and version catalogs |
+
+There is **one finding per package**, with every advisory for that version, the version that fixes all of them, how the package gets into your project (`via chrono › time`), and the command for that ecosystem (`cargo update -p time --precise 0.2.23`, `go get …`, `flutter pub upgrade …`). Dev-only packages are lowered one level. When an ecosystem's own tool is installed (npm audit, pip-audit, govulncheck, composer audit, or Trivy for all of them), that tool covers it instead, so nothing is reported twice. Only package names and versions are sent to OSV; `--no-network` (or `ARGUS_NO_NETWORK=1`) skips the check. In the npm package, `package-lock.json` stays with npm audit and every other lockfile goes to OSV.
+
+#### npm details
+
+
+`scan sca` runs `npm audit` for every lockfile and reports **one finding per advisory**, with:
+
+- the installed version (`picomatch@4.0.7`) and **how it gets into your project**, runtime paths first: `via typeorm › tinyglobby › picomatch, vitest › picomatch`
+- **fix advice** that won't break you: when npm's only "fix" is to downgrade one of your dependencies (`npm audit fix --force` moving `typeorm` 1.1.1 to 0.3.31), Argus says there is no safe fix yet instead
+- dev-only packages lowered one severity level and marked `dev dependency`
+- a note when `npm audit` shows a bigger number: it counts every package that *depends on* a vulnerable one, so 4 advisories can show up as "22 vulnerabilities"
+
+```
+HIGH     picomatch@4.0.7            picomatch vulnerable to ReDoS through sing
+         via typeorm › tinyglobby › picomatch, vitest › picomatch
+         fix: No safe fix yet: npm audit fix --force would downgrade typeorm 1.1.1 to 0.3.31. ...
+```
+
 ### Known-malicious dependencies
 
 `argus scan sca` (and `scan all`, and the MCP `scan_sca` tool) also checks every package in your lockfiles against OSV's **known-malicious** records (`MAL-…`, from the OpenSSF malicious-packages feed). A match is always **critical**: it means the exact version you lock was published as malware.
@@ -84,9 +133,34 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 - Reads `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`, pinned `requirements*.txt` (`name==version`), `composer.lock`, and for Java/Kotlin `pom.xml`, `gradle.lockfile`, `build.gradle(.kts)` and `libs.versions.toml`. Nothing is installed or run.
 - Sends only package names and exact versions to `api.osv.dev`. Offline, the check is skipped with a note. To turn it off, use `--no-network` or `ARGUS_NO_NETWORK=1`.
 
+### Typosquats and hallucinated packages
+
+`argus scan sca` checks every direct dependency name in `package.json`, `requirements*.txt` and `pyproject.toml`:
+
+- **Lookalikes (offline, always on):** names one character away from a top npm / PyPI package (`reqeusts`, `loadsh`, `electorn`), separator swaps (`crossenv`), added `py`/`js`/`node-`/`python-` affixes, and look-alike characters. Packages that are themselves established (in the bundled top ~15,000 lists per registry) are never reported.
+- **Missing or brand-new packages (online, opt-in):** with `--registry-check`, dependencies that **don't exist** on npm / PyPI (often names an AI assistant made up, which attackers then register: "slopsquatting") are high, and packages first published in the last 30 days get a review. Projects using a private registry or `--extra-index-url` are skipped.
+
+The popular-package lists come from [top-pypi-packages](https://hugovk.dev/top-pypi-packages/) and [npm-high-impact](https://github.com/wooorm/npm-high-impact); refresh them with `python packages/python/scripts/refresh_top_packages.py`.
+
 ### Java / Kotlin dependencies without Trivy
 
 When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle dependencies for known vulnerabilities. It reads the same files listed above and looks up exact versions on OSV. Findings include the CVE and GHSA ids, the severity and the nearest fixed version. Only literal versions are used: `${property}` values are resolved from the pom, while ranges, `1.+` and SNAPSHOTs are skipped. Nothing is downloaded, and no JVM or build is needed. With Trivy installed, Trivy covers this instead, so CVEs aren't reported twice.
+
+### Missing rate limiting and login lockout
+
+`argus scan sast` (and `scan all`) checks whether your API protects its sensitive endpoints against brute force and abuse. That is a **missing** control, so Argus looks at the whole project:
+
+1. It finds login, token, password-reset, OTP/2FA, register and verify routes in Express, NestJS, Fastify, Flask, FastAPI, Django, aiohttp, Spring, JAX-RS, Ktor, Laravel, Symfony, Slim, Rails, Sinatra, Go (net/http, gin, echo, chi, Fiber), ASP.NET Core, Rust (actix, axum) and Phoenix.
+2. It looks for a rate limiter (express-rate-limit, `@nestjs/throttler`, Flask-Limiter, slowapi, DRF throttling, Bucket4j, Resilience4j, Ktor RateLimit, Laravel `throttle`, Symfony RateLimiter, Rack::Attack, `x/time/rate`, `AddRateLimiter`, governor, Hammer, or your own `RateLimit` guard) and for account lockout (failed-attempt counters, `locked_until`, django-axes, `ThrottlesLogins`, Identity `lockoutOnFailure`).
+
+| Finding | When |
+|---|---|
+| `api-rate-limit-missing` (medium) | Sensitive endpoints and no rate limiter anywhere |
+| `auth-lockout-missing` (medium) | Login endpoints with neither rate limiting nor lockout |
+| `auth-lockout-missing` (low, review) | Login is rate limited, but there is no per-account lockout |
+| `api-rate-limit-missing-general` (low, review) | An HTTP API with no rate limiting at all |
+
+Tests, docs and examples are ignored. Login delegated to an identity provider (Auth0, Cognito, Keycloak, Okta, Clerk, Firebase…) skips the lockout finding.
 
 ### Known threats (IOCs)
 
@@ -95,6 +169,29 @@ When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle depen
 - **Your own list:** put one URL, domain, IPv4 or SHA-256 per line in `.argus/iocs.txt` (or point `ARGUS_IOC_FILE` at a file). This works offline, with no account.
 - **abuse.ch feeds** (ThreatFox, URLhaus, MalwareBazaar): get a free Auth-Key at [auth.abuse.ch](https://auth.abuse.ch/) and set `ARGUS_ABUSECH_AUTH_KEY`. Feeds are cached for 24 hours in `~/.cache/argus/threat-intel`; `--no-network` uses only the cache.
 - Matching is local: repository content is never uploaded. Big shared platforms (GitHub, Google Drive, Discord CDN…) only match an exact listed URL, never the whole domain.
+
+### Poisoned AI agent rules files
+
+`argus scan malware` (and `scan code` / `scan all`) reads the files AI coding agents follow without showing them to you: `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, `CLAUDE.md`, `.claude/**/*.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/`, `.github/prompts/`, `.windsurfrules`, `.clinerules`, `.continue/`. It flags the "Rules File Backdoor" tricks:
+
+- invisible or bidi Unicode (hidden text the user can't see)
+- "ignore previous instructions", and hiding actions from the user ("don't tell the user…", "silently add…")
+- raw-IP, paste-site, tunnel and webhook URLs; download-and-run instructions
+- instructions to send or embed secrets, or to turn off TLS / auth / CSRF checks
+- hidden `<!-- … -->` comments that carry instructions for the agent
+
+Like the malware rules, these can't be silenced with `argus-ignore` and aren't downgraded in test folders: a poisoned rules file is attacker-controlled.
+
+### Invisible Unicode and Trojan Source
+
+`argus scan malware` (and `scan all`) also reads every source file and Markdown file for characters an editor or a diff doesn't show:
+
+- bidi controls (Trojan Source, CVE-2021-42574): high
+- zero-width characters: medium
+- variation selectors and tag characters outside an emoji (GlassWorm, ASCII smuggling): high in code, medium in Markdown
+- runs of 10 or more private-use characters: high
+
+Each finding names the code point and its column, for example `U+202E RIGHT-TO-LEFT OVERRIDE at col 14`. A byte order mark at the start of a file, emoji sequences, right-to-left text, and the joiners that Persian, Hindi and other scripts are spelled with are not flagged. AI agent rules files are covered by the rule above.
 
 ## MCP Tools (for AI clients)
 
@@ -194,6 +291,20 @@ suppressions:
     expires: "2026-12-31"
 ```
 
+#### Accepted risks (audit gate with an expiry)
+
+When a finding can't be fixed yet (for example, no patched version exists), accept it for a limited time instead of turning the gate off:
+
+```yaml
+accepted_risks:
+  - id: GHSA-fc5q-39xc-vjpf        # advisory, CVE or rule id
+    package: picomatch             # optional
+    reason: "No patched version; reached via typeorm > tinyglobby"
+    expires: "2026-12-17"          # required
+```
+
+The finding stays in the report (`accepted risk until 2026-12-17`) but doesn't fail `--fail-on`. Every other finding still does. Argus prints a note when an acceptance expires within 14 days, when it has expired (the finding fails again), when an entry has no `expires`, and when an entry no longer matches anything (it can be removed). This replaces hand-written `npm audit | jq` allow-list scripts, and works for every scanner and ecosystem, in both `argus` and `npx argus-codescan` (which now reads `.argus.yml` too; `--policy <file>` to choose one).
+
 Argus auto-discovers `.argus.yml` when scanning. Override with `--policy path/to/.argus.yml`.
 
 ### Cutting false positives
@@ -241,6 +352,8 @@ argus scan secrets . --format json   # fix_guidance on each finding
 ### Database security rules
 
 Built-in static rules for SQL injection, connection strings, migration GRANTs, ORM raw queries:
+
+- **JavaScript / TypeScript ORMs** (both packages): values interpolated into TypeORM `.where()` / `.andWhere()` / `.having()`, Knex `whereRaw` / `orderByRaw` / `knex.raw`, Prisma `$queryRawUnsafe` / `$executeRawUnsafe` / `Prisma.raw`, and `sequelize.literal()`. Named parameters, bindings and tagged templates are not flagged, nor are `${UPPER_CASE}` constants. An `ORDER BY` column taken from the request is reported as low confidence: check it is limited to an allow-list.
 
 ```bash
 argus scan code .    # includes database.yaml rules via argus-languages
@@ -564,6 +677,10 @@ To claim an issue, comment "I'd like to work on this" with a short plan and a ma
 Created and maintained by **Okiri Gabriel** ([@OkiriGabriel](https://github.com/OkiriGabriel)) · Website: https://code-scan.arestechub.com/
 
 Argus is free and open source under the MIT license, built in the open with its contributors. Anyone can use, modify and redistribute it, and contributions are welcome (see [Contributing](#contributing)).
+
+### Credit
+
+If you use, fork or build on Argus, please credit it: keep the copyright notice and [LICENSE](LICENSE) (the MIT license requires this), and mention **Argus by Okiri Gabriel** with a link to this repository in your README, docs or about page. Third-party scanners and data Argus works with are listed in [NOTICE](NOTICE).
 
 ## License
 

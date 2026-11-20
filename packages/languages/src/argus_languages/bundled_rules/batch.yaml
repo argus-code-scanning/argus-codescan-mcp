@@ -1,0 +1,27 @@
+# Insecure Windows batch scripts (#220). certutil / bitsadmin downloads, Defender tampering and
+# Run-key persistence are reported by malware.yaml.
+
+- id: bat-add-admin-user
+  title: Script creates a local user or adds one to Administrators
+  severity: high
+  pattern: '\bnet\s+user\s+\S+\s+\S+\s+/add\b|\bnet\s+localgroup\s+administrators\s+\S+\s+/add\b'
+  flags: [i]
+  languages: [batch, powershell]
+  fix_guidance: Manage accounts through your directory / provisioning tool; a script that adds administrators is also exactly what attackers run.
+
+- id: bat-plaintext-credentials
+  title: Plaintext password in a batch script
+  severity: high
+  pattern: '\bnet\s+use\b[^\n]*/user:\S+\s+(?!\*)(?!%)[^\s/]+|\brunas\b[^\n]*/savecred\b|^\s*set\s+"?\w*(?:PASSWORD|PASSWD|PWD|SECRET|TOKEN)\w*=[^%\s"]{4,}'
+  flags: [i]
+  languages: [batch]
+  confidence: medium
+  fix_guidance: Prompt for the password (net use ... /user:name *) or read it from a secret store at run time; runas /savecred stores the credential for any later command.
+
+- id: bat-firewall-disabled
+  title: Script turns the Windows firewall off
+  severity: high
+  pattern: '\bnetsh\s+advfirewall\s+set\s+\w+\s+state\s+off\b|\bnetsh\s+firewall\s+set\s+opmode\s+(?:mode=)?disable\b|Set-NetFirewallProfile\b[^\n]*-Enabled\s+(?:False|\$false|0)'
+  flags: [i]
+  languages: [batch, powershell]
+  fix_guidance: Open only the ports you need (netsh advfirewall firewall add rule ...) instead of turning the firewall off.

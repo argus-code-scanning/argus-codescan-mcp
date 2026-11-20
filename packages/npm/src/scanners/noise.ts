@@ -95,7 +95,8 @@ export function applyPathContext(result: ScanResult, root: string): ScanResult {
   return result;
 }
 
-/** Low-confidence rule matches are reported but only fail --fail-on when asked. */
+/** Low-confidence matches and accepted risks are reported but only fail --fail-on when asked. */
 export function countsTowardFailure(finding: Finding, includeLowConfidence = false): boolean {
+  if (finding.acceptedRisk) return false; // .argus.yml accepted risk, not expired
   return includeLowConfidence || finding.confidence !== "low";
 }
