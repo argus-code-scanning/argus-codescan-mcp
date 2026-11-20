@@ -257,6 +257,11 @@ def build_parser() -> argparse.ArgumentParser:
     all_p.add_argument("--url", metavar="URL", help="Also run DAST against this URL")
     all_p.add_argument("--image", metavar="IMAGE", help="Also scan this container image")
 
+    # Scan types added by installed packages (argus.scan_plugins entry points)
+    from argus.plugins import register_plugin_parsers
+
+    register_plugin_parsers(scan_sub, _add_common, builtin=set(scan_sub.choices))
+
     # ── compare ─────────────────────────────────────────────────────────────
     cmp_p = sub.add_parser("compare", help="Diff two scan JSON reports (baseline vs current)")
     cmp_p.add_argument("baseline", help="Path to baseline scan JSON")
@@ -777,6 +782,12 @@ async def _dispatch_scan(
             elif not isinstance(batch, BaseException):
                 results.append(batch)
         return results
+
+    from argus.plugins import load_scan_plugins
+
+    plugin = load_scan_plugins().get(scan_type)
+    if plugin is not None:
+        return await plugin.run(target, args, timeout)
 
     return None
 
