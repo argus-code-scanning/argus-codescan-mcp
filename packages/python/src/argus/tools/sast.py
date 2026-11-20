@@ -328,6 +328,7 @@ async def run_all_sast(
 
     from argus.tools.abuse_controls import run_abuse_control_check
     from argus.tools.code import run_native_languages
+    from argus.tools.security_headers import run_security_headers_check
     from argus.tools.taint_sql import run_taint_sql_check
 
     target_path = Path(target)
@@ -337,6 +338,8 @@ async def run_all_sast(
     tasks.append(run_native_languages(target))
     # Missing rate limiting / login lockout on auth endpoints (#191) — built in, always runs
     tasks.append(run_abuse_control_check(target))
+    # Missing / disabled HTTP security headers (#198) — built in, always runs
+    tasks.append(run_security_headers_check(target))
     # SQL injection across lines: request input → SQL execution, Python (#183) — built in
     tasks.append(run_taint_sql_check(target))
 
