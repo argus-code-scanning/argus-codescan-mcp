@@ -20,6 +20,7 @@ RULE_FILES = (
     "pci-dss.yaml",
     "pii.yaml",
     "auth-jwt.yaml",
+    "cookies.yaml",
     "java.yaml",
     "php.yaml",
     "laravel.yaml",

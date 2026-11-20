@@ -1,0 +1,129 @@
+# Session and auth cookies without HttpOnly (readable by XSS), Secure (sent over plain HTTP)
+# or SameSite (sent on cross-site requests). Only cookies whose name looks like a session,
+# token or auth cookie are flagged when options are missing; explicit "false" settings are
+# flagged wherever they appear in cookie configuration.
+#
+# Name check used below: a quoted name containing session, sess, sid, token, auth, jwt,
+# remember, refresh or access.
+
+- id: js-cookie-sensitive-no-options
+  title: Session or auth cookie set without options — no HttpOnly, Secure or SameSite
+  severity: medium
+  pattern: '\.cookie\(\s*[''"`][\w.-]*(session|sess|sid|token|auth|jwt|remember|refresh|access)[\w.-]*[''"`]\s*,\s*[^,{}()]+(\([^,{}()]*\))?\s*\)\s*;?\s*(//.*)?$'
+  flags: [i]
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Pass options: res.cookie("session", token, { httpOnly: true, secure: true,
+    sameSite: "lax" }). Use sameSite "strict" when the cookie is never needed on links
+    from other sites.
+
+- id: js-cookie-httponly-disabled
+  title: Cookie HttpOnly disabled — JavaScript (and any XSS) can read it
+  severity: medium
+  pattern: '\bhttpOnly\s*:\s*false\b'
+  flags: [i]
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Set httpOnly: true on session and auth cookies. If the browser needs a value, send it in
+    a separate non-sensitive cookie or response body.
+
+- id: js-cookie-secure-disabled
+  title: Cookie Secure flag disabled — the cookie is sent over plain HTTP
+  severity: medium
+  # Only in cookie configuration (express-session cookie: {...}, res.cookie options), so
+  # SMTP/TLS "secure: false" settings are not flagged.
+  pattern: '(\bcookie\b|httpOnly|sameSite|maxAge)[^\n]*\bsecure\s*:\s*false\b|\bsecure\s*:\s*false\b[^\n]*(httpOnly|sameSite|maxAge)'
+  flags: [i]
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Set secure: true in production (behind a proxy also set app.set("trust proxy", 1) for
+    express-session). For local HTTP development, use secure: process.env.NODE_ENV ===
+    "production" rather than false.
+
+- id: python-cookie-sensitive-no-options
+  title: Session or auth cookie set without secure, httponly or samesite
+  severity: medium
+  pattern: '\.set_cookie\(\s*[''"][\w.-]*(session|sess|sid|token|auth|jwt|remember|refresh|access)[\w.-]*[''"]\s*,\s*[^,()=]+(\([^,()]*\))?\s*\)\s*(#.*)?$'
+  flags: [i]
+  languages: [python]
+  fix_guidance: >-
+    Pass the flags: response.set_cookie("session", sid, secure=True, httponly=True,
+    samesite="Lax").
+
+- id: python-cookie-flag-disabled
+  title: Cookie set with secure or httponly turned off
+  severity: medium
+  pattern: '\.set_cookie\(.*\b(secure|httponly)\s*=\s*False\b'
+  languages: [python]
+  fix_guidance: >-
+    Use secure=True and httponly=True for session and auth cookies.
+
+- id: python-session-cookie-settings-insecure
+  title: Session / CSRF cookie Secure or HttpOnly disabled in settings
+  severity: medium
+  # Django settings (SESSION_COOKIE_SECURE = False) and Flask config
+  # (app.config["SESSION_COOKIE_SECURE"] = False).
+  pattern: '(^\s*|\[\s*[''"])(SESSION|CSRF|REMEMBER)_COOKIE_(SECURE|HTTPONLY)([''"]\s*\])?\s*=\s*False\b'
+  languages: [python]
+  fix_guidance: >-
+    Set SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY and CSRF_COOKIE_SECURE to True in
+    production settings. Keep any False values in a development-only settings file.
+
+- id: java-cookie-without-httponly
+  title: Session or auth cookie added without setHttpOnly(true)
+  severity: medium
+  # new Cookie("JSESSIONID", ...) that reaches addCookie with no setHttpOnly(true) between.
+  pattern: '\bnew\s+Cookie\s*\(\s*"[\w.-]*(session|sess|sid|token|auth|jwt|remember|refresh|access)[\w.-]*"[^;]*;(?:(?!\.setHttpOnly\s*\(\s*true)[^}]){0,800}?\.addCookie\s*\('
+  flags: [i]
+  multiline: true
+  languages: [java]
+  fix_guidance: >-
+    Call cookie.setHttpOnly(true) and cookie.setSecure(true) before response.addCookie, or
+    use ResponseCookie.from(name, value).httpOnly(true).secure(true).sameSite("Lax").
+
+- id: java-cookie-flag-disabled
+  title: Cookie HttpOnly or Secure explicitly disabled
+  severity: medium
+  pattern: '\.(setHttpOnly|setSecure|httpOnly|secure)\s*\(\s*false\s*\)'
+  languages: [java]
+  fix_guidance: >-
+    Use setHttpOnly(true) and setSecure(true) on session and auth cookies.
+
+- id: spring-session-cookie-insecure
+  title: Spring session cookie Secure or HttpOnly disabled
+  severity: medium
+  pattern: 'server\.servlet\.session\.cookie\.(secure|http-only|httpOnly)\s*[=:]\s*false\b'
+  flags: [i]
+  languages: [spring-config]
+  fix_guidance: >-
+    Set server.servlet.session.cookie.secure=true and http-only=true (and same-site=lax) in
+    production configuration.
+
+- id: php-setcookie-sensitive-no-options
+  title: Session or auth cookie set without options — no HttpOnly, Secure or SameSite
+  severity: medium
+  pattern: '\bsetcookie\s*\(\s*[''"][\w.-]*(session|sess|sid|token|auth|jwt|remember|refresh|access)[\w.-]*[''"]\s*,\s*[^,()]+(\([^,()]*\))?\s*\)\s*;'
+  flags: [i]
+  languages: [php]
+  fix_guidance: >-
+    Pass an options array: setcookie("session", $id, ["secure" => true, "httponly" => true,
+    "samesite" => "Lax"]).
+
+- id: php-cookie-flag-disabled
+  title: Cookie or session HttpOnly / Secure disabled
+  severity: medium
+  pattern: '([''"](httponly|secure)[''"]\s*=>\s*false\b|ini_set\s*\(\s*[''"]session\.cookie_(httponly|secure)[''"]\s*,\s*(false|0|[''"]0?[''"])\s*\))'
+  flags: [i]
+  languages: [php]
+  fix_guidance: >-
+    Use "httponly" => true and "secure" => true, and session.cookie_httponly = 1,
+    session.cookie_secure = 1 for PHP sessions.
+
+- id: csharp-cookie-flag-disabled
+  title: Cookie HttpOnly or Secure disabled
+  severity: medium
+  pattern: '\b(HttpOnly\s*=\s*false\b|Secure\s*=\s*false\b|CookieSecurePolicy\.None\b|HttpOnlyPolicy\.None\b)'
+  languages: [csharp]
+  fix_guidance: >-
+    Use HttpOnly = true and Secure = true in CookieOptions, and CookieSecurePolicy.Always /
+    HttpOnlyPolicy.Always in cookie policy options.
