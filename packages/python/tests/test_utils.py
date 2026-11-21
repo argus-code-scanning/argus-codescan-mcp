@@ -1,6 +1,8 @@
 """Tests for utility functions."""
 
-from argus.utils import format_markdown_report, is_tool_available, parse_json_output
+import pytest
+
+from argus.utils import format_markdown_report, is_tool_available, luhn_valid, parse_json_output
 
 
 def test_parse_json_output_valid():
@@ -87,3 +89,19 @@ def test_format_markdown_report():
     assert "/myapp" in md
     assert "semgrep" in md
     assert "SQL Injection" in md
+
+
+@pytest.mark.parametrize(
+    ("digits", "expected"),
+    [
+        ("4539148803436467", True),
+        ("4539148803436468", False),
+        ("376124983304571", True),
+        ("0", True),
+        ("", False),
+        ("4539 1488 0343 6467", False),
+        ("4539148803436467²", False),  # superscript two: isdigit() but not 0-9
+    ],
+)
+def test_luhn_valid(digits: str, expected: bool):
+    assert luhn_valid(digits) is expected

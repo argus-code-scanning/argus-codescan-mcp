@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from argus.models import counts_toward_failure
+from argus.utils import luhn_valid
 
 logger = logging.getLogger(__name__)
 
@@ -79,18 +80,6 @@ def is_upload_redaction_enabled() -> bool:
     return value not in {"0", "false", "no", "off"}
 
 
-def _luhn_valid(digits: str) -> bool:
-    total = 0
-    for index, char in enumerate(reversed(digits)):
-        digit = int(char)
-        if index % 2:
-            digit *= 2
-            if digit > 9:
-                digit -= 9
-        total += digit
-    return total % 10 == 0
-
-
 def redact_pii(text: str) -> tuple[str, int]:
     """Redact emails, US SSNs and card numbers. Returns (text, redaction count)."""
     count = 0
@@ -98,7 +87,7 @@ def redact_pii(text: str) -> tuple[str, int]:
 
         def _replace(match: re.Match[str], label: str = label) -> str:
             nonlocal count
-            if label == "CARD" and not _luhn_valid(re.sub(r"[ -]", "", match.group(0))):
+            if label == "CARD" and not luhn_valid(re.sub(r"[ -]", "", match.group(0))):
                 return match.group(0)
             count += 1
             return f"[REDACTED_{label}]"

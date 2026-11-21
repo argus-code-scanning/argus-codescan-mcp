@@ -273,3 +273,18 @@ def format_markdown_report(report_dict: dict[str, Any]) -> str:
 def get_python_executable() -> str:
     """Return the current Python executable path."""
     return sys.executable
+
+
+def luhn_valid(digits: str) -> bool:
+    """Return True if ``digits`` (a string of 0-9 only) passes the Luhn checksum."""
+    if not (digits.isascii() and digits.isdigit()):
+        return False
+    total = 0
+    for index, char in enumerate(reversed(digits)):
+        digit = int(char)
+        if index % 2:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        total += digit
+    return total % 10 == 0

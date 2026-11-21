@@ -499,8 +499,9 @@ async def list_tools() -> list[types.Tool]:
             name="scan_pci",
             description=(
                 "Scan source for PCI-DSS cardholder-data exposure heuristics: CVV/CVC stored "
-                "after authorization, card numbers written to logs or console, and card data "
-                "sent over non-TLS http:// URLs. Built-in static rules — not a QSA assessment."
+                "after authorization, card numbers written to logs or console, Luhn-valid card "
+                "numbers hardcoded in source, and card data sent over non-TLS http:// URLs."
+                " Built-in static rules — not a QSA assessment."
             ),
             inputSchema={
                 "type": "object",
