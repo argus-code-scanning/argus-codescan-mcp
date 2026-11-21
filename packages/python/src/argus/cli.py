@@ -762,6 +762,7 @@ async def _dispatch_scan(
         from argus.tools.iac import run_all_iac
         from argus.tools.malware import run_malware_scan
         from argus.tools.ml import run_ml_scan
+        from argus.tools.pci import run_pci_scan
         from argus.tools.sast import run_all_sast
         from argus.tools.sca import run_all_sca
         from argus.tools.secrets import run_all_secrets
@@ -773,13 +774,14 @@ async def _dispatch_scan(
             run_all_iac(target, timeout=timeout),
             run_ml_scan(target),
             run_malware_scan(target),
+            run_pci_scan(target),
             return_exceptions=True,
         )
         results: list[ScanResult] = []
         for batch in batches:
             if isinstance(batch, list):
                 results.extend(batch)
-            elif not isinstance(batch, BaseException):
+            elif isinstance(batch, ScanResult):
                 results.append(batch)
         return results
 

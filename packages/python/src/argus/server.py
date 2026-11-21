@@ -584,7 +584,8 @@ async def list_tools() -> list[types.Tool]:
             name="scan_all",
             description=(
                 "Run a comprehensive security scan combining SAST, SCA, secret scanning, IaC checks, "
-                "and AI/ML pipeline rules on a code directory. Optionally include DAST if a URL is provided. "
+                "AI/ML pipeline rules, malware heuristics and PCI-DSS cardholder-data rules on a code "
+                "directory. Optionally include DAST if a URL is provided. "
                 "Returns an aggregated report with findings from all tools."
             ),
             inputSchema={
@@ -1275,6 +1276,7 @@ async def _handle_scan_all(args: dict[str, Any]) -> list[types.TextContent]:
         run_all_iac(target, timeout=timeout),
         run_ml_scan(target),
         run_malware_scan(target),
+        run_pci_scan(target),
     ]
     code_scan_results = await asyncio.gather(*code_tasks, return_exceptions=True)
     for batch in code_scan_results:
