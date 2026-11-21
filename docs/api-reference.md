@@ -233,7 +233,7 @@ Scan a container image for OS package vulnerabilities.
 
 ## `scan_all`
 
-Run a full security audit. Parallelises SAST + SCA + Secrets + IaC, then optionally DAST and container scans.
+Run a full security audit. Parallelises SAST + SCA + Secrets + IaC + ML + malware + PCI-DSS, then optionally DAST and container scans.
 
 ### Parameters
 

@@ -70,3 +70,44 @@ async def test_scan_pci_mcp_tool(tmp_path: Path):
     (tmp_path / "pay.py").write_text('logger.info("charging %s", card_number)\n')
     result = await call_tool("scan_pci", {"target": str(tmp_path), "format": "json"})
     assert "pci-pan-in-logs" in result[0].text
+
+
+_EXTERNAL_SCANNERS = ("run_all_sast", "run_all_sca", "run_all_secrets", "run_all_iac")
+
+
+def _stub_external_scanners(monkeypatch, *modules) -> None:
+    """Replace the slow external scanners so scan all runs only the built-in ones."""
+
+    async def _empty(target, timeout=300):
+        return []
+
+    for module in modules:
+        for name in _EXTERNAL_SCANNERS:
+            if hasattr(module, name):
+                monkeypatch.setattr(module, name, _empty)
+
+
+@pytest.mark.asyncio
+async def test_cli_scan_all_includes_pci(tmp_path: Path, monkeypatch):
+    import argparse
+
+    from argus.cli import _dispatch_scan
+    from argus.tools import iac, sast, sca, secrets
+
+    _stub_external_scanners(monkeypatch, sast, sca, secrets, iac)
+    (tmp_path / "pay.py").write_text('logger.info("charging %s", card_number)\n')
+    results = await _dispatch_scan("all", str(tmp_path), 60, None, "auto", argparse.Namespace())
+    assert results is not None
+    pci_results = [r for r in results if r.scan_type == ScanType.PCI]
+    assert len(pci_results) == 1
+    assert any(f.rule_id == "pci-pan-in-logs" for f in pci_results[0].findings)
+
+
+@pytest.mark.asyncio
+async def test_scan_all_mcp_tool_includes_pci(tmp_path: Path, monkeypatch):
+    from argus import server
+
+    _stub_external_scanners(monkeypatch, server)
+    (tmp_path / "pay.py").write_text('logger.info("charging %s", card_number)\n')
+    result = await server.call_tool("scan_all", {"target": str(tmp_path), "format": "json"})
+    assert "pci-pan-in-logs" in result[0].text
