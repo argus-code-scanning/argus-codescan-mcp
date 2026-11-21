@@ -1,0 +1,10 @@
+# PCI-DSS: card numbers (PANs) hardcoded in source.
+# Loaded only by argus scan pci, not by the default rule set (RULE_FILES): this pattern
+# marks candidates, and argus scan pci keeps a match only if a number it matched passes
+# the Luhn checksum and is not a well-known test card. Test and docs paths are dropped.
+
+- id: pci-pan-in-source
+  classification: pci
+  title: Possible card number (PAN) hardcoded in source (PCI-DSS 3.4; heuristic, Luhn-checked)
+  severity: high
+  pattern: '(?<![\d-])(?:4\d{3}|5[1-5]\d{2}|2[2-7]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))(?:[ -]?\d){9,15}(?![\d-])'

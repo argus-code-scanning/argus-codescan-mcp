@@ -206,7 +206,7 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_ansible` | Ansible playbook & role security scan |
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
-| `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, http:// card data) |
+| `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
 | `review_code` | Local code review — secrets + SAST + malware on git-changed / staged files only |

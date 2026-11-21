@@ -218,7 +218,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     pci_p = scan_sub.add_parser(
         "pci",
-        help="PCI-DSS cardholder-data heuristics — CVV storage, PANs in logs, http:// card data (built-in)",
+        help="PCI-DSS cardholder-data heuristics — CVV storage, PANs in logs or source, http:// card data (built-in)",
     )
     _add_common(pci_p)
 

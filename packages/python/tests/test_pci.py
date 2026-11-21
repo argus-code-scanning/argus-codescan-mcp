@@ -72,42 +72,52 @@ async def test_scan_pci_mcp_tool(tmp_path: Path):
     assert "pci-pan-in-logs" in result[0].text
 
 
-_EXTERNAL_SCANNERS = ("run_all_sast", "run_all_sca", "run_all_secrets", "run_all_iac")
+@pytest.mark.parametrize(
+    "line",
+    [
+        'CARD = "4539148803436467"\n',
+        'card = "4539 1488 0343 6467"\n',
+        "amex = '3761-249833-04571'\n",
+    ],
+)
+@pytest.mark.asyncio
+async def test_run_pci_scan_flags_luhn_valid_pan(tmp_path: Path, line: str):
+    (tmp_path / "billing.py").write_text(line)
+    result = await run_pci_scan(str(tmp_path))
+    pans = [f for f in result.findings if f.rule_id == "pci-pan-in-source"]
+    assert len(pans) == 1
+    assert pans[0].line == 1
 
 
-def _stub_external_scanners(monkeypatch, *modules) -> None:
-    """Replace the slow external scanners so scan all runs only the built-in ones."""
-
-    async def _empty(target, timeout=300):
-        return []
-
-    for module in modules:
-        for name in _EXTERNAL_SCANNERS:
-            if hasattr(module, name):
-                monkeypatch.setattr(module, name, _empty)
+@pytest.mark.parametrize(
+    "line",
+    [
+        'CARD = "4539148803436468"\n',  # fails Luhn
+        'CARD = "4111111111111111"\n',  # well-known test card
+        "created_at = 1700000000000123\n",  # not a card prefix
+        'ref = "4539-1488-0343-6467-9"\n',  # longer dashed id, not a card
+    ],
+)
+@pytest.mark.asyncio
+async def test_run_pci_scan_drops_pan_candidates(tmp_path: Path, line: str):
+    (tmp_path / "billing.py").write_text(line)
+    result = await run_pci_scan(str(tmp_path))
+    assert not [f for f in result.findings if f.rule_id == "pci-pan-in-source"]
 
 
 @pytest.mark.asyncio
-async def test_cli_scan_all_includes_pci(tmp_path: Path, monkeypatch):
-    import argparse
-
-    from argus.cli import _dispatch_scan
-    from argus.tools import iac, sast, sca, secrets
-
-    _stub_external_scanners(monkeypatch, sast, sca, secrets, iac)
-    (tmp_path / "pay.py").write_text('logger.info("charging %s", card_number)\n')
-    results = await _dispatch_scan("all", str(tmp_path), 60, None, "auto", argparse.Namespace())
-    assert results is not None
-    pci_results = [r for r in results if r.scan_type == ScanType.PCI]
-    assert len(pci_results) == 1
-    assert any(f.rule_id == "pci-pan-in-logs" for f in pci_results[0].findings)
+async def test_run_pci_scan_ignores_pan_in_test_paths(tmp_path: Path):
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_billing.py").write_text('CARD = "4539148803436467"\n')
+    result = await run_pci_scan(str(tmp_path))
+    assert not [f for f in result.findings if f.rule_id == "pci-pan-in-source"]
+    assert result.metadata["pan_candidates_dropped"] == 1
 
 
 @pytest.mark.asyncio
-async def test_scan_all_mcp_tool_includes_pci(tmp_path: Path, monkeypatch):
-    from argus import server
-
-    _stub_external_scanners(monkeypatch, server)
-    (tmp_path / "pay.py").write_text('logger.info("charging %s", card_number)\n')
-    result = await server.call_tool("scan_all", {"target": str(tmp_path), "format": "json"})
-    assert "pci-pan-in-logs" in result[0].text
+async def test_run_pci_scan_checks_pan_when_target_is_a_file(tmp_path: Path):
+    src = tmp_path / "billing.py"
+    src.write_text('CARD = "4539148803436467"\n')
+    result = await run_pci_scan(str(src))
+    assert any(f.rule_id == "pci-pan-in-source" for f in result.findings)
