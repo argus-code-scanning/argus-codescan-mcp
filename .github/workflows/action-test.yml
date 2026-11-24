@@ -1,0 +1,79 @@
+# Runs the repository's GitHub Action (action.yml) from this branch.
+name: Test GitHub Action
+
+on:
+  pull_request:
+    paths: ["action.yml", ".github/workflows/action-test.yml"]
+  push:
+    branches: [main]
+    paths: ["action.yml", ".github/workflows/action-test.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-target-passes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Clean sample project
+        run: |
+          mkdir -p sample-clean
+          printf 'def add(a, b):\n    return a + b\n' > sample-clean/app.py
+      - id: argus
+        uses: ./
+        with:
+          scan-type: code
+          target: sample-clean
+          fail-on: high
+          upload-sarif: "false"
+      - name: Check outputs
+        env:
+          FAILED: ${{ steps.argus.outputs.failed }}
+          SARIF: ${{ steps.argus.outputs.sarif-file }}
+        run: |
+          test "$FAILED" = "false"
+          test -s "$SARIF"
+
+  finding-fails-the-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Sample project with a high finding
+        run: |
+          mkdir -p sample-vuln
+          printf 'import subprocess\ndef run(cmd):\n    subprocess.call(cmd, shell=True)\n' > sample-vuln/app.py
+      - id: argus
+        uses: ./
+        continue-on-error: true
+        with:
+          scan-type: code
+          target: sample-vuln
+          fail-on: high
+          upload-sarif: "false"
+      - name: The action must have failed on the high finding
+        env:
+          OUTCOME: ${{ steps.argus.outcome }}
+          FAILED: ${{ steps.argus.outputs.failed }}
+          FINDINGS: ${{ steps.argus.outputs.findings }}
+        run: |
+          echo "outcome=$OUTCOME failed=$FAILED findings=$FINDINGS"
+          test "$OUTCOME" = "failure"
+          test "$FAILED" = "true"
+          test "$FINDINGS" -ge 1
+
+  rejects-bad-input:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: argus
+        uses: ./
+        continue-on-error: true
+        with:
+          scan-type: "all; echo injected"
+          upload-sarif: "false"
+      - name: Bad scan-type must stop the action
+        env:
+          OUTCOME: ${{ steps.argus.outcome }}
+        run: test "$OUTCOME" = "failure"

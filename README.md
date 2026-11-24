@@ -245,6 +245,39 @@ Details: [API Reference — apply_fix](docs/api-reference.md#apply_fix)
 
 ---
 
+## GitHub Action
+
+One step runs Argus, fails the job at your threshold, writes a job summary and uploads SARIF to the Security tab:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write   # for the SARIF upload
+
+jobs:
+  argus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: argus-code-scanning/argus-codescan-mcp@v1
+        with:
+          fail-on: high      # critical | high | medium | low | never
+          scan-type: all     # all | sast | code | secrets | sca | iac | ml | malware | pci
+          version: 0.10.1    # pin argus-scan for reproducible builds (empty = latest)
+```
+
+| Input | Default | |
+|---|---|---|
+| `scan-type` | `all` | What to scan |
+| `target` | `.` | Path to scan |
+| `fail-on` | `high` | Fail the job at this severity or above (`never` to only report) |
+| `version` | latest | `argus-scan` version to install |
+| `upload-sarif` | `true` | Upload to code scanning (skipped for fork pull requests) |
+| `category` | `argus` | Code scanning category, to keep several Argus runs apart |
+| `python-version` | `3.12` | Python used to run Argus |
+
+Outputs: `sarif-file`, `findings` (count) and `failed` (`true` when findings reached `fail-on`). For supply-chain safety, pin the action to a commit SHA (`argus-code-scanning/argus-codescan-mcp@<sha> # v1`); `apply_fix` can do this for you.
+
 ## SARIF, policy & baseline diff
 
 Ship security findings to GitHub Code Scanning, enforce repo policy, and fail CI only on **new** findings.
@@ -268,7 +301,7 @@ argus scan secrets . --paths-file scan-paths.txt --format sarif -o secrets.sarif
 
 ```yaml
 - run: pip install argus-scan && argus scan code . --format sarif -o argus.sarif
-- uses: github/codeql-action/upload-sarif@v3
+- uses: github/codeql-action/upload-sarif@v4
   with:
     sarif_file: argus.sarif
     category: argus
