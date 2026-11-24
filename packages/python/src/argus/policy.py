@@ -202,10 +202,17 @@ def _is_suppressed(finding: dict[str, Any], suppressions: list[Suppression]) -> 
     return any(s.matches(finding) for s in suppressions)
 
 
-def apply_policy(report_dict: dict[str, Any], policy: PolicyConfig) -> dict[str, Any]:
-    """Filter findings by policy rules (paths, severity, suppressions)."""
+def apply_policy(
+    report_dict: dict[str, Any], policy: PolicyConfig, *, filter_severity: bool = True
+) -> dict[str, Any]:
+    """Filter findings by policy rules (paths, severity, suppressions).
+
+    ``min_severity`` only hides findings from what is shown. The CLI passes
+    ``filter_severity=False`` and hides them at display time, so ``--fail-on`` still sees
+    every finding (``--min-severity critical --fail-on high`` must fail on a high finding).
+    """
     report = copy.deepcopy(report_dict)
-    min_threshold = _SEV_ORDER.get(policy.min_severity, 99)
+    min_threshold = _SEV_ORDER.get(policy.min_severity, 99) if filter_severity else 99
 
     for result in report.get("results", []):
         filtered: list[dict[str, Any]] = []
