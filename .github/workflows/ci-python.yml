@@ -8,12 +8,22 @@ on:
       - 'packages/python/**'
       - 'packages/languages/**'
       - '.github/workflows/ci-python.yml'
+      # Version files checked by scripts/versions.py
+      - 'scripts/versions.py'
+      - 'packages/npm/package.json'
+      - 'packages/npm/package-lock.json'
+      - 'extensions/vscode/package.json'
   pull_request:
     branches: [main, dev]
     paths:
       - 'packages/python/**'
       - 'packages/languages/**'
       - '.github/workflows/ci-python.yml'
+      # Version files checked by scripts/versions.py
+      - 'scripts/versions.py'
+      - 'packages/npm/package.json'
+      - 'packages/npm/package-lock.json'
+      - 'extensions/vscode/package.json'
 
 defaults:
   run:
@@ -47,6 +57,10 @@ jobs:
       - name: Run ruff linter (argus-languages)
         working-directory: packages/languages
         run: ruff check src tests
+
+      - name: Package versions in sync
+        working-directory: .
+        run: python scripts/versions.py check
 
   test-languages:
     # argus-languages (built-in rules) has its own test suite; rule PRs only
