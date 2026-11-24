@@ -870,7 +870,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
             results.append(await run_trivy_image(args.image, timeout=timeout))
 
     report = AggregatedReport(target=report_target, results=results)
-    report_dict = apply_policy(report.to_dict(), policy)
+    # Severity is filtered for display only (in _emit), so --fail-on sees every finding.
+    report_dict = apply_policy(report.to_dict(), policy, filter_severity=False)
     _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
@@ -1036,7 +1037,8 @@ async def _run_review(args: argparse.Namespace) -> int:
     for line in review_summary_lines(report):
         print(line, file=sys.stderr)
 
-    report_dict = apply_policy(report.to_dict(), policy)
+    # Severity is filtered for display only (in _emit), so --fail-on sees every finding.
+    report_dict = apply_policy(report.to_dict(), policy, filter_severity=False)
     _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
