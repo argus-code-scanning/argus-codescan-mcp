@@ -1,0 +1,142 @@
+name: Argus Code Scan
+description: >-
+  Run Argus security scans (SAST, secrets, dependencies, IaC, ML, malware) in GitHub Actions,
+  fail the job at a severity threshold, show results in the job summary and upload SARIF to
+  the Security tab.
+author: argus-code-scanning
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  scan-type:
+    description: "What to scan: all, sast, code, secrets, sca, iac, ml, malware or pci"
+    required: false
+    default: all
+  target:
+    description: Path to scan, relative to the workspace
+    required: false
+    default: "."
+  fail-on:
+    description: "Fail the job at this severity or above: critical, high, medium, low or never"
+    required: false
+    default: high
+  version:
+    description: >-
+      argus-scan version to install, for example 0.11.0. Empty installs the latest release;
+      pin a version for reproducible builds.
+    required: false
+    default: ""
+  upload-sarif:
+    description: >-
+      Upload the SARIF report to GitHub code scanning (needs `security-events: write`;
+      skipped automatically for fork pull requests).
+    required: false
+    default: "true"
+  category:
+    description: Code scanning category, to keep several Argus runs apart
+    required: false
+    default: argus
+  python-version:
+    description: Python used to run Argus
+    required: false
+    default: "3.12"
+
+outputs:
+  sarif-file:
+    description: Path of the SARIF report
+    value: ${{ steps.scan.outputs.sarif }}
+  findings:
+    description: Number of findings in the report
+    value: ${{ steps.scan.outputs.findings }}
+  failed:
+    description: "\"true\" when findings reached fail-on"
+    value: ${{ steps.scan.outputs.failed }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Argus
+      shell: bash
+      env:
+        ARGUS_VERSION: ${{ inputs.version }}
+      run: |
+        if [ -n "$ARGUS_VERSION" ]; then
+          if ! printf '%s' "$ARGUS_VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}([a-z0-9.]*)?$'; then
+            echo "::error::version must look like 0.11.0 (got '$ARGUS_VERSION')"; exit 2
+          fi
+          python -m pip install --disable-pip-version-check -q "argus-scan==$ARGUS_VERSION"
+        else
+          python -m pip install --disable-pip-version-check -q argus-scan
+        fi
+        argus --version
+
+    - name: Run Argus
+      id: scan
+      shell: bash
+      env:
+        SCAN_TYPE: ${{ inputs.scan-type }}
+        TARGET: ${{ inputs.target }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        case "$SCAN_TYPE" in
+          all|sast|code|secrets|sca|iac|ml|malware|pci) ;;
+          *) echo "::error::scan-type must be one of all, sast, code, secrets, sca, iac, ml, malware, pci"; exit 2 ;;
+        esac
+        case "$FAIL_ON" in
+          critical|high|medium|low|never) ;;
+          *) echo "::error::fail-on must be one of critical, high, medium, low, never"; exit 2 ;;
+        esac
+        out="$RUNNER_TEMP/argus-results"
+        mkdir -p "$out"
+        sarif="$out/argus-$SCAN_TYPE.sarif"
+        set +e
+        argus scan "$SCAN_TYPE" "$TARGET" --format sarif --output "$sarif" --fail-on "$FAIL_ON"
+        code=$?
+        set -e
+        if [ "$code" -gt 1 ] || [ ! -s "$sarif" ]; then
+          echo "::error::Argus could not complete the scan (exit code $code)"; exit "$code"
+        fi
+        findings=$(python -c 'import json,sys; print(sum(len(r.get("results", [])) for r in json.load(open(sys.argv[1])).get("runs", [])))' "$sarif")
+        {
+          echo "sarif=$sarif"
+          echo "findings=$findings"
+          echo "failed=$([ "$code" = 1 ] && echo true || echo false)"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Job summary
+      if: always() && steps.scan.outputs.sarif != ''
+      shell: bash
+      env:
+        SARIF: ${{ steps.scan.outputs.sarif }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        argus ci pr-comment --sarif "$SARIF" --run-url "$RUN_URL" \
+          --output "$RUNNER_TEMP/argus-summary.md"
+        cat "$RUNNER_TEMP/argus-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+    # Fork pull requests get a read-only token, so code scanning upload is skipped there.
+    - name: Upload SARIF to code scanning
+      if: >-
+        always() && inputs.upload-sarif == 'true' && steps.scan.outputs.sarif != ''
+        && (github.event_name != 'pull_request'
+            || github.event.pull_request.head.repo.full_name == github.repository)
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif }}
+        category: ${{ inputs.category }}
+
+    - name: Enforce fail-on
+      if: steps.scan.outputs.failed == 'true'
+      shell: bash
+      env:
+        FAIL_ON: ${{ inputs.fail-on }}
+        FINDINGS: ${{ steps.scan.outputs.findings }}
+      run: |
+        echo "::error::Argus found issues at or above '$FAIL_ON' ($FINDINGS finding(s) in the report). See the job summary."
+        exit 1
