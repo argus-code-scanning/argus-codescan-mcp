@@ -100,7 +100,9 @@ async def list_resources() -> list[types.Resource]:
 @server.read_resource()
 async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
     """Read a documented Argus resource, rejecting unrecognised URIs."""
-    return [ReadResourceContents(content=read_resource_json(str(uri)), mime_type="application/json")]
+    return [
+        ReadResourceContents(content=read_resource_json(str(uri)), mime_type="application/json")
+    ]
 
 
 @server.list_tools()  # type: ignore[attr-defined]
@@ -646,8 +648,24 @@ async def list_tools() -> list[types.Tool]:
                         "required": ["title", "severity", "scan_type", "tool"],
                         "properties": {
                             "title": {"type": "string", "minLength": 1},
-                            "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info", "unknown"]},
-                            "scan_type": {"type": "string", "enum": ["sast", "dast", "sca", "secrets", "iac", "container", "ml", "malware", "pci"]},
+                            "severity": {
+                                "type": "string",
+                                "enum": ["critical", "high", "medium", "low", "info", "unknown"],
+                            },
+                            "scan_type": {
+                                "type": "string",
+                                "enum": [
+                                    "sast",
+                                    "dast",
+                                    "sca",
+                                    "secrets",
+                                    "iac",
+                                    "container",
+                                    "ml",
+                                    "malware",
+                                    "pci",
+                                ],
+                            },
                             "tool": {"type": "string", "minLength": 1},
                         },
                     },
@@ -790,6 +808,45 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["target", "file", "tool"],
             },
         ),
+        types.Tool(
+            name="apply_fixes",
+            description=(
+                "Preview, then apply, automated fixes for many findings at once. "
+                "Call with apply=false first: nothing changes, and you get one unified diff for "
+                "every fixable finding plus a confirm_token. Show the diff to the user. Only after "
+                "the user confirms, call again with apply=true and that confirm_token; if the files "
+                "changed since the preview, nothing is written. Findings without an automated fix "
+                "(secrets, dependencies, most code findings) are left out."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "Project root or scan target path"},
+                    "scan_result_json": {
+                        "type": "string",
+                        "description": "An Argus JSON report; every fixable finding in it is included",
+                    },
+                    "findings": {
+                        "type": "array",
+                        "description": "Or: specific findings (file, tool, scan_type, rule_id, line)",
+                        "items": {"type": "object"},
+                    },
+                    "apply": {
+                        "type": "boolean",
+                        "description": "false = preview only; true = write the previewed diff",
+                        "default": False,
+                    },
+                    "confirm_token": {
+                        "type": "string",
+                        "description": "The confirm_token from the preview (required with apply=true)",
+                        "default": "",
+                    },
+                    "semgrep_config": {"type": "string", "default": "auto"},
+                    "timeout": {"type": "integer", "default": 120},
+                },
+                "required": ["target"],
+            },
+        ),
     ]
 
 
@@ -844,6 +901,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_get_fix_plan(arguments)
         elif name == "apply_fix":
             return await _handle_apply_fix(arguments)
+        elif name == "apply_fixes":
+            return await _handle_apply_fixes(arguments)
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
     except Exception as exc:
@@ -1486,7 +1545,9 @@ async def _handle_get_fix_plan(args: dict[str, Any]) -> list[types.TextContent]:
 
     raw = args.get("scan_result_json")
     if not isinstance(raw, str):
-        return [types.TextContent(type="text", text="Invalid input: scan_result_json must be a string")]
+        return [
+            types.TextContent(type="text", text="Invalid input: scan_result_json must be a string")
+        ]
     try:
         plan = build_fix_plan(json.loads(raw))
     except (ValueError, TypeError) as exc:
@@ -1539,6 +1600,30 @@ async def _handle_apply_fix(args: dict[str, Any]) -> list[types.TextContent]:
         line=int(args.get("line", 0)),
         fix_guidance=args.get("fix_guidance", ""),
         apply=bool(args.get("apply", False)),
+        semgrep_config=args.get("semgrep_config", "auto"),
+        timeout=int(args.get("timeout", 120)),
+    )
+    return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def _handle_apply_fixes(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.tools.batch_fix import FixItem, batch_fix, items_from_report
+
+    items: list[FixItem] = []
+    if args.get("scan_result_json"):
+        raw = args["scan_result_json"]
+        items.extend(items_from_report(json.loads(raw) if isinstance(raw, str) else raw))
+    for finding in args.get("findings") or []:
+        if isinstance(finding, dict):
+            items.append(FixItem.from_dict(finding))
+    if not items:
+        text = json.dumps({"error": "Pass scan_result_json or findings."}, indent=2)
+        return [types.TextContent(type="text", text=text)]
+    result = await batch_fix(
+        args["target"],
+        items,
+        apply=bool(args.get("apply", False)),
+        confirm_token=str(args.get("confirm_token", "")),
         semgrep_config=args.get("semgrep_config", "auto"),
         timeout=int(args.get("timeout", 120)),
     )
