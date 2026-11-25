@@ -1,0 +1,56 @@
+# XPath queries built from user input (issue #186). A rule fires only when an XPath
+# evaluation call (xpath/evaluate/findall/select/query/SelectNodes/SelectSingleNode)
+# receives a string with an XPath shape — a // axis followed by a [ predicate — that
+# is built through interpolation, formatting or concatenation, so the attacker
+# controls part of the query (' or '1'='1 bypasses an XML-backed login, reads other
+# records). Parameterised XPath (lxml named parameters tree.xpath("//user[name=$n]", n=name),
+# Java XPathVariableResolver) and constant queries are not flagged.
+# Patterns are line-oriented.
+
+- id: python-xpath-string-build
+  title: Possible XPath injection — variable interpolated or concatenated into an XPath query
+  severity: high
+  pattern: (?:\.\s*xpath\s*\(\s*f"[^"]*//[^"]*\[[^"]*\{|\.\s*xpath\s*\(\s*f'[^']*//[^']*\[[^']*\{|\.\s*xpath\s*\(\s*"[^"]*//[^"]*\[[^"]*"\s*\+|\.\s*xpath\s*\(\s*'[^']*//[^']*\[[^']*'\s*\+|\.\s*findall\s*\(\s*f"[^"]*//[^"]*\[[^"]*\{|\.\s*findall\s*\(\s*f'[^']*//[^']*\[[^']*\{|\.\s*findall\s*\(\s*"[^"]*//[^"]*\[[^"]*"\s*\+|\.\s*findall\s*\(\s*'[^']*//[^']*\[[^']*'\s*\+)
+  flags:
+  - i
+  languages:
+  - python
+  fix_guidance: 'Pass values as XPath variables instead of building the string: tree.xpath("//user[name=$n]", n=name) with lxml, or escape the value yourself if the library has no parameters.'
+- id: js-xpath-string-build
+  title: Possible XPath injection — variable interpolated or concatenated into an XPath query
+  severity: high
+  pattern: (?:xpath\s*\.\s*select\s*\(\s*`[^`]*//[^`]*\[[^`]*\$\{|xpath\s*\.\s*select\s*\(\s*"[^"]*//[^"]*\[[^"]*"\s*\+|xpath\s*\.\s*select\s*\(\s*'[^']*//[^']*\[[^']*'\s*\+|document\.evaluate\s*\(\s*`[^`]*//[^`]*\[[^`]*\$\{|document\.evaluate\s*\(\s*"[^"]*//[^"]*\[[^"]*"\s*\+|document\.evaluate\s*\(\s*'[^']*//[^']*\[[^']*'\s*\+)
+  flags:
+  - i
+  languages:
+  - javascript
+  - typescript
+  fix_guidance: 'Pass values as XPath variables instead of building the string, for example xpath.select("//user[name=$name]", doc, { name }), or pre-escape the value if the library has no parameters.'
+- id: java-xpath-string-build
+  title: Possible XPath injection — variable concatenated or formatted into an XPath query
+  severity: high
+  pattern: (?:\.\s*evaluate\s*\(\s*"[^"]*//[^"]*\[[^"]*"\s*\+|\.\s*evaluate\s*\(\s*String\s*\.\s*format\s*\(\s*"[^"]*//[^"]*\[)
+  flags:
+  - i
+  languages:
+  - java
+  - kotlin
+  fix_guidance: 'Use an XPathExpression compiled once with an XPathVariableResolver (xpath.compile("//user[name=$n]")) and set variables per evaluation instead of concatenating user input into the query string.'
+- id: php-xpath-string-build
+  title: Possible XPath injection — variable interpolated or concatenated into an XPath query
+  severity: high
+  pattern: (?:\$\w+->query\s*\(\s*"[^"]*//[^"]*\[[^"]*\$[A-Za-z_]|->query\s*\(\s*"[^"]*//[^"]*\[[^"]*"\s*\.|->query\s*\(\s*'[^']*//[^']*\[[^']*'\s*\.)
+  flags:
+  - i
+  languages:
+  - php
+  fix_guidance: 'DOMXPath has no query parameters, so build the query from a whitelist and escape every user value (for example with a helper that encodes quotes), or pre-validate the value against an allow-list before it reaches the query string.'
+- id: csharp-xpath-string-build
+  title: Possible XPath injection — variable interpolated or concatenated into an XPath query
+  severity: high
+  pattern: (?:Select(?:Nodes|SingleNode)\s*\(\s*(?:@)?"[^"]*//[^"]*\[[^"]*"\s*\+|Select(?:Nodes|SingleNode)\s*\(\s*\$"[^"]*//[^"]*\[[^"]*\{)
+  flags:
+  - i
+  languages:
+  - csharp
+  fix_guidance: 'Compile the query once with XPathExpression.Compile("//user[name=$n]") and AddVariable, or escape the value yourself, instead of concatenating or interpolating user input into the query string.'
