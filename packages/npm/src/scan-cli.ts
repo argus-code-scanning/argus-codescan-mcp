@@ -5,6 +5,7 @@ import { runOsvDependencyCheck } from "./scanners/osv-deps.js";
 import { runNpmAuditSca } from "./scanners/sca.js";
 import { runTerraformDependencyCheck } from "./scanners/terraform-deps.js";
 import { runAllSecrets } from "./scanners/secrets.js";
+import { runPiiScan, runPrivacyScan } from "./scanners/privacy.js";
 import { runToolsCommand } from "./scanners/tools.js";
 import type { Severity } from "./scanners/types.js";
 
@@ -17,6 +18,8 @@ USAGE:
   argus-codescan scan sast [path]      Source code (built-in scanners)
   argus-codescan scan secrets [path]   Credentials / API keys
   argus-codescan scan all [path]       Everything
+  argus-codescan scan pii [path]       Personal data hardcoded in code, config and fixtures (opt-in)
+  argus-codescan scan privacy [path]   GDPR/CCPA code patterns: trackers, consent, deletion, retention (opt-in)
   argus-codescan tools                 What's bundled
 
 BUILT-IN (ships with npm install):
@@ -141,6 +144,18 @@ export async function runScanCli(args: string[]): Promise<number> {
     console.error(`Running secrets scan on: ${target}`);
     const results = await runAllSecrets(target);
     return printScanReport(buildReport(target, "secrets", results), format, failOn, reportOpts);
+  }
+
+  if (scanType === "pii") {
+    console.error(`Running PII scan on: ${target}`);
+    const result = await runPiiScan(target);
+    return printScanReport(buildReport(target, "pii", [result]), format, failOn, reportOpts);
+  }
+
+  if (scanType === "privacy") {
+    console.error(`Running privacy scan on: ${target} (code patterns, not a legal assessment)`);
+    const result = await runPrivacyScan(target);
+    return printScanReport(buildReport(target, "privacy", [result]), format, failOn, reportOpts);
   }
 
   if (scanType === "all") {

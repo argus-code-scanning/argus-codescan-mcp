@@ -13,6 +13,7 @@ import {
   parseIgnore,
   pathContext,
 } from "./noise.js";
+import { SHARED_RULES, type SharedRuleDef } from "./shared-rules.generated.js";
 import type { Confidence, Finding, ScanResult, Severity } from "./types.js";
 
 const SKIP_DIRS = new Set([
@@ -28,6 +29,8 @@ const EXT_LANG: Record<string, string> = {
   ".sh": "shell", ".bash": "shell", ".zsh": "shell",
   ".ps1": "powershell", ".psm1": "powershell", ".psd1": "powershell",
   ".bat": "batch", ".cmd": "batch",
+  // Templates: only rules that list them (trackers, fingerprinting) run here.
+  ".html": "html", ".htm": "html", ".vue": "vue",
 };
 
 const SHEBANG = /^#!\s*(?:\/usr)?(?:\/local)?\/bin\/(?:env\s+(?:-\S+\s+)*)?(\w+)/;
@@ -65,7 +68,7 @@ function isComment(line: string, lang: string): boolean {
   return lang === "batch" && (t.startsWith("::") || /^@?rem(?:\s|$)/i.test(t));
 }
 
-interface Rule {
+export interface Rule {
   id: string;
   title: string;
   severity: Severity;
@@ -74,6 +77,22 @@ interface Rule {
   multiline?: boolean;
   /** Default "medium". "low" = risky API without evidence of untrusted input. */
   confidence?: Confidence;
+  /** Shown as the finding's fix advice (shared rules carry it from the YAML packs). */
+  fix?: string;
+}
+
+/** Rules generated from the argus-languages YAML packs (same ids as argus-scan). */
+export function sharedRules(...packs: string[]): Rule[] {
+  return SHARED_RULES.filter((r: SharedRuleDef) => packs.includes(r.pack)).map((r) => ({
+    id: r.id,
+    title: r.title,
+    severity: r.severity,
+    pattern: new RegExp(r.source, r.flags),
+    languages: r.languages,
+    multiline: r.multiline,
+    confidence: r.confidence,
+    fix: r.fixGuidance || undefined,
+  }));
 }
 
 const RULES: Rule[] = [
@@ -541,8 +560,12 @@ function languageOf(name: string, full?: string): string | undefined {
   return EXT_LANG[ext];
 }
 
-// Config files only get rules written for them; generic code rules would misfire on KEY=value.
-const CONFIG_LANGUAGES = new Set(["spring-config"]);
+// Config files and templates only get rules written for them; generic code rules would misfire
+// on KEY=value or on HTML.
+const CONFIG_LANGUAGES = new Set(["spring-config", "html", "vue"]);
+
+// Same default set as argus-scan: its cookie and PII-in-logs packs run in every code scan.
+const DEFAULT_RULES: Rule[] = [...RULES, ...sharedRules("cookies", "pii")];
 
 function walkFiles(dir: string, out: string[], depth = 0): void {
   if (depth > 14) return;
@@ -581,9 +604,14 @@ function walkFiles(dir: string, out: string[], depth = 0): void {
   }
 }
 
-export async function runNativeSast(target: string): Promise<ScanResult> {
+export async function runNativeSast(
+  target: string,
+  options: { rules?: Rule[]; tool?: string } = {},
+): Promise<ScanResult> {
+  const rules = options.rules ?? DEFAULT_RULES;
+  const tool = options.tool ?? "argus-native";
   const result: ScanResult = {
-    tool: "argus-native",
+    tool,
     scanType: "sast",
     target,
     findings: [],
@@ -624,7 +652,7 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
       pending = undefined;
     }
 
-    for (const rule of RULES) {
+    for (const rule of rules) {
       if (rule.languages ? !rule.languages.includes(lang) : CONFIG_LANGUAGES.has(lang)) continue;
 
       const matchedLines = new Set<number>();
@@ -666,13 +694,14 @@ export async function runNativeSast(target: string): Promise<ScanResult> {
         const finding: Finding = {
           title: rule.title,
           severity: context ? downgrade(rule.severity) : rule.severity,
-          tool: "argus-native",
+          tool,
           file: rel,
           line: lineNumber,
           ruleId: rule.id,
           description,
           confidence: rule.confidence ?? "medium",
         };
+        if (rule.fix) finding.fix = rule.fix;
         if (context) finding.context = context;
         result.findings.push(finding);
       }
