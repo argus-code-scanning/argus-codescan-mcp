@@ -7,10 +7,23 @@ on:
     paths:
       - 'packages/npm/**'
       - '.github/workflows/ci-npm.yml'
+      # Rule packs shared with argus-codescan (tests check the generated file is current)
+      - 'packages/languages/src/argus_languages/bundled_rules/cookies.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/pii.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/pii-hardcoded.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/pci-pan.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/privacy-gdpr.yaml'
   pull_request:
     branches: [main, dev]
     paths:
       - 'packages/npm/**'
+      - '.github/workflows/ci-npm.yml'
+      # Rule packs shared with argus-codescan (tests check the generated file is current)
+      - 'packages/languages/src/argus_languages/bundled_rules/cookies.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/pii.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/pii-hardcoded.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/pci-pan.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/privacy-gdpr.yaml'
 
 defaults:
   run:
