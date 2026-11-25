@@ -56,6 +56,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Package contents
+        run: npm run check-pack
+
   publish:
     name: Publish to npm
     runs-on: ubuntu-latest

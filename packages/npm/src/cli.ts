@@ -69,6 +69,8 @@ USAGE:
   argus-codescan scan sast [path]    Source code — Python, Java, PHP, JS, …
   argus-codescan scan secrets [path] Leaked credentials
   argus-codescan scan all [path]     Everything above
+  argus-codescan scan pii [path]     Personal data hardcoded in code, config and fixtures
+  argus-codescan scan privacy [path] GDPR/CCPA patterns: trackers, consent, deletion, retention
   argus-codescan review [path]       Review changed files (SAST + secrets)
   argus-codescan tools               Show installed scanners
   argus-codescan mcp                 Start MCP server (requires Python)
@@ -81,6 +83,8 @@ NATIVE SCANS (Node.js — no Python):
   scan sast     semgrep + eslint (source code, multi-language)
   scan secrets  gitleaks + pattern scan
   scan all      all of the above
+  scan pii      hardcoded emails, phones, SSN/NI numbers, names, cards (opt-in)
+  scan privacy  trackers without consent, no data deletion, no retention (opt-in)
   tools         list what's installed
 
 INSTALL FOR FULL CODE SCANNING:
