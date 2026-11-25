@@ -222,6 +222,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common(pci_p)
 
+    privacy_p = scan_sub.add_parser(
+        "privacy",
+        help="GDPR/CCPA code patterns: trackers without consent, no data deletion/export, "
+        "no retention, PII in logs, non-EU storage (built-in; not a legal assessment)",
+    )
+    _add_common(privacy_p)
+
     sca_p = scan_sub.add_parser("sca", help="Software Composition Analysis (dependencies)")
     _add_common(sca_p)
 
@@ -710,6 +717,11 @@ async def _dispatch_scan(
         from argus.tools.threat_intel import run_threat_scan
 
         return [await run_threat_scan(target)]
+
+    if scan_type == "privacy":
+        from argus.tools.privacy import run_privacy_scan
+
+        return [await run_privacy_scan(target)]
 
     if scan_type == "pci":
         from argus.tools.pci import run_pci_scan

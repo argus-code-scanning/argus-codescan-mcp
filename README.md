@@ -207,6 +207,7 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
 | `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |
+| `scan_privacy` | GDPR/CCPA code patterns: trackers without a consent mechanism, no data deletion/export, no retention field, PII in logs, fingerprinting, non-EU storage. Not a legal assessment ([docs](docs/privacy-scanning.md)). CLI: `argus scan privacy .` |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
 | `review_code` | Local code review — secrets + SAST + malware on git-changed / staged files only |
