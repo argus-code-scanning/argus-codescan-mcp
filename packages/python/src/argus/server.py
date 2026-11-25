@@ -100,7 +100,9 @@ async def list_resources() -> list[types.Resource]:
 @server.read_resource()
 async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
     """Read a documented Argus resource, rejecting unrecognised URIs."""
-    return [ReadResourceContents(content=read_resource_json(str(uri)), mime_type="application/json")]
+    return [
+        ReadResourceContents(content=read_resource_json(str(uri)), mime_type="application/json")
+    ]
 
 
 @server.list_tools()  # type: ignore[attr-defined]
@@ -646,8 +648,24 @@ async def list_tools() -> list[types.Tool]:
                         "required": ["title", "severity", "scan_type", "tool"],
                         "properties": {
                             "title": {"type": "string", "minLength": 1},
-                            "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info", "unknown"]},
-                            "scan_type": {"type": "string", "enum": ["sast", "dast", "sca", "secrets", "iac", "container", "ml", "malware", "pci"]},
+                            "severity": {
+                                "type": "string",
+                                "enum": ["critical", "high", "medium", "low", "info", "unknown"],
+                            },
+                            "scan_type": {
+                                "type": "string",
+                                "enum": [
+                                    "sast",
+                                    "dast",
+                                    "sca",
+                                    "secrets",
+                                    "iac",
+                                    "container",
+                                    "ml",
+                                    "malware",
+                                    "pci",
+                                ],
+                            },
                             "tool": {"type": "string", "minLength": 1},
                         },
                     },
@@ -868,12 +886,24 @@ async def _finish_scan(
 ) -> list[types.TextContent]:
     """Format scan output and optionally upload to the cloud dashboard."""
     from argus.formatters.sarif import aggregated_report_to_sarif
-    from argus.policy import apply_policy, load_policy
+    from argus.policy import DataPolicy, apply_policy, load_policy
+    from argus.redaction import redact_report
 
     report_dict = report.to_dict()
+    data_policy = DataPolicy()
     if target_path:
         policy = load_policy(start=target_path)
         report_dict = apply_policy(report_dict, policy)
+        data_policy = policy.data_policy
+    # MCP responses go to an AI client, so personal data is masked unless data_policy says not.
+    redact = data_policy.should_redact(leaves_machine=True)
+    if redact or data_policy.max_snippet_lines or data_policy.exclude_fields:
+        report_dict, _ = redact_report(
+            report_dict,
+            pii=redact,
+            max_snippet_lines=data_policy.max_snippet_lines,
+            exclude_fields=data_policy.exclude_fields,
+        )
 
     upload_note = ""
 
@@ -1486,7 +1516,9 @@ async def _handle_get_fix_plan(args: dict[str, Any]) -> list[types.TextContent]:
 
     raw = args.get("scan_result_json")
     if not isinstance(raw, str):
-        return [types.TextContent(type="text", text="Invalid input: scan_result_json must be a string")]
+        return [
+            types.TextContent(type="text", text="Invalid input: scan_result_json must be a string")
+        ]
     try:
         plan = build_fix_plan(json.loads(raw))
     except (ValueError, TypeError) as exc:

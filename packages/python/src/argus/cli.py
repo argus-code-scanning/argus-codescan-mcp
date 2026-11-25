@@ -36,6 +36,7 @@ from collections.abc import Callable, Coroutine
 from pathlib import Path
 
 from argus.models import AggregatedReport, ScanResult
+from argus.policy import DataPolicy
 from argus.utils import format_markdown_report, is_tool_available, refresh_report_summary
 
 _CLASSIFICATIONS = {"pii", "phi", "pci", "confidential", "public", "unset"}
@@ -120,6 +121,25 @@ def build_parser() -> argparse.ArgumentParser:
                 "Only show findings with these comma-separated data classifications "
                 "(pii, phi, pci, confidential, public, unset)"
             ),
+        )
+        redact = p.add_mutually_exclusive_group()
+        redact.add_argument(
+            "--redact-pii",
+            dest="redact_pii",
+            action="store_const",
+            const=True,
+            default=None,
+            help=(
+                "Mask personal data (emails, phone, SSN/NI, card numbers) in the output. "
+                "Default: on for SARIF, off for terminal and JSON (data_policy in .argus.yml)"
+            ),
+        )
+        redact.add_argument(
+            "--no-redact-pii",
+            dest="redact_pii",
+            action="store_const",
+            const=False,
+            help="Never mask personal data in the output (overrides data_policy)",
         )
         p.add_argument(
             "--tools",
@@ -607,13 +627,29 @@ def _emit(
     fail_on: str,
     classification: str | None = None,
     include_low_confidence: bool = False,
+    data_policy: DataPolicy | None = None,
+    redact_flag: bool | None = None,
 ) -> int:
     """Render the report and return the exit code."""
     from argus.formatters.sarif import aggregated_report_to_sarif
+    from argus.redaction import redact_report
 
     by_severity = _filter_severity(report_dict, min_sev)
     filtered = _filter_classification(by_severity, classification)
     refresh_report_summary(filtered)
+
+    # Redaction happens here, at the output boundary: fail-on above still sees the raw report.
+    policy_data = data_policy or DataPolicy()
+    redact = policy_data.should_redact(leaves_machine=fmt == "sarif", cli_flag=redact_flag)
+    if redact or policy_data.max_snippet_lines or policy_data.exclude_fields:
+        filtered, masked = redact_report(
+            filtered,
+            pii=redact,
+            max_snippet_lines=policy_data.max_snippet_lines,
+            exclude_fields=policy_data.exclude_fields,
+        )
+        if masked:
+            print(f"Redacted {masked} personal data value(s) from the output.", file=sys.stderr)
 
     if fmt == "json":
         text = json.dumps(filtered, indent=2)
@@ -922,6 +958,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
         getattr(args, "classification", None),
         include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
         or policy.fail_on_low_confidence,
+        data_policy=policy.data_policy,
+        redact_flag=getattr(args, "redact_pii", None),
     )
 
 
@@ -1088,6 +1126,8 @@ async def _run_review(args: argparse.Namespace) -> int:
         getattr(args, "classification", None),
         include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
         or policy.fail_on_low_confidence,
+        data_policy=policy.data_policy,
+        redact_flag=getattr(args, "redact_pii", None),
     )
 
 
