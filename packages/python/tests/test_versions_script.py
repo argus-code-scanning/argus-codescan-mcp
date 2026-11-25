@@ -48,11 +48,15 @@ def test_bump_updates_every_file_pin_and_readme(repo: Path, capsys) -> None:
         "npm": "0.13.0",
         "vscode": versions.current(REPO)["vscode"],
     }
-    assert '"argus-languages>=0.9.0"' in (repo / "packages/python/pyproject.toml").read_text()
-    assert '__version__ = "0.11.0"' in (repo / "packages/python/src/argus/__init__.py").read_text()
-    lock = json.loads((repo / "packages/npm/package-lock.json").read_text())
+    assert '"argus-languages>=0.9.0"' in (repo / "packages/python/pyproject.toml").read_text(
+        encoding="utf-8"
+    )
+    assert '__version__ = "0.11.0"' in (repo / "packages/python/src/argus/__init__.py").read_text(
+        encoding="utf-8"
+    )
+    lock = json.loads((repo / "packages/npm/package-lock.json").read_text(encoding="utf-8"))
     assert lock["version"] == "0.13.0" and lock["packages"][""]["version"] == "0.13.0"
-    readme = (repo / "README.md").read_text()
+    readme = (repo / "README.md").read_text(encoding="utf-8")
     assert "`pip install argus-scan==0.11.0` (needs `argus-languages>=0.9.0`)" in readme
     assert versions.problems(repo) == []
     assert versions.main(["check"], root=repo) == 0
@@ -86,7 +90,7 @@ def test_check_reports_drift(
     repo: Path, rel: str, old: str, new: str, message: str, capsys
 ) -> None:
     path = repo / rel
-    path.write_text(path.read_text().replace(old, new, 1))
+    path.write_text(path.read_text(encoding="utf-8").replace(old, new, 1), encoding="utf-8")
     assert any(message in p for p in versions.problems(repo))
     assert versions.main(["check"], root=repo) == 1
     assert message in capsys.readouterr().err
