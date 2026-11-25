@@ -19,7 +19,12 @@ from typing import Any
 
 from argus.utils import luhn_valid
 
-_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+# Starts only at the beginning of a run of address characters, so a long dotted run is scanned
+# once instead of once per position (#265: that took 1.5 s on 40,000 characters). No length caps:
+# an over-long address must still be masked.
+_EMAIL = re.compile(
+    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}"
+)
 _SSN = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
 _NINO = re.compile(r"\b[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z] ?\d{2} ?\d{2} ?\d{2} ?[A-D]\b")
 _CARD = re.compile(r"\b\d(?:[ -]?\d){12,18}\b")

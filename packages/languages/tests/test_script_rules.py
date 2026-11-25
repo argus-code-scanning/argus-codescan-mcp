@@ -68,3 +68,42 @@ def test_bin_build_output_is_skipped(tmp_path: Path) -> None:
     (tmp_path / "bin" / "Release").mkdir(parents=True)
     (tmp_path / "bin" / "run.sh").write_text('rm -rf "$TARGET/"\n')
     assert "bin/run.sh" not in {f.relative for f in discover_files(tmp_path)}
+
+
+# --- #265: the rm -rf rule must be linear -------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("line", "flagged"),
+    [
+        ('rm -rf "$DIR/"', True),
+        ("rm -rf $DIR/*", True),
+        ('rm -r -f "${BUILD}/"', True),
+        ('rm -f -R -- "$OUT/";', True),
+        ('rm --force -r "$DIR/"', True),  # missed by the old pattern
+        ('rm -rf "${DIR:?}/"', False),
+        ('rm -f "$FILE"', False),
+        ("rm -rf ./build/", False),
+    ],
+)
+def test_rm_rule_shapes(line: str, flagged: bool) -> None:
+    from argus_languages.rules_loader import load_rules_from_files
+
+    rule = next(
+        r for r in load_rules_from_files(("shell.yaml",)) if r.id == "sh-rm-unguarded-variable"
+    )
+    assert bool(rule.pattern.search(line)) is flagged
+
+
+def test_rm_rule_is_linear_on_hostile_input() -> None:
+    import time
+
+    from argus_languages.rules_loader import load_rules_from_files
+
+    rule = next(
+        r for r in load_rules_from_files(("shell.yaml",)) if r.id == "sh-rm-unguarded-variable"
+    )
+    hostile = "rm " + "-r " * 20000 + "!"
+    start = time.perf_counter()
+    rule.pattern.search(hostile)
+    assert time.perf_counter() - start < 0.5  # was 9.8 s
