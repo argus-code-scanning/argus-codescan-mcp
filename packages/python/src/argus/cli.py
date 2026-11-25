@@ -222,6 +222,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common(pci_p)
 
+    pii_p = scan_sub.add_parser(
+        "pii",
+        help="Personal data: emails, phones, SSN/NI numbers, names and addresses hardcoded in "
+        "code, config and fixtures, PII in logs, Luhn-valid card numbers (built-in)",
+    )
+    _add_common(pii_p)
+
     sca_p = scan_sub.add_parser("sca", help="Software Composition Analysis (dependencies)")
     _add_common(sca_p)
 
@@ -710,6 +717,11 @@ async def _dispatch_scan(
         from argus.tools.threat_intel import run_threat_scan
 
         return [await run_threat_scan(target)]
+
+    if scan_type == "pii":
+        from argus.tools.pii import run_pii_scan
+
+        return [await run_pii_scan(target)]
 
     if scan_type == "pci":
         from argus.tools.pci import run_pci_scan
