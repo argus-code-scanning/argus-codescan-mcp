@@ -173,7 +173,7 @@
 - id: ml-openai-anthropic-unbounded-output
   title: LLM request omits its maximum output-token limit
   severity: medium
-  pattern: '(?is)\A(?=[\s\S]*(?:\b(?:import\s+openai|from\s+openai\s+import|import\s+anthropic|from\s+anthropic\s+import)|@anthropic-ai/sdk|\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\(|\b(?:client|openai|anthropic)\s*\.))(?:(?:chat\.completions|responses|messages)\.create)\s*\((?:(?!\b(?:max_tokens["'']?\s*[:=]|max_output_tokens["'']?\s*[:=]|max_completion_tokens["'']?\s*[:=]))[\s\S]){0,3000}?\)'
+  pattern: '(?is)\A(?=[\s\S]*(?:\b(?:import\s+openai|from\s+openai\s+import|import\s+anthropic|from\s+anthropic\s+import)|@anthropic-ai/sdk|\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\(|\b(?:client|openai|anthropic)\s*\.))[\s\S]*?(?P<finding>\b(?:client|openai|anthropic)\s*\.\s*(?:chat\.completions|responses|messages)\s*\.\s*create\s*\((?:(?!\b(?:max_tokens["'']?\s*[:=]|max_output_tokens["'']?\s*[:=]|max_completion_tokens["'']?\s*[:=]))[\s\S]){0,3000}?\))'
   flags: [i]
   multiline: true
   languages: [python, javascript, typescript]
@@ -202,7 +202,7 @@
 - id: ml-litellm-unbounded-output
   title: LiteLLM request omits its maximum output-token limit
   severity: medium
-  pattern: '(?is)\A(?=[\s\S]*(?:\bimport\s+litellm\b|\bfrom\s+litellm\s+import\b|\blitellm\s*\.))(?<![\w.])(?:litellm\s*\.\s*)?(?:completion|acompletion)\s*\((?:(?!\bmax_tokens["'']?\s*[:=])[\s\S]){0,3000}?\)'
+  pattern: '(?is)\A(?=[\s\S]*(?:\bimport\s+litellm\b|\bfrom\s+litellm\s+import\b|\blitellm\s*\.))[\s\S]*?(?P<finding>(?<![\w.])litellm\s*\.\s*(?:completion|acompletion)\s*\((?:(?!\bmax_tokens["'']?\s*[:=])[\s\S]){0,3000}?\))'
   flags: [i]
   multiline: true
   languages: [python, javascript, typescript]
@@ -210,7 +210,7 @@
 - id: ml-langchain-unbounded-output
   title: LangChain chat model is created without an output-token limit
   severity: medium
-  pattern: 'Chat(?:OpenAI|Anthropic|GoogleGenerativeAI|MistralAI)\s*\((?:(?!\b(?:max_tokens|max_output_tokens|max_completion_tokens)\s*[:=])[\s\S]){0,2000}?\)'
+  pattern: 'Chat(?:OpenAI|Anthropic|GoogleGenerativeAI|MistralAI)\s*\((?:(?!\b(?:max_tokens|max_output_tokens|max_completion_tokens)["'']?\s*[:=])[\s\S]){0,2000}?\)'
   flags: [i]
   multiline: true
   languages: [python, javascript, typescript]
@@ -237,7 +237,7 @@
   title: LLM request has no visible timeout
   severity: low
   confidence: low
-  pattern: '(?is)\A(?=[\s\S]*(?:\b(?:import\s+openai|from\s+openai\s+import|import\s+anthropic|from\s+anthropic\s+import)|@anthropic-ai/sdk|\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\(|\b(?:client|openai|anthropic)\s*\.))(?![\s\S]*\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\([^)]*\btimeout\b)(?:chat\.completions|responses|messages)\.create\s*\((?:(?!\btimeout["'']?\s*[:=])[\s\S]){0,3000}?\)'
+  pattern: '(?is)\A(?=[\s\S]*(?:\b(?:import\s+openai|from\s+openai\s+import|import\s+anthropic|from\s+anthropic\s+import)|@anthropic-ai/sdk|\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\(|\b(?:client|openai|anthropic)\s*\.))(?![\s\S]*\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\([^)]*\btimeout\b)[\s\S]*?(?P<finding>\b(?:client|openai|anthropic)\s*\.\s*(?:chat\.completions|responses|messages)\s*\.\s*create\s*\((?:(?!\btimeout["'']?\s*[:=])[\s\S]){0,3000}?\))'
   flags: [i]
   multiline: true
   languages: [python, javascript, typescript]

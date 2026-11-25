@@ -90,43 +90,50 @@ def test_safe_output_handling_not_flagged(tmp_path: Path, filename: str, line: s
     f.write_text(line + "\n")
     assert not _scan_ml(f).findings
 
+
 @pytest.mark.parametrize(
     ("filename", "source", "rule_id"),
     [
         (
             "openai.py",
-            ("from openai import OpenAI\n"
-            "client.chat.completions.create(model=\"gpt-4o\", messages=messages)"),
+            "from openai import OpenAI\n"
+            "client.chat.completions.create(model=\"gpt-4o\", messages=messages)",
             "ml-openai-anthropic-unbounded-output",
         ),
         (
             "openai.ts",
-            "import OpenAI from \"openai\";\nawait openai.responses.create({ model, input });",
+            "import OpenAI from \"openai\";\n"
+            "await openai.responses.create({ model, input });",
             "ml-openai-anthropic-unbounded-output",
         ),
         (
             "anthropic.py",
-            ("from anthropic import Anthropic\n"
-            "client.messages.create(model=\"claude\", messages=messages)"),
+            "from anthropic import Anthropic\n"
+            "client.messages.create(model=\"claude\", messages=messages)",
             "ml-openai-anthropic-unbounded-output",
         ),
         ("gemini.py", "model.generate_content(prompt)", "ml-gemini-unbounded-output"),
         ("gemini.ts", "model.generate_content(prompt);", "ml-gemini-unbounded-output"),
         (
-            "mistral.py,
-            client.chat.complete(model=\"mistral\", messages=messages),
-            ml-mistral-unbounded-output"
+            "mistral.py",
+            "client.chat.complete(model=\"mistral\", messages=messages)",
+            "ml-mistral-unbounded-output",
         ),
         (
-            "litellm.py,
-            litellm.completion(model=model, messages=messages),
-            ml-litellm-unbounded-output"
+            "litellm.py",
+            "import litellm\n"
+            "litellm.completion(model=model, messages=messages)",
+            "ml-litellm-unbounded-output",
         ),
-        ("langchain.py", "llm = ChatOpenAI(model=\"gpt-4o\")", "ml-langchain-unbounded-output"),
         (
-            "request.py,
-            payload = {\"model\": request.json, \"messages\": request.body}\n,
-            ml-llm-model-or-history-from-request"
+            "langchain.py",
+            "llm = ChatOpenAI(model=\"gpt-4o\")",
+            "ml-langchain-unbounded-output",
+        ),
+        (
+            "request.py",
+            "payload = {\"model\": request.json, \"messages\": request.body}\n",
+            "ml-llm-model-or-history-from-request",
         ),
         (
             "large.py",
@@ -135,8 +142,8 @@ def test_safe_output_handling_not_flagged(tmp_path: Path, filename: str, line: s
         ),
         (
             "timeout.py",
-            ("from openai import OpenAI\n"
-            "client.chat.completions.create(model=\"gpt-4o\", messages=messages)"),
+            "from openai import OpenAI\n"
+            "client.chat.completions.create(model=\"gpt-4o\", messages=messages)",
             "ml-llm-request-without-timeout",
         ),
     ],
@@ -154,16 +161,25 @@ def test_llm_unbounded_consumption_patterns(
     [
         (
             "safe.py",
-            ("client.chat.completions.create(model=\"gpt-4o\", messages=messages, "
-            "max_tokens=512, timeout=20)"),
+            "from openai import OpenAI\n"
+            "client.chat.completions.create("
+            "model=\"gpt-4o\", messages=messages, max_tokens=512, timeout=20)"
         ),
         (
             "safe.py",
-            "model.generate_content(prompt, generation_config={\"max_output_tokens\": 512})",
+            "model.generate_content(prompt, "
+            "generation_config={\"max_output_tokens\": 512})",
         ),
-        ("safe.py", "client.chat.complete(model=\"mistral\", messages=messages, max_tokens=512)"),
-        ("safe.py", "litellm.completion(model=model, messages=messages, max_tokens=512)"),
+        (
+            "safe.py",
+            "client.chat.complete(model=\"mistral\", messages=messages, max_tokens=512)",
+        ),
+        (
+            "safe.py",
+            "litellm.completion(model=model, messages=messages, max_tokens=512)",
+        ),
         ("safe.py", "llm = ChatOpenAI(model=\"gpt-4o\", max_tokens=512)"),
+        ("safe.py", "llm = ChatOpenAI({\"max_tokens\": 512})"),
         ("safe.ts", "const model = allowedModels[request.body.model];"),
         ("safe.py", "params = {\"max_output_tokens\": 4096}"),
     ],
@@ -266,3 +282,48 @@ def test_client_level_timeout_not_flagged(tmp_path: Path, filename: str, source:
     assert "ml-llm-request-without-timeout" not in {
         finding.rule_id for finding in _scan_ml(f).findings
     }
+
+
+@pytest.mark.parametrize(
+    ("filename", "source", "rule_id", "expected_line"),
+    [
+        (
+            "openai.py",
+            "from openai import OpenAI\n"
+            "client = OpenAI()\n"
+            "\n"
+            "def ask(messages):\n"
+            "    return client.chat.completions.create(model=\"gpt-4o\", messages=messages)",
+            "ml-openai-anthropic-unbounded-output",
+            5,
+        ),
+        (
+            "openai.py",
+            "from openai import OpenAI\n"
+            "client = OpenAI()\n"
+            "\n"
+            "def ask(messages):\n"
+            "    return client.chat.completions.create(model=\"gpt-4o\", messages=messages)",
+            "ml-llm-request-without-timeout",
+            5,
+        ),
+        (
+            "litellm.py",
+            "import litellm\n"
+            "\n"
+            "async def ask():\n"
+            "    return litellm.completion(model=model, messages=messages)",
+            "ml-litellm-unbounded-output",
+            4,
+        ),
+    ],
+)
+def test_sdk_findings_report_call_line(
+    tmp_path: Path, filename: str, source: str, rule_id: str, expected_line: int
+):
+    f = tmp_path / filename
+    f.write_text(source + "\n")
+    finding = next(
+        item for item in _scan_ml(f).findings if item.rule_id == rule_id
+    )
+    assert finding.line == expected_line
