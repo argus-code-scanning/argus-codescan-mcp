@@ -89,3 +89,80 @@ def test_safe_output_handling_not_flagged(tmp_path: Path, filename: str, line: s
     f = tmp_path / filename
     f.write_text(line + "\n")
     assert not _scan_ml(f).findings
+
+@pytest.mark.parametrize(
+    ("filename", "source", "rule_id"),
+    [
+        ("openai.py", "client.chat.completions.create(model=\"gpt-4o\", messages=messages)", "ml-openai-anthropic-unbounded-output"),
+        ("openai.ts", "await openai.responses.create({ model, input });", "ml-openai-anthropic-unbounded-output"),
+        ("anthropic.py", "client.messages.create(model=\"claude\", messages=messages)", "ml-openai-anthropic-unbounded-output"),
+        ("gemini.py", "model.generate_content(prompt)", "ml-gemini-unbounded-output"),
+        ("gemini.ts", "model.generate_content(prompt);", "ml-gemini-unbounded-output"),
+        ("mistral.py", "client.chat.complete(model=\"mistral\", messages=messages)", "ml-mistral-unbounded-output"),
+        ("litellm.py", "litellm.completion(model=model, messages=messages)", "ml-litellm-unbounded-output"),
+        ("langchain.py", "llm = ChatOpenAI(model=\"gpt-4o\")", "ml-langchain-unbounded-output"),
+        ("request.py", "payload = {\"model\": request.json, \"messages\": request.body}\n", "ml-llm-model-or-history-from-request"),
+        ("large.py", "params = {\"max_output_tokens\": 20000}", "ml-llm-output-token-limit-too-high"),
+        ("timeout.py", "client.chat.completions.create(model=\"gpt-4o\", messages=messages)", "ml-llm-request-without-timeout"),
+    ],
+)
+def test_llm_unbounded_consumption_patterns(
+    tmp_path: Path, filename: str, source: str, rule_id: str
+):
+    f = tmp_path / filename
+    f.write_text(source + "\n")
+    assert rule_id in {finding.rule_id for finding in _scan_ml(f).findings}
+
+
+@pytest.mark.parametrize(
+    ("filename", "source"),
+    [
+        ("safe.py", "client.chat.completions.create(model=\"gpt-4o\", messages=messages, max_tokens=512, timeout=20)"),
+        ("safe.py", "model.generate_content(prompt, generation_config={\"max_output_tokens\": 512})"),
+        ("safe.py", "client.chat.complete(model=\"mistral\", messages=messages, max_tokens=512)"),
+        ("safe.py", "litellm.completion(model=model, messages=messages, max_tokens=512)"),
+        ("safe.py", "llm = ChatOpenAI(model=\"gpt-4o\", max_tokens=512)"),
+        ("safe.ts", "const model = allowedModels[request.body.model];"),
+        ("safe.py", "params = {\"max_output_tokens\": 4096}"),
+    ],
+)
+def test_bounded_llm_requests_not_flagged(tmp_path: Path, filename: str, source: str):
+    f = tmp_path / filename
+    f.write_text(source + "\n")
+    assert not _scan_ml(f).findings
+
+
+def test_llm_route_without_rate_limit_flagged(tmp_path: Path):
+    f = tmp_path / "routes.py"
+    f.write_text(
+        '@app.post("/chat")\n'
+        "async def chat(request):\n"
+        "    return await client.chat.completions.create(\n"
+        '        model="gpt-4o", messages=request.json["messages"]\n'
+        "    )\n"
+    )
+    assert "ml-llm-route-without-rate-limit" in {
+        finding.rule_id for finding in _scan_ml(f).findings
+    }
+
+
+@pytest.mark.parametrize(
+    "limiter",
+    [
+        '@limiter.limit("10/minute")',
+        "app.add_middleware(RateLimiter)",
+        "rate_limit = Limiter(key_func=get_remote_address)",
+        "app.use(express_rate_limit())",
+    ],
+)
+def test_llm_route_with_rate_limit_not_flagged(tmp_path: Path, limiter: str):
+    f = tmp_path / "routes.py"
+    f.write_text(
+        limiter + "\n"
+        '@app.post("/chat")\n'
+        "async def chat(request):\n"
+        "    return await client.chat.completions.create(model=\"gpt-4o\", messages=messages)\n"
+    )
+    assert "ml-llm-route-without-rate-limit" not in {
+        finding.rule_id for finding in _scan_ml(f).findings
+    }
