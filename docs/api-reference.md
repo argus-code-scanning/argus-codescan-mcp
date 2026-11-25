@@ -404,7 +404,7 @@ Preview or apply a fix for a **specific finding**. Only call when the user expli
 | `apply` | Result |
 |---------|--------|
 | `false` | Returns fix guidance and whether autofix is available |
-| `true` | Runs ESLint `--fix` or Semgrep `--autofix` on the file |
+| `true` | Runs ESLint `--fix` or Semgrep `--autofix` on the file, or the built-in GitHub Actions fix (pin to SHA, move `${{ github.* }}` into `env:`) |
 
 **Never auto-fix:** secrets, SCA, DAST, and container findings — guidance only.
 
@@ -426,6 +426,40 @@ Preview or apply a fix for a **specific finding**. Only call when the user expli
 ```
 
 ---
+
+## `apply_fixes`
+
+Fix **many findings at once** with one review step. Call with `apply: false` first: nothing changes, and the result has one unified diff for every fixable finding and a `confirm_token`. Show the diff to the user; only after they confirm, call again with `apply: true` and the token. If the files or the fixes changed since the preview, the token doesn't match and nothing is written.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `target` | `string` | ✅ | — | Project root or scan target |
+| `scan_result_json` | `string` | ❌ | — | An Argus JSON report: every fixable finding in it is included |
+| `findings` | `array` | ❌ | — | Or specific findings: objects with `file`, `tool`, `scan_type`, `rule_id`, `line` |
+| `apply` | `boolean` | ❌ | `false` | `false` = preview; `true` = write the previewed diff |
+| `confirm_token` | `string` | with `apply` | `""` | Token from the preview |
+| `semgrep_config` | `string` | ❌ | `"auto"` | Semgrep config for semgrep fixes |
+| `timeout` | `integer` | ❌ | `120` | Per-fix timeout |
+
+### Result
+
+```json
+{
+  "fixable": 3,
+  "files": [".github/workflows/ci.yml"],
+  "diff": "--- a/.github/workflows/ci.yml\n+++ b/.github/workflows/ci.yml\n@@ ...",
+  "confirm_token": "9f2c…",
+  "applied": false,
+  "results": [{"file": ".github/workflows/ci.yml", "line": 9, "rule_id": "…mutable-action-tag", "status": "fixed"}]
+}
+```
+
+- Findings without an automated fix (secrets, dependencies, DAST, container, most code findings) are left out; files outside `target` are refused.
+- ESLint/Semgrep fixes run on a temporary copy next to the file (so the project's lint config applies) and never touch the real file during the preview.
+- Several fixes in one file are applied bottom-up so line numbers stay valid; at most 50 findings per call.
+- Files are written atomically and keep their permissions.
 
 ## Finding Schema
 
