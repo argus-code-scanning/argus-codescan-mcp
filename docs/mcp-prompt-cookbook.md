@@ -1,6 +1,6 @@
 # Argus MCP Prompt Cookbook
 
-Eleven prompts for an AI assistant connected to the Argus MCP
+Sixteen prompts for an AI assistant connected to the Argus MCP
 server. Each example names the tool to use and describes how to summarize its
 results.
 
@@ -17,8 +17,8 @@ results.
   scan errors alongside findings; an incomplete scan is not a clean result.
 
 See the [MCP API reference](api-reference.md) for tool parameters and output
-formats. These prompts request scans and guidance; they do not request automated
-fixes.
+formats. Prompts 1–13 and 15–16 only scan and advise. Prompt 14 applies an automated
+fix, and only after you confirm the exact change.
 
 ## 1. Scan the repository for secrets
 
@@ -224,3 +224,83 @@ Do not modify files or run git commit.
 ```sh
 argus review /path/to/project --staged --fail-on high
 ```
+
+## 12. Plan the rotation of a leaked secret
+
+```text
+From the latest Argus scan_secrets results for /path/to/project, take the
+finding I name (or the highest-severity one) and write a rotation plan: which
+system issued the credential, how to revoke it, how to issue a replacement, where
+the new value should live (environment variable or secret manager, never source),
+and how to purge it from git history. Never print the secret value, even
+partially. Do not edit files.
+```
+
+**MCP tool:** `scan_secrets` (or an existing report), then guidance only.
+
+**Expected result:** An ordered checklist: revoke first, then replace, then clean
+history. Removing a secret from the latest commit does not make it safe; it stays
+in history and any clone until it is revoked.
+
+## 13. Triage dependency vulnerabilities (CVEs)
+
+```text
+Use Argus scan_sca with target /path/to/project. Group the vulnerable packages
+by severity and say for each one: the installed version, the first fixed version,
+whether it is a direct or transitive dependency (show the dependency path), and
+whether it is a dev-only dependency. Recommend the smallest set of upgrades that
+fixes the critical and high findings, and flag any upgrade that crosses a major
+version. Do not change lockfiles or manifests.
+```
+
+**MCP tool:** `scan_sca`, with `target` set to the project directory.
+
+**Expected result:** A short upgrade plan instead of a long CVE list. Dev-only
+and unreachable packages are listed separately so production risk comes first.
+
+## 14. Fix infrastructure and workflow findings (with confirmation)
+
+```text
+From the latest Argus report for /path/to/project, list the findings where
+apply_fix reports an automated fix is available (for example GitHub Actions
+tags not pinned to a commit SHA, or ${{ github.* }} used inside run: scripts).
+For each one, call apply_fix with apply set to false and show me the proposed
+change. Apply a fix with apply set to true only after I confirm that specific
+finding. Fix one finding at a time and report the result.
+```
+
+**MCP tool:** `apply_fix`: `apply: false` to preview, `apply: true` only after
+confirmation.
+
+**Expected result:** One confirmed change per finding. Workflow pins are resolved
+to the commit the tag points at today; review them like any dependency update.
+
+## 15. Turn a full report into a fix plan
+
+```text
+Use Argus get_fix_plan with the latest scan report for /path/to/project.
+Order the work by severity and effort: quick automated fixes first, then code
+changes, then dependency upgrades, then items that need a decision (accepted
+risk). Estimate effort per group and name the files involved. Do not edit files.
+```
+
+**MCP tool:** `get_fix_plan`, with `scan_result_json` set to the report.
+
+**Expected result:** A prioritized plan you can turn into tickets or a pull
+request checklist.
+
+## 16. Verify a fix by re-scanning
+
+```text
+I fixed some findings in /path/to/project. Run the same Argus scan again with
+the same target and scan type as before, then use compare_scans with the earlier
+report as baseline_json and the new one as current_json. Tell me which findings
+are fixed, which are still open, and whether any new ones appeared. Treat a
+scanner that was unavailable in either run as "not verified", not as fixed.
+```
+
+**MCP tools:** the original scan tool, then `compare_scans`.
+
+**Expected result:** Fixed / still open / new, so you know the change worked and
+didn't introduce anything else.
+

@@ -71,8 +71,9 @@ async def resolve_ref(action: str, ref: str) -> str | None:
     return None
 
 
-async def pin_action(text: str, line: int, resolver: Resolver = resolve_ref) -> FixOutcome:
+async def pin_action(text: str, line: int, resolver: Resolver | None = None) -> FixOutcome:
     """Pin the ``uses:`` on ``line`` (1-based) to a commit SHA."""
+    resolver = resolver or resolve_ref
     lines = text.splitlines(keepends=True)
     if not 1 <= line <= len(lines):
         return FixOutcome(False, f"Line {line} is outside the file.")
@@ -259,7 +260,7 @@ def fix_run_injection(text: str, line: int) -> FixOutcome:
 
 
 async def fix_github_actions(
-    text: str, rule_id: str, line: int, resolver: Resolver = resolve_ref
+    text: str, rule_id: str, line: int, resolver: Resolver | None = None
 ) -> FixOutcome:
     rid = rule_id.strip().lower()
     if rid.endswith(PIN_RULE):

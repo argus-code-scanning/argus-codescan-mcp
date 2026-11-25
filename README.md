@@ -207,6 +207,7 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
 | `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |
+| `scan_pii` | Personal data: real-looking emails, phones, SSN / UK NI numbers, names and addresses hardcoded in code, config and fixtures (JSON/YAML/CSV/.env/SQL), PII in logs, Luhn-valid card numbers. CLI: `argus scan pii .` |
 | `scan_privacy` | GDPR/CCPA code patterns: trackers without a consent mechanism, no data deletion/export, no retention field, PII in logs, fingerprinting, non-EU storage. Not a legal assessment ([docs](docs/privacy-scanning.md)). CLI: `argus scan privacy .` |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
@@ -432,6 +433,21 @@ Print the same template: `argus mcp --config`
 After each MCP scan or CLI scan, results upload to `{ARGUS_API_URL}/scans` with repo/branch/commit from git. Full setup: [docs/AGENT-UPLOAD.md](docs/AGENT-UPLOAD.md)
 
 ---
+
+## Versions
+
+Each package has its own version number. These are the versions released together:
+
+<!-- versions:start -->
+| Package | Version | Install |
+|---|---|---|
+| `argus-scan` (CLI + MCP) | 0.10.1 | `pip install argus-scan==0.10.1` (needs `argus-languages>=0.8.1`) |
+| `argus-languages` (built-in rules) | 0.8.1 | `pip install argus-languages==0.8.1` |
+| `argus-codescan` (npm) | 0.12.1 | `npx argus-codescan@0.12.1` |
+| VS Code extension | 0.1.0 | Marketplace: `arestechub.argus-scan` |
+<!-- versions:end -->
+
+`argus-scan` always requires the `argus-languages` version it was tested with. Maintainers: `python scripts/versions.py bump --scan X --languages Y --npm Z` updates every file and this table, and `python scripts/versions.py check` (run in CI) fails when anything is out of sync.
 
 ## Install
 

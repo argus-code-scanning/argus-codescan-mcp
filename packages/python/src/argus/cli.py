@@ -222,6 +222,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common(pci_p)
 
+    pii_p = scan_sub.add_parser(
+        "pii",
+        help="Personal data: emails, phones, SSN/NI numbers, names and addresses hardcoded in "
+        "code, config and fixtures, PII in logs, Luhn-valid card numbers (built-in)",
+    )
+    _add_common(pii_p)
+
     privacy_p = scan_sub.add_parser(
         "privacy",
         help="GDPR/CCPA code patterns: trackers without consent, no data deletion/export, "
@@ -723,6 +730,11 @@ async def _dispatch_scan(
 
         return [await run_privacy_scan(target)]
 
+    if scan_type == "pii":
+        from argus.tools.pii import run_pii_scan
+
+        return [await run_pii_scan(target)]
+
     if scan_type == "pci":
         from argus.tools.pci import run_pci_scan
 
@@ -882,7 +894,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
             results.append(await run_trivy_image(args.image, timeout=timeout))
 
     report = AggregatedReport(target=report_target, results=results)
-    report_dict = apply_policy(report.to_dict(), policy)
+    # Severity is filtered for display only (in _emit), so --fail-on sees every finding.
+    report_dict = apply_policy(report.to_dict(), policy, filter_severity=False)
     _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
@@ -1048,7 +1061,8 @@ async def _run_review(args: argparse.Namespace) -> int:
     for line in review_summary_lines(report):
         print(line, file=sys.stderr)
 
-    report_dict = apply_policy(report.to_dict(), policy)
+    # Severity is filtered for display only (in _emit), so --fail-on sees every finding.
+    report_dict = apply_policy(report.to_dict(), policy, filter_severity=False)
     _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline

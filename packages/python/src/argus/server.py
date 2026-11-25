@@ -40,6 +40,7 @@ from argus.tools.iac import (
 from argus.tools.malware import run_malware_scan, run_malware_triage
 from argus.tools.ml import run_ml_scan
 from argus.tools.pci import run_pci_scan
+from argus.tools.pii import run_pii_scan
 from argus.tools.privacy import run_privacy_scan
 from argus.tools.review import review_summary_lines, run_review
 from argus.tools.sast import (
@@ -528,6 +529,37 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="scan_pii",
+            description=(
+                "Scan for personal data (PII): real-looking emails, phone numbers, US SSNs, UK "
+                "National Insurance numbers, names and street addresses hardcoded in code, "
+                "config and fixtures (JSON/YAML/CSV/.env/SQL), PII written to logs, and "
+                "Luhn-valid card numbers. Example/test values are ignored. Built-in rules. "
+                "Don't repeat the personal data itself in your summary."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to project directory or file",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json", "sarif"],
+                        "description": "Output format (default: markdown)",
+                        "default": "markdown",
+                    },
+                    "fail_on": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low", "never"],
+                        "description": "Severity threshold that marks an uploaded scan as failed",
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_pci",
             description=(
                 "Scan source for PCI-DSS cardholder-data exposure heuristics: CVV/CVC stored "
@@ -838,6 +870,45 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["target", "file", "tool"],
             },
         ),
+        types.Tool(
+            name="apply_fixes",
+            description=(
+                "Preview, then apply, automated fixes for many findings at once. "
+                "Call with apply=false first: nothing changes, and you get one unified diff for "
+                "every fixable finding plus a confirm_token. Show the diff to the user. Only after "
+                "the user confirms, call again with apply=true and that confirm_token; if the files "
+                "changed since the preview, nothing is written. Findings without an automated fix "
+                "(secrets, dependencies, most code findings) are left out."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "Project root or scan target path"},
+                    "scan_result_json": {
+                        "type": "string",
+                        "description": "An Argus JSON report; every fixable finding in it is included",
+                    },
+                    "findings": {
+                        "type": "array",
+                        "description": "Or: specific findings (file, tool, scan_type, rule_id, line)",
+                        "items": {"type": "object"},
+                    },
+                    "apply": {
+                        "type": "boolean",
+                        "description": "false = preview only; true = write the previewed diff",
+                        "default": False,
+                    },
+                    "confirm_token": {
+                        "type": "string",
+                        "description": "The confirm_token from the preview (required with apply=true)",
+                        "default": "",
+                    },
+                    "semgrep_config": {"type": "string", "default": "auto"},
+                    "timeout": {"type": "integer", "default": 120},
+                },
+                "required": ["target"],
+            },
+        ),
     ]
 
 
@@ -874,6 +945,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_triage_malware(arguments)
         elif name == "scan_pci":
             return await _handle_scan_pci(arguments)
+        elif name == "scan_pii":
+            return await _handle_scan_pii(arguments)
         elif name == "scan_privacy":
             return await _handle_scan_privacy(arguments)
         elif name == "review_code":
@@ -894,6 +967,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_get_fix_plan(arguments)
         elif name == "apply_fix":
             return await _handle_apply_fix(arguments)
+        elif name == "apply_fixes":
+            return await _handle_apply_fixes(arguments)
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
     except Exception as exc:
@@ -1256,6 +1331,22 @@ async def _handle_scan_pci(args: dict[str, Any]) -> list[types.TextContent]:
     )
 
 
+async def _handle_scan_pii(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
+    target = args["target"]
+    result = await run_pii_scan(target)
+    report = AggregatedReport(target=target, results=[result])
+    return await _finish_scan(
+        report,
+        scan_type="pii",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+        target_path=target,
+    )
+
+
 async def _handle_scan_privacy(args: dict[str, Any]) -> list[types.TextContent]:
     timer = ScanTimer()
     target = args["target"]
@@ -1607,6 +1698,30 @@ async def _handle_apply_fix(args: dict[str, Any]) -> list[types.TextContent]:
         line=int(args.get("line", 0)),
         fix_guidance=args.get("fix_guidance", ""),
         apply=bool(args.get("apply", False)),
+        semgrep_config=args.get("semgrep_config", "auto"),
+        timeout=int(args.get("timeout", 120)),
+    )
+    return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def _handle_apply_fixes(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.tools.batch_fix import FixItem, batch_fix, items_from_report
+
+    items: list[FixItem] = []
+    if args.get("scan_result_json"):
+        raw = args["scan_result_json"]
+        items.extend(items_from_report(json.loads(raw) if isinstance(raw, str) else raw))
+    for finding in args.get("findings") or []:
+        if isinstance(finding, dict):
+            items.append(FixItem.from_dict(finding))
+    if not items:
+        text = json.dumps({"error": "Pass scan_result_json or findings."}, indent=2)
+        return [types.TextContent(type="text", text=text)]
+    result = await batch_fix(
+        args["target"],
+        items,
+        apply=bool(args.get("apply", False)),
+        confirm_token=str(args.get("confirm_token", "")),
         semgrep_config=args.get("semgrep_config", "auto"),
         timeout=int(args.get("timeout", 120)),
     )

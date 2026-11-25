@@ -1,0 +1,126 @@
+# Argus security scan for GitLab CI. Copy into .gitlab-ci.yml, or include it:
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/argus-code-scanning/argus-codescan-mcp/main/docs/examples/gitlab/argus.gitlab-ci.yml
+#
+# Merge requests: scans only the changed files (full scan when more than ARGUS_PR_FILE_LIMIT
+# changed), shows findings in the merge request's Code Quality widget (all GitLab tiers),
+# and keeps one summary note on the MR when ARGUS_GITLAB_TOKEN is set.
+# Default branch: full scan. The job fails when findings reach ARGUS_FAIL_ON.
+#
+# Optional CI/CD variable (masked): ARGUS_GITLAB_TOKEN, a project access token with the
+# `api` scope and Reporter role, used only to post the MR note.
+
+argus-scan:
+  stage: test
+  image: python:3.12-slim
+  variables:
+    ARGUS_VERSION: ""            # pin for reproducible builds, e.g. "0.10.1"
+    ARGUS_SCAN_TYPE: "all"       # all | sast | code | secrets | sca | iac | ml | malware | pci
+    ARGUS_FAIL_ON: "high"        # critical | high | medium | low | never
+    ARGUS_PR_FILE_LIMIT: "50"
+    GIT_DEPTH: "0"               # full history so the MR base commit is available
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git >/dev/null
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - |
+      case "$ARGUS_VERSION" in
+        "") pip install -q argus-scan ;;
+        *[!0-9.]*) echo "ARGUS_VERSION must look like 0.10.1"; exit 2 ;;
+        *) pip install -q "argus-scan==$ARGUS_VERSION" ;;
+      esac
+    - argus --version
+  script:
+    - |
+      set -u
+      case "$ARGUS_SCAN_TYPE" in all|sast|code|secrets|sca|iac|ml|malware|pci) ;; *) echo "bad ARGUS_SCAN_TYPE"; exit 2 ;; esac
+      case "$ARGUS_FAIL_ON" in critical|high|medium|low|never) ;; *) echo "bad ARGUS_FAIL_ON"; exit 2 ;; esac
+      mkdir -p argus-results
+      scope_args=""
+      mode="full"
+      if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ]; then
+        argus ci pr-paths --base "$CI_MERGE_REQUEST_DIFF_BASE_SHA" --head "$CI_COMMIT_SHA" \
+          --limit "$ARGUS_PR_FILE_LIMIT" --output argus-results/scan-paths.txt \
+          --github-output argus-results/scope.env
+        mode=$(sed -n 's/^mode=//p' argus-results/scope.env)
+        [ "$mode" = "changed" ] && scope_args="--paths-file argus-results/scan-paths.txt"
+      fi
+      code=0
+      if [ "$mode" != "empty" ]; then
+        # shellcheck disable=SC2086
+        argus scan "$ARGUS_SCAN_TYPE" . $scope_args --format sarif \
+          --output argus-results/argus.sarif --fail-on "$ARGUS_FAIL_ON" || code=$?
+      else
+        echo '{"version":"2.1.0","runs":[]}' > argus-results/argus.sarif
+      fi
+      if [ "$code" -gt 1 ]; then echo "Argus could not complete the scan (exit $code)"; exit "$code"; fi
+
+      # SARIF -> GitLab Code Quality report (merge request widget).
+      python - <<'PY'
+      import hashlib, json
+      sev = {"critical": "blocker", "high": "critical", "medium": "major", "low": "minor"}
+      def describe(title, text, rule):
+          title = title or rule
+          return (f"{title} — {text}" if text and text != title else title)[:500]
+      out = []
+      for run in json.load(open("argus-results/argus.sarif")).get("runs", []):
+          titles = {
+              rule.get("id"): (rule.get("shortDescription") or {}).get("text", "")
+              for rule in (run.get("tool") or {}).get("driver", {}).get("rules", [])
+          }
+          for r in run.get("results", []):
+              loc = (r.get("locations") or [{}])[0].get("physicalLocation", {})
+              path = loc.get("artifactLocation", {}).get("uri", "")
+              line = loc.get("region", {}).get("startLine", 1) or 1
+              text = (r.get("message") or {}).get("text", "") or r.get("ruleId", "")
+              severity = (r.get("properties") or {}).get("severity", "info")
+              out.append({
+                  "description": describe(titles.get(r.get("ruleId"), ""), text, r.get("ruleId", "argus")),
+                  "check_name": r.get("ruleId", "argus"),
+                  "fingerprint": hashlib.sha1(f"{r.get('ruleId')}|{path}|{text}".encode()).hexdigest(),
+                  "severity": sev.get(severity, "info"),
+                  "location": {"path": path, "lines": {"begin": line}},
+              })
+      json.dump(out, open("gl-code-quality-report.json", "w"), indent=1)
+      print(f"Code Quality report: {len(out)} finding(s)")
+      PY
+
+      argus ci pr-comment --sarif argus-results/argus.sarif --scope-mode "$mode" \
+        --changed-count "$(sed -n 's/^changed_count=//p' argus-results/scope.env 2>/dev/null || true)" \
+        --run-url "$CI_JOB_URL" --output argus-results/summary.md || true
+      cat argus-results/summary.md 2>/dev/null || true
+
+      # One summary note per merge request, edited on later pipelines.
+      if [ -n "${CI_MERGE_REQUEST_IID:-}" ] && [ -n "${ARGUS_GITLAB_TOKEN:-}" ] && [ -s argus-results/summary.md ]; then
+        python - <<'PY' || echo "Could not post the merge request note (scan result unchanged)."
+      import json, os, urllib.request
+      api = f"{os.environ['CI_API_V4_URL']}/projects/{os.environ['CI_PROJECT_ID']}/merge_requests/{os.environ['CI_MERGE_REQUEST_IID']}/notes"
+      headers = {"PRIVATE-TOKEN": os.environ["ARGUS_GITLAB_TOKEN"], "Content-Type": "application/json"}
+      body = open("argus-results/summary.md", encoding="utf-8").read()
+      marker = "<!-- argus-pr-comment -->"
+      def call(url, method="GET", data=None):
+          req = urllib.request.Request(url, method=method, headers=headers,
+                                       data=json.dumps(data).encode() if data else None)
+          with urllib.request.urlopen(req, timeout=20) as res:
+              return json.load(res)
+      notes = call(f"{api}?per_page=100&sort=desc")
+      old = next((n for n in notes if marker in (n.get("body") or "")), None)
+      if old:
+          call(f"{api}/{old['id']}", "PUT", {"body": body})
+          print(f"Updated merge request note {old['id']}")
+      else:
+          print(f"Posted merge request note {call(api, 'POST', {'body': body})['id']}")
+      PY
+      fi
+      exit "$code"
+  artifacts:
+    when: always
+    expire_in: 30 days
+    reports:
+      codequality: gl-code-quality-report.json
+    paths:
+      - argus-results/
+      - gl-code-quality-report.json
