@@ -1,6 +1,6 @@
 {
   "name": "argus-codescan",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "Security scanner for React, Next.js & Node \u2014 SCA, SAST, secrets. CSV reports. For malware/ML/SARIF/MCP use pip install argus-scan. Open source (MIT).",
   "author": "Okiri Gabriel (https://github.com/OkiriGabriel)",
   "keywords": [
@@ -52,8 +52,9 @@
     "start": "node dist/cli.js",
     "lint": "eslint src --ext .ts",
     "test": "vitest run --passWithNoTests",
-    "prepublishOnly": "npm run build",
-    "sync-rules": "node scripts/sync-shared-rules.mjs"
+    "prepublishOnly": "npm run build && node scripts/check-pack.mjs",
+    "sync-rules": "node scripts/sync-shared-rules.mjs",
+    "check-pack": "node scripts/check-pack.mjs"
   },
   "dependencies": {
     "eslint": "^9.0.0",
