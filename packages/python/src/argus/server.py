@@ -41,6 +41,7 @@ from argus.tools.malware import run_malware_scan, run_malware_triage
 from argus.tools.ml import run_ml_scan
 from argus.tools.pci import run_pci_scan
 from argus.tools.pii import run_pii_scan
+from argus.tools.privacy import run_privacy_scan
 from argus.tools.review import review_summary_lines, run_review
 from argus.tools.sast import (
     run_all_sast,
@@ -499,6 +500,35 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="scan_privacy",
+            description=(
+                "GDPR / CCPA style code patterns: third-party trackers and whether a consent "
+                "mechanism exists, user/account endpoints without data deletion or export, "
+                "Prisma models with personal data and no retention field, PII in logs and "
+                "monitoring tools, fingerprinting, and storage in non-EU regions. Built-in. "
+                "This finds code patterns, not legal compliance: say so in your summary."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to project directory or file",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json", "sarif"],
+                        "default": "markdown",
+                    },
+                    "fail_on": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low", "never"],
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_pii",
             description=(
                 "Scan for personal data (PII): real-looking emails, phone numbers, US SSNs, UK "
@@ -917,6 +947,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_scan_pci(arguments)
         elif name == "scan_pii":
             return await _handle_scan_pii(arguments)
+        elif name == "scan_privacy":
+            return await _handle_scan_privacy(arguments)
         elif name == "review_code":
             return await _handle_review_code(arguments)
         elif name == "scan_container":
@@ -1319,6 +1351,22 @@ async def _handle_scan_pii(args: dict[str, Any]) -> list[types.TextContent]:
     return await _finish_scan(
         report,
         scan_type="pii",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+        target_path=target,
+    )
+
+
+async def _handle_scan_privacy(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
+    target = args["target"]
+    result = await run_privacy_scan(target)
+    report = AggregatedReport(target=target, results=[result])
+    return await _finish_scan(
+        report,
+        scan_type="privacy",
         timer=timer,
         fmt=args.get("format", "markdown"),
         fail_on=args.get("fail_on"),
