@@ -93,17 +93,52 @@ def test_safe_output_handling_not_flagged(tmp_path: Path, filename: str, line: s
 @pytest.mark.parametrize(
     ("filename", "source", "rule_id"),
     [
-        ("openai.py", "client.chat.completions.create(model=\"gpt-4o\", messages=messages)", "ml-openai-anthropic-unbounded-output"),
-        ("openai.ts", "await openai.responses.create({ model, input });", "ml-openai-anthropic-unbounded-output"),
-        ("anthropic.py", "client.messages.create(model=\"claude\", messages=messages)", "ml-openai-anthropic-unbounded-output"),
+        (
+            "openai.py",
+            ("from openai import OpenAI\n"
+            "client.chat.completions.create(model=\"gpt-4o\", messages=messages)"),
+            "ml-openai-anthropic-unbounded-output",
+        ),
+        (
+            "openai.ts",
+            "import OpenAI from \"openai\";\nawait openai.responses.create({ model, input });",
+            "ml-openai-anthropic-unbounded-output",
+        ),
+        (
+            "anthropic.py",
+            ("from anthropic import Anthropic\n"
+            "client.messages.create(model=\"claude\", messages=messages)"),
+            "ml-openai-anthropic-unbounded-output",
+        ),
         ("gemini.py", "model.generate_content(prompt)", "ml-gemini-unbounded-output"),
         ("gemini.ts", "model.generate_content(prompt);", "ml-gemini-unbounded-output"),
-        ("mistral.py", "client.chat.complete(model=\"mistral\", messages=messages)", "ml-mistral-unbounded-output"),
-        ("litellm.py", "litellm.completion(model=model, messages=messages)", "ml-litellm-unbounded-output"),
+        (
+            "mistral.py,
+            client.chat.complete(model=\"mistral\", messages=messages),
+            ml-mistral-unbounded-output"
+        ),
+        (
+            "litellm.py,
+            litellm.completion(model=model, messages=messages),
+            ml-litellm-unbounded-output"
+        ),
         ("langchain.py", "llm = ChatOpenAI(model=\"gpt-4o\")", "ml-langchain-unbounded-output"),
-        ("request.py", "payload = {\"model\": request.json, \"messages\": request.body}\n", "ml-llm-model-or-history-from-request"),
-        ("large.py", "params = {\"max_output_tokens\": 20000}", "ml-llm-output-token-limit-too-high"),
-        ("timeout.py", "client.chat.completions.create(model=\"gpt-4o\", messages=messages)", "ml-llm-request-without-timeout"),
+        (
+            "request.py,
+            payload = {\"model\": request.json, \"messages\": request.body}\n,
+            ml-llm-model-or-history-from-request"
+        ),
+        (
+            "large.py",
+            "params = {\"max_output_tokens\": 20000}",
+            "ml-llm-output-token-limit-too-high",
+        ),
+        (
+            "timeout.py",
+            ("from openai import OpenAI\n"
+            "client.chat.completions.create(model=\"gpt-4o\", messages=messages)"),
+            "ml-llm-request-without-timeout",
+        ),
     ],
 )
 def test_llm_unbounded_consumption_patterns(
@@ -117,8 +152,15 @@ def test_llm_unbounded_consumption_patterns(
 @pytest.mark.parametrize(
     ("filename", "source"),
     [
-        ("safe.py", "client.chat.completions.create(model=\"gpt-4o\", messages=messages, max_tokens=512, timeout=20)"),
-        ("safe.py", "model.generate_content(prompt, generation_config={\"max_output_tokens\": 512})"),
+        (
+            "safe.py",
+            ("client.chat.completions.create(model=\"gpt-4o\", messages=messages, "
+            "max_tokens=512, timeout=20)"),
+        ),
+        (
+            "safe.py",
+            "model.generate_content(prompt, generation_config={\"max_output_tokens\": 512})",
+        ),
         ("safe.py", "client.chat.complete(model=\"mistral\", messages=messages, max_tokens=512)"),
         ("safe.py", "litellm.completion(model=model, messages=messages, max_tokens=512)"),
         ("safe.py", "llm = ChatOpenAI(model=\"gpt-4o\", max_tokens=512)"),
@@ -164,5 +206,63 @@ def test_llm_route_with_rate_limit_not_flagged(tmp_path: Path, limiter: str):
         "    return await client.chat.completions.create(model=\"gpt-4o\", messages=messages)\n"
     )
     assert "ml-llm-route-without-rate-limit" not in {
+        finding.rule_id for finding in _scan_ml(f).findings
+    }
+
+
+@pytest.mark.parametrize(
+    ("filename", "source"),
+    [
+        ("messages.ts", "this.messages.create({ organisationId, caseId, body });"),
+        ("responses.ts", "this.responses.create({ organisationId, body });"),
+    ],
+)
+def test_repository_create_methods_not_flagged(
+    tmp_path: Path, filename: str, source: str
+):
+    f = tmp_path / filename
+    f.write_text(source + "\n")
+    rule_ids = {finding.rule_id for finding in _scan_ml(f).findings}
+    assert "ml-openai-anthropic-unbounded-output" not in rule_ids
+    assert "ml-llm-request-without-timeout" not in rule_ids
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def handle_completion(): pass",
+        "def autocompletion(): pass",
+        "const onCompletion = () => {};",
+    ],
+)
+def test_non_litellm_completion_names_not_flagged(tmp_path: Path, source: str):
+    f = tmp_path / "app.py"
+    f.write_text(source + "\n")
+    assert "ml-litellm-unbounded-output" not in {
+        finding.rule_id for finding in _scan_ml(f).findings
+    }
+
+
+@pytest.mark.parametrize(
+    ("filename", "source"),
+    [
+        (
+            "openai.py",
+            "from openai import OpenAI\n"
+            "client = OpenAI(timeout=30)\n"
+            "client.chat.completions.create(model=\"gpt-4o\", messages=messages)\n",
+        ),
+        (
+            "anthropic.ts",
+            "import Anthropic from \"@anthropic-ai/sdk\";\n"
+            "const client = new Anthropic({ timeout: 30 });\n"
+            "client.messages.create({ model, messages });\n",
+        ),
+    ],
+)
+def test_client_level_timeout_not_flagged(tmp_path: Path, filename: str, source: str):
+    f = tmp_path / filename
+    f.write_text(source)
+    assert "ml-llm-request-without-timeout" not in {
         finding.rule_id for finding in _scan_ml(f).findings
     }
