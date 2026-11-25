@@ -58,7 +58,7 @@
   confidence: low
   # first_name / last_name / full_name / … set to a capitalized literal. Placeholder names
   # (John/Jane Doe, Test, Example, Foo, Bar, Alice, Bob) are skipped.
-  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?\b(?i:first_?name|last_?name|full_?name|sur_?name|given_?name|family_?name|customer_?name|patient_?name)["'']?\s*[:=]>?\s*["''](?!(?:John|Jane|Test|Example|Foo|Bar|Alice|Bob|Sample|Demo|User|Doe|Smith|Deleted|Anonymous|Unknown|Redacted|Placeholder|Guest)\b)[A-Z][a-z]+(?:[ ''-][A-Z][a-z]+){0,3}["'']'
+  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?\b(?:[Ff]irst_?[Nn]ame|[Ll]ast_?[Nn]ame|[Ff]ull_?[Nn]ame|[Ss]ur_?[Nn]ame|[Gg]iven_?[Nn]ame|[Ff]amily_?[Nn]ame|[Cc]ustomer_?[Nn]ame|[Pp]atient_?[Nn]ame|FIRST_?NAME|LAST_?NAME|FULL_?NAME)["'']?\s*[:=]>?\s*["''](?!(?:John|Jane|Test|Example|Foo|Bar|Alice|Bob|Sample|Demo|User|Doe|Smith|Deleted|Anonymous|Unknown|Redacted|Placeholder|Guest)\b)[A-Z][a-z]+(?:[ ''-][A-Z][a-z]+){0,3}["'']'
   fix_guidance: >-
     Replace real names in fixtures and seed data with obvious placeholders, or generate
     them (Faker) at test time.
