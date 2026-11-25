@@ -206,7 +206,9 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_ansible` | Ansible playbook & role security scan |
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
-| `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, http:// card data) |
+| `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |
+| `scan_pii` | Personal data: real-looking emails, phones, SSN / UK NI numbers, names and addresses hardcoded in code, config and fixtures (JSON/YAML/CSV/.env/SQL), PII in logs, Luhn-valid card numbers. CLI: `argus scan pii .` |
+| `scan_privacy` | GDPR/CCPA code patterns: trackers without a consent mechanism, no data deletion/export, no retention field, PII in logs, fingerprinting, non-EU storage. Not a legal assessment ([docs](docs/privacy-scanning.md)). CLI: `argus scan privacy .` |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
 | `review_code` | Local code review — secrets + SAST + malware on git-changed / staged files only |
@@ -245,6 +247,39 @@ Details: [API Reference — apply_fix](docs/api-reference.md#apply_fix)
 
 ---
 
+## GitHub Action
+
+One step runs Argus, fails the job at your threshold, writes a job summary and uploads SARIF to the Security tab:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write   # for the SARIF upload
+
+jobs:
+  argus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: argus-code-scanning/argus-codescan-mcp@v1
+        with:
+          fail-on: high      # critical | high | medium | low | never
+          scan-type: all     # all | sast | code | secrets | sca | iac | ml | malware | pci
+          version: 0.10.1    # pin argus-scan for reproducible builds (empty = latest)
+```
+
+| Input | Default | |
+|---|---|---|
+| `scan-type` | `all` | What to scan |
+| `target` | `.` | Path to scan |
+| `fail-on` | `high` | Fail the job at this severity or above (`never` to only report) |
+| `version` | latest | `argus-scan` version to install |
+| `upload-sarif` | `true` | Upload to code scanning (skipped for fork pull requests) |
+| `category` | `argus` | Code scanning category, to keep several Argus runs apart |
+| `python-version` | `3.12` | Python used to run Argus |
+
+Outputs: `sarif-file`, `findings` (count) and `failed` (`true` when findings reached `fail-on`). For supply-chain safety, pin the action to a commit SHA (`argus-code-scanning/argus-codescan-mcp@<sha> # v1`); `apply_fix` can do this for you.
+
 ## SARIF, policy & baseline diff
 
 Ship security findings to GitHub Code Scanning, enforce repo policy, and fail CI only on **new** findings.
@@ -268,7 +303,7 @@ argus scan secrets . --paths-file scan-paths.txt --format sarif -o secrets.sarif
 
 ```yaml
 - run: pip install argus-scan && argus scan code . --format sarif -o argus.sarif
-- uses: github/codeql-action/upload-sarif@v3
+- uses: github/codeql-action/upload-sarif@v4
   with:
     sarif_file: argus.sarif
     category: argus
@@ -304,6 +339,20 @@ accepted_risks:
 ```
 
 The finding stays in the report (`accepted risk until 2026-12-17`) but doesn't fail `--fail-on`. Every other finding still does. Argus prints a note when an acceptance expires within 14 days, when it has expired (the finding fails again), when an entry has no `expires`, and when an entry no longer matches anything (it can be removed). This replaces hand-written `npm audit | jq` allow-list scripts, and works for every scanner and ecosystem, in both `argus` and `npx argus-codescan` (which now reads `.argus.yml` too; `--policy <file>` to choose one).
+
+#### Personal data in scan output (`data_policy`)
+
+Findings can quote code, and code can hold personal data. Argus masks emails, phone numbers, US SSNs, UK NI numbers and Luhn-valid card numbers (`[REDACTED:EMAIL]`) **wherever output leaves your machine**: SARIF, MCP responses to AI clients, and the cloud upload. Terminal and local JSON output keep the details you need to reproduce a finding. File, line, rule and severity are never changed, so SARIF locations and baselines keep working.
+
+```yaml
+data_policy:
+  redact_pii: auto           # auto (default) | true (everywhere) | false (nowhere but the cloud upload)
+  max_snippet_lines: 5       # cut long code excerpts / tool output in findings
+  exclude_fields:            # drop these from every finding in the output
+    - fix_guidance
+```
+
+`--redact-pii` / `--no-redact-pii` override it for one run. Set `ARGUS_REDACTION_KEY` (a secret) to get stable tags such as `[REDACTED:EMAIL:1a2b3c4d]` (an HMAC), so the same value can be matched across runs without revealing it; without a key there's no hash, because a plain hash of an SSN or phone number can be reversed by trying them all. Argus keeps no scan reports on disk: temp files are deleted after each run, and `--output` writes only where you tell it.
 
 Argus auto-discovers `.argus.yml` when scanning. Override with `--policy path/to/.argus.yml`.
 
@@ -398,6 +447,21 @@ Print the same template: `argus mcp --config`
 After each MCP scan or CLI scan, results upload to `{ARGUS_API_URL}/scans` with repo/branch/commit from git. Full setup: [docs/AGENT-UPLOAD.md](docs/AGENT-UPLOAD.md)
 
 ---
+
+## Versions
+
+Each package has its own version number. These are the versions released together:
+
+<!-- versions:start -->
+| Package | Version | Install |
+|---|---|---|
+| `argus-scan` (CLI + MCP) | 0.11.0 | `pip install argus-scan==0.11.0` (needs `argus-languages>=0.9.0`) |
+| `argus-languages` (built-in rules) | 0.9.0 | `pip install argus-languages==0.9.0` |
+| `argus-codescan` (npm) | 0.13.0 | `npx argus-codescan@0.13.0` |
+| VS Code extension | 0.2.0 | Marketplace: `arestechub.argus-scan` |
+<!-- versions:end -->
+
+`argus-scan` always requires the `argus-languages` version it was tested with. Maintainers: `python scripts/versions.py bump --scan X --languages Y --npm Z` updates every file and this table, and `python scripts/versions.py check` (run in CI) fails when anything is out of sync.
 
 ## Install
 

@@ -79,32 +79,11 @@ def is_upload_redaction_enabled() -> bool:
     return value not in {"0", "false", "no", "off"}
 
 
-def _luhn_valid(digits: str) -> bool:
-    total = 0
-    for index, char in enumerate(reversed(digits)):
-        digit = int(char)
-        if index % 2:
-            digit *= 2
-            if digit > 9:
-                digit -= 9
-        total += digit
-    return total % 10 == 0
-
-
 def redact_pii(text: str) -> tuple[str, int]:
     """Redact emails, US SSNs and card numbers. Returns (text, redaction count)."""
-    count = 0
-    for pattern, label in ((_EMAIL_RE, "EMAIL"), (_SSN_RE, "SSN"), (_CARD_RE, "CARD")):
+    from argus.redaction import redact_text
 
-        def _replace(match: re.Match[str], label: str = label) -> str:
-            nonlocal count
-            if label == "CARD" and not _luhn_valid(re.sub(r"[ -]", "", match.group(0))):
-                return match.group(0)
-            count += 1
-            return f"[REDACTED_{label}]"
-
-        text = pattern.sub(_replace, text)
-    return text, count
+    return redact_text(text, style="upload", kinds=("EMAIL", "SSN", "CARD"))
 
 
 def strip_url_credentials(url: str) -> str:

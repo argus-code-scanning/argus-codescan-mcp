@@ -135,8 +135,12 @@ def _scan_content(
             line_starts.extend(
                 index + 1 for index, character in enumerate(source) if character == "\n"
             )
+            finding_group = "finding" if "finding" in rule.pattern.groupindex else None
             matching_lines = {
-                bisect_right(line_starts, match.start())
+                bisect_right(
+                    line_starts,
+                    match.start(finding_group) if finding_group else match.start(),
+                )
                 for match in rule.pattern.finditer(source)
             }
         else:

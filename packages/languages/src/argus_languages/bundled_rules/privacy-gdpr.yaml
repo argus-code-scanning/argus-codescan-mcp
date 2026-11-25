@@ -1,0 +1,41 @@
+# Privacy (GDPR / CCPA style) code patterns for `argus scan privacy` (#55).
+#
+# Argus finds code patterns, not legal compliance: a finding means "review this", and the
+# absence of findings is not a compliance statement. Not part of the default rule set.
+# Consent, deletion/export and retention checks are project-level and live in
+# argus-scan (argus/tools/privacy.py); these are the line rules they build on.
+
+- id: privacy-third-party-tracker
+  classification: pii
+  title: Third-party tracker loaded (analytics or ad pixel) — needs consent and a documented basis
+  severity: low
+  confidence: medium
+  # Script URLs and init calls of common trackers.
+  pattern: '(?:googletagmanager\.com/(?:gtag/js|gtm\.js)|google-analytics\.com/(?:analytics|ga)\.js|\bgtag\(\s*[''"]config[''"]\s*,\s*[''"](?:G|UA|AW)-|connect\.facebook\.net/[^"'']*/fbevents\.js|\bfbq\(\s*[''"]init[''"]|static\.hotjar\.com|\bhj\(\s*[''"]|cdn\.segment\.com/analytics|\bmixpanel\.init\(|analytics\.tiktok\.com|\bttq\.load\(|snap\.licdn\.com/li\.lms-analytics|\bposthog\.init\(|\bamplitude\.(?:init|getInstance\(\)\.init)\(|clarity\.ms/tag|\b_linkedin_partner_id\b)'
+  fix_guidance: >-
+    Load trackers only after the visitor consents (a consent manager or Google Consent Mode),
+    list them in your privacy notice with their purpose, and sign a data processing agreement
+    with the vendor. Strictly necessary analytics can be self-hosted and anonymised instead.
+
+- id: privacy-non-eu-storage-region
+  classification: pii
+  title: Storage or database in a non-EU region — check transfer safeguards if it holds EU personal data
+  severity: info
+  confidence: low
+  # Hardcoded AWS / GCP / Azure regions outside the EU for storage and databases.
+  pattern: '(?:\bs3[.-](?:us|ap|sa|ca|me|af|il)-[a-z]+-\d\.amazonaws\.com|\.(?:rds|dynamodb|es)\.(?:us|ap|sa|ca|me|af|il)-[a-z]+-\d\.amazonaws\.com|\b(?:region|aws_region|AWS_REGION)["'']?\s*[:=]\s*["''](?:us|ap|sa|ca|me|af|il)-[a-z]+-\d["'']|storage\.googleapis\.com/[^"'']*\b(?:us|asia|northamerica|southamerica|australia)-|\blocation\s*=\s*["''](?:US|ASIA|us-[a-z]+\d)["''])'
+  fix_guidance: >-
+    If this stores personal data of people in the EU/UK, document the transfer (adequacy
+    decision, Standard Contractual Clauses or the EU-US Data Privacy Framework) or move it
+    to an EU region.
+
+- id: privacy-fingerprinting
+  classification: pii
+  title: Browser fingerprinting library — identifies visitors without cookies and needs consent
+  severity: medium
+  confidence: medium
+  pattern: '(?:@fingerprintjs/fingerprintjs|\bFingerprintJS\.load\(|\bclientjs\b|\bnew ClientJS\(|\bevercookie\b)'
+  languages: [javascript, typescript, html, vue]
+  fix_guidance: >-
+    Fingerprinting is tracking under GDPR/ePrivacy and needs prior consent. Use it only for
+    fraud prevention with a documented legitimate interest, never for marketing.

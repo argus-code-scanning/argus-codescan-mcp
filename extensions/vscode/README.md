@@ -13,7 +13,7 @@ Created by Okiri Gabriel · Free and open source ([MIT](https://github.com/argus
 - **IaC Scanning** - Terraform, Kubernetes, Dockerfile misconfigs (Checkov, Trivy)
 - **Container Scanning** - Image CVE scanning (Trivy)
 - **Problems Panel** - Findings appear as VS Code diagnostics
-- **Fix on request** - Quick Fix actions to view guidance or apply an automated fix (never during scan)
+- **Fix on request** - Quick Fix actions to view guidance, apply an automated fix, or copy a ready-made prompt for your AI chat (never during scan)
 - **Scan Dashboard** - Interactive webview with full report
 - **Scan on Save** - Optional auto-scan when files change
 
@@ -43,9 +43,9 @@ Open the Command Palette (`⇧⌘P`) and search for **Security**:
 | Security: Check Installed Tools | Tool availability |
 | Security: Open Scan Dashboard | Open report panel |
 | Security: Clear Diagnostics | Clear Problems panel |
-| *(Quick Fix on finding)* | Show fix guidance or apply automated fix |
+| *(Quick Fix on finding)* | Show fix guidance, apply automated fix, or ask AI to fix (copies a prompt) |
 
-Scans **never modify your code**. To fix a finding, click the lightbulb on a diagnostic and choose **Show fix guidance** or **Apply automated fix** (ESLint/Semgrep only).
+Scans **never modify your code**. To fix a finding, click the lightbulb on a diagnostic and choose **Show fix guidance**, **Apply automated fix** (ESLint/Semgrep autofix rules and GitHub Actions pinning / run-shell injection), or **Ask AI to fix**, which copies the finding, the code around it and fix instructions to the clipboard and opens your editor's AI chat. For secrets the code is left out of the prompt.
 
 You can also **right-click** any file or folder in the Explorer to run a security scan.
 

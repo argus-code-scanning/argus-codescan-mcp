@@ -6,13 +6,20 @@ import * as vscode from "vscode";
 import type { Finding } from "./types.js";
 import type { McpClient } from "./mcpClient.js";
 import type { SecurityDiagnosticsProvider } from "./diagnostics.js";
+import { buildAiFixPrompt, excerptAround, shouldIncludeCode } from "./aiPrompt.js";
 
 const AUTOFIX_TOOLS = new Set(["eslint", "eslint-security", "semgrep"]);
+/** Rules argus apply_fix fixes whatever scanner reported them (GitHub Actions workflows). */
+const AUTOFIX_RULES = ["github-actions-mutable-action-tag", "run-shell-injection"];
 const GUIDANCE_ONLY_TYPES = new Set(["secrets", "sca", "dast", "container"]);
 
 function canAutofix(finding: Finding): boolean {
   if (GUIDANCE_ONLY_TYPES.has(finding.scan_type)) {
     return false;
+  }
+  const rule = (finding.rule_id || "").toLowerCase();
+  if (AUTOFIX_RULES.some((r) => rule.endsWith(r))) {
+    return true;
   }
   const tool = finding.tool.toLowerCase().replace(/_/g, "-");
   return tool.startsWith("eslint") || AUTOFIX_TOOLS.has(tool);
@@ -59,6 +66,18 @@ export class ArgusFixCodeActionProvider implements vscode.CodeActionProvider {
         showFix.diagnostics = [diagnostic];
         actions.push(showFix);
       }
+
+      const askAi = new vscode.CodeAction(
+        "Argus: Ask AI to fix (copy prompt)",
+        vscode.CodeActionKind.QuickFix
+      );
+      askAi.command = {
+        command: "argus-scan.askAiToFix",
+        title: "Ask AI to fix",
+        arguments: [finding, document.uri],
+      };
+      askAi.diagnostics = [diagnostic];
+      actions.push(askAi);
 
       if (canAutofix(finding)) {
         const applyFix = new vscode.CodeAction(
@@ -153,5 +172,38 @@ export async function applyFix(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     vscode.window.showErrorMessage(`Fix failed: ${message}`);
+  }
+}
+
+/** Copy a ready-to-paste prompt (finding + nearby code) for the user's AI chat. */
+export async function askAiToFix(finding: Finding, uri?: vscode.Uri): Promise<void> {
+  let excerpt;
+  if (shouldIncludeCode(finding)) {
+    try {
+      const target =
+        uri ??
+        (finding.file && vscode.workspace.workspaceFolders?.[0]
+          ? vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, finding.file)
+          : undefined);
+      if (target) {
+        const doc = await vscode.workspace.openTextDocument(target);
+        excerpt = excerptAround(doc.getText(), finding.line, doc.languageId);
+      }
+    } catch {
+      // File moved or unreadable: the prompt still has the finding details.
+    }
+  }
+
+  await vscode.env.clipboard.writeText(buildAiFixPrompt(finding, excerpt));
+
+  // Open the editor's AI chat when one is available (VS Code Chat / Copilot, Cursor).
+  const commands = await vscode.commands.getCommands(true);
+  const chat = ["workbench.action.chat.open", "aichat.newchataction"].find((c) => commands.includes(c));
+  const note = shouldIncludeCode(finding)
+    ? "Prompt copied. Paste it into your AI chat."
+    : "Prompt copied (the secret itself is not included). Paste it into your AI chat.";
+  const choice = await vscode.window.showInformationMessage(note, ...(chat ? ["Open chat"] : []));
+  if (choice === "Open chat" && chat) {
+    await vscode.commands.executeCommand(chat);
   }
 }

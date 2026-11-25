@@ -8,6 +8,12 @@ fail_on: high
 # Only show findings at or above this severity
 min_severity: low
 
+# Personal data in scan output: masked in SARIF, MCP responses and uploads by default
+# data_policy:
+#   redact_pii: auto        # auto | true | false
+#   max_snippet_lines: 5
+#   exclude_fields: [fix_guidance]
+
 # Let low-confidence rule matches (e.g. knex.raw(), [AllowAnonymous]) trigger fail_on too
 # fail_on_low_confidence: false
 

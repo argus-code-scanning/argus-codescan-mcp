@@ -12,6 +12,7 @@ import { ScanDashboardPanel } from "./webview.js";
 import {
   ArgusFixCodeActionProvider,
   applyFix,
+  askAiToFix,
   showFixGuidance,
 } from "./fixActions.js";
 import type { AggregatedReport, Finding } from "./types.js";
@@ -65,6 +66,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("argus-scan.showFixGuidance", (finding: Finding) =>
       showFixGuidance(finding)
+    ),
+    vscode.commands.registerCommand("argus-scan.askAiToFix", (finding: Finding, uri?: vscode.Uri) =>
+      askAiToFix(finding, uri)
     ),
     vscode.commands.registerCommand("argus-scan.applyFix", (finding: Finding) =>
       applyFix(

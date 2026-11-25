@@ -2,7 +2,7 @@
   "name": "argus-scan",
   "displayName": "Argus Security Scanner",
   "description": "Argus - open-source security scanner with many eyes. SAST, DAST, SCA, Secrets, IaC, Terraform, Ansible via CLI and MCP. Free and open source (MIT). Created by Okiri Gabriel.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "arestechub",
   "author": {
     "name": "Okiri Gabriel"
@@ -103,6 +103,10 @@
       {
         "command": "argus-scan.applyFix",
         "title": "Security: Apply Automated Fix"
+      },
+      {
+        "command": "argus-scan.askAiToFix",
+        "title": "Security: Ask AI to Fix (copy prompt)"
       }
     ],
     "menus": {
@@ -212,7 +216,7 @@
     "package": "vsce package",
     "publish": "vsce publish",
     "lint": "eslint src --ext .ts",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "esbuild test/*.test.ts --bundle --platform=node --format=esm --outdir=.test-build --out-extension:.js=.mjs --log-level=warning && node --test .test-build/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

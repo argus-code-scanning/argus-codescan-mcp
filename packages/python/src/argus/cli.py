@@ -36,6 +36,7 @@ from collections.abc import Callable, Coroutine
 from pathlib import Path
 
 from argus.models import AggregatedReport, ScanResult
+from argus.policy import DataPolicy
 from argus.utils import format_markdown_report, is_tool_available, refresh_report_summary
 
 _CLASSIFICATIONS = {"pii", "phi", "pci", "confidential", "public", "unset"}
@@ -120,6 +121,25 @@ def build_parser() -> argparse.ArgumentParser:
                 "Only show findings with these comma-separated data classifications "
                 "(pii, phi, pci, confidential, public, unset)"
             ),
+        )
+        redact = p.add_mutually_exclusive_group()
+        redact.add_argument(
+            "--redact-pii",
+            dest="redact_pii",
+            action="store_const",
+            const=True,
+            default=None,
+            help=(
+                "Mask personal data (emails, phone, SSN/NI, card numbers) in the output. "
+                "Default: on for SARIF, off for terminal and JSON (data_policy in .argus.yml)"
+            ),
+        )
+        redact.add_argument(
+            "--no-redact-pii",
+            dest="redact_pii",
+            action="store_const",
+            const=False,
+            help="Never mask personal data in the output (overrides data_policy)",
         )
         p.add_argument(
             "--tools",
@@ -218,9 +238,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     pci_p = scan_sub.add_parser(
         "pci",
-        help="PCI-DSS cardholder-data heuristics — CVV storage, PANs in logs, http:// card data (built-in)",
+        help="PCI-DSS cardholder-data heuristics — CVV storage, PANs in logs or source, http:// card data (built-in)",
     )
     _add_common(pci_p)
+
+    pii_p = scan_sub.add_parser(
+        "pii",
+        help="Personal data: emails, phones, SSN/NI numbers, names and addresses hardcoded in "
+        "code, config and fixtures, PII in logs, Luhn-valid card numbers (built-in)",
+    )
+    _add_common(pii_p)
+
+    privacy_p = scan_sub.add_parser(
+        "privacy",
+        help="GDPR/CCPA code patterns: trackers without consent, no data deletion/export, "
+        "no retention, PII in logs, non-EU storage (built-in; not a legal assessment)",
+    )
+    _add_common(privacy_p)
 
     sca_p = scan_sub.add_parser("sca", help="Software Composition Analysis (dependencies)")
     _add_common(sca_p)
@@ -256,6 +290,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common(all_p)
     all_p.add_argument("--url", metavar="URL", help="Also run DAST against this URL")
     all_p.add_argument("--image", metavar="IMAGE", help="Also scan this container image")
+
+    # Scan types added by installed packages (argus.scan_plugins entry points)
+    from argus.plugins import register_plugin_parsers
+
+    register_plugin_parsers(scan_sub, _add_common, builtin=set(scan_sub.choices))
 
     # ── compare ─────────────────────────────────────────────────────────────
     cmp_p = sub.add_parser("compare", help="Diff two scan JSON reports (baseline vs current)")
@@ -602,13 +641,29 @@ def _emit(
     fail_on: str,
     classification: str | None = None,
     include_low_confidence: bool = False,
+    data_policy: DataPolicy | None = None,
+    redact_flag: bool | None = None,
 ) -> int:
     """Render the report and return the exit code."""
     from argus.formatters.sarif import aggregated_report_to_sarif
+    from argus.redaction import redact_report
 
     by_severity = _filter_severity(report_dict, min_sev)
     filtered = _filter_classification(by_severity, classification)
     refresh_report_summary(filtered)
+
+    # Redaction happens here, at the output boundary: fail-on above still sees the raw report.
+    policy_data = data_policy or DataPolicy()
+    redact = policy_data.should_redact(leaves_machine=fmt == "sarif", cli_flag=redact_flag)
+    if redact or policy_data.max_snippet_lines or policy_data.exclude_fields:
+        filtered, masked = redact_report(
+            filtered,
+            pii=redact,
+            max_snippet_lines=policy_data.max_snippet_lines,
+            exclude_fields=policy_data.exclude_fields,
+        )
+        if masked:
+            print(f"Redacted {masked} personal data value(s) from the output.", file=sys.stderr)
 
     if fmt == "json":
         text = json.dumps(filtered, indent=2)
@@ -706,6 +761,16 @@ async def _dispatch_scan(
 
         return [await run_threat_scan(target)]
 
+    if scan_type == "privacy":
+        from argus.tools.privacy import run_privacy_scan
+
+        return [await run_privacy_scan(target)]
+
+    if scan_type == "pii":
+        from argus.tools.pii import run_pii_scan
+
+        return [await run_pii_scan(target)]
+
     if scan_type == "pci":
         from argus.tools.pci import run_pci_scan
 
@@ -757,6 +822,7 @@ async def _dispatch_scan(
         from argus.tools.iac import run_all_iac
         from argus.tools.malware import run_malware_scan
         from argus.tools.ml import run_ml_scan
+        from argus.tools.pci import run_pci_scan
         from argus.tools.sast import run_all_sast
         from argus.tools.sca import run_all_sca
         from argus.tools.secrets import run_all_secrets
@@ -768,15 +834,22 @@ async def _dispatch_scan(
             run_all_iac(target, timeout=timeout),
             run_ml_scan(target),
             run_malware_scan(target),
+            run_pci_scan(target),
             return_exceptions=True,
         )
         results: list[ScanResult] = []
         for batch in batches:
             if isinstance(batch, list):
                 results.extend(batch)
-            elif not isinstance(batch, BaseException):
+            elif isinstance(batch, ScanResult):
                 results.append(batch)
         return results
+
+    from argus.plugins import load_scan_plugins
+
+    plugin = load_scan_plugins().get(scan_type)
+    if plugin is not None:
+        return await plugin.run(target, args, timeout)
 
     return None
 
@@ -857,7 +930,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
             results.append(await run_trivy_image(args.image, timeout=timeout))
 
     report = AggregatedReport(target=report_target, results=results)
-    report_dict = apply_policy(report.to_dict(), policy)
+    # Severity is filtered for display only (in _emit), so --fail-on sees every finding.
+    report_dict = apply_policy(report.to_dict(), policy, filter_severity=False)
     _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
@@ -909,6 +983,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
         getattr(args, "classification", None),
         include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
         or policy.fail_on_low_confidence,
+        data_policy=policy.data_policy,
+        redact_flag=getattr(args, "redact_pii", None),
     )
 
 
@@ -1023,7 +1099,8 @@ async def _run_review(args: argparse.Namespace) -> int:
     for line in review_summary_lines(report):
         print(line, file=sys.stderr)
 
-    report_dict = apply_policy(report.to_dict(), policy)
+    # Severity is filtered for display only (in _emit), so --fail-on sees every finding.
+    report_dict = apply_policy(report.to_dict(), policy, filter_severity=False)
     _print_policy_notes(report_dict)
 
     baseline_path = getattr(args, "baseline", None) or policy.baseline
@@ -1075,6 +1152,8 @@ async def _run_review(args: argparse.Namespace) -> int:
         getattr(args, "classification", None),
         include_low_confidence=bool(getattr(args, "fail_on_low_confidence", False))
         or policy.fail_on_low_confidence,
+        data_policy=policy.data_policy,
+        redact_flag=getattr(args, "redact_pii", None),
     )
 
 

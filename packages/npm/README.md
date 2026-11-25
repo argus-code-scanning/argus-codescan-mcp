@@ -34,6 +34,8 @@ npx argus-codescan scan sca .       # dependency vulnerabilities
 npx argus-codescan scan sast .      # source code (JS/TS/JSX)
 npx argus-codescan scan secrets .   # leaked API keys & tokens
 npx argus-codescan scan all .       # everything above
+npx argus-codescan scan pii .       # personal data hardcoded in code, config and fixtures
+npx argus-codescan scan privacy .   # GDPR/CCPA patterns: trackers, consent, deletion, retention
 npx argus-codescan tools            # show what's bundled
 ```
 
@@ -104,6 +106,15 @@ npx argus-codescan scan sast ./src --fail-on high
 **File types:** `.js` `.jsx` `.ts` `.tsx` `.mjs` `.cjs`
 
 ---
+
+### Personal data and privacy (`scan pii`, `scan privacy`)
+
+Same checks and rule ids as `argus scan pii` / `argus scan privacy` in the Python package (the rules are generated from the same YAML packs).
+
+- **`scan pii`**: real-looking emails, phone numbers, US SSNs, UK NI numbers, names and street addresses in code and data files (JSON/YAML/CSV/.env/SQL), PII in logs, and Luhn-valid card numbers. Example domains, fake values and documentation `example:` lines are ignored; in tests only ID numbers are reported.
+- **`scan privacy`**: trackers without a consent mechanism, user endpoints without data deletion or export, Prisma models with no retention field, fingerprinting, non-EU storage. Code patterns, not a legal assessment.
+
+Every `scan sast` / `scan all` also checks insecure session-cookie flags and personal data written to logs.
 
 ### Secrets scan (`scan secrets`)
 

@@ -1,0 +1,75 @@
+# Hardcoded personal data (PII) in code, config and fixtures: `argus scan pii` (#52).
+#
+# Not part of the default rule set: example addresses and sample data are everywhere, so this
+# is an explicit check. Each rule needs a value that looks real, in a field or string that
+# holds personal data. Reserved/example domains, role mailboxes (support@, noreply@…) and
+# well-known fake values (123-45-6789, 555-01xx, John Doe) are ignored, and so are lines that
+# set a documentation example (OpenAPI `example:`). In tests and docs, `argus scan pii` only
+# reports SSNs and NI numbers (one severity lower); other matches there are counted, not listed.
+
+- id: pii-hardcoded-email
+  classification: pii
+  title: Personal email address hardcoded
+  severity: medium
+  # A field named like email with a literal address. Skips example/test/invalid/localhost
+  # domains and role mailboxes that aren't a person.
+  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?(?:\b|(?<=_))e_?mail(?:_?address)?["'']?\s*[:=]>?\s*["''](?!(?:no-?reply|support|info|admin|hello|contact|sales|team|security|privacy|abuse|postmaster|webmaster|billing|help|notifications?|alerts?|ops|dev|test|user|demo|example)@)[A-Za-z0-9._%+-]+@(?![^"'']*\b(?:example\.(?:com|org|net)|[a-z0-9.-]+\.(?:test|example|invalid|localhost|local))\b)[A-Za-z0-9.-]+\.[A-Za-z]{2,}["'']'
+  flags: [i]
+  fix_guidance: >-
+    Don't keep real people's email addresses in source, config or fixtures. Use
+    example.com addresses for sample data, and load real recipients from a database or
+    environment configuration.
+
+- id: pii-hardcoded-phone
+  classification: pii
+  title: Phone number hardcoded
+  severity: medium
+  # A phone-like field with 7+ digits. 555-01xx (reserved fictional numbers) is skipped.
+  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?(?:\b|(?<=_))(?:phone(?:_?number)?|mobile(?:_?number)?|tel(?:ephone)?|cell(?:_?phone)?|msisdn)["'']?\s*[:=]>?\s*["''](?![^"'']*555[-.\s]?01\d\d)\+?\(?\d[\d\s().-]{6,18}\d["'']'
+  flags: [i]
+  fix_guidance: >-
+    Remove real phone numbers from source and fixtures; use reserved fictional numbers
+    (for example +1 202-555-0123) in sample data.
+
+- id: pii-hardcoded-ssn
+  classification: pii
+  title: US Social Security number hardcoded
+  severity: high
+  # Valid SSN shape only: area not 000, 666 or 9xx; group not 00; serial not 0000. The
+  # advertising (078-05-1120) and textbook (123-45-6789) numbers are skipped.
+  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?["''`](?!078-05-1120|123-45-6789)(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}["''`]'
+  fix_guidance: >-
+    Remove the SSN everywhere it appears (including git history) and treat it as exposed.
+    Government ID numbers must never be stored in code or fixtures.
+
+- id: pii-hardcoded-uk-nino
+  classification: pii
+  title: UK National Insurance number hardcoded
+  severity: high
+  # Prefixes BG, GB, NK, KN, TN, NT and ZZ are never issued.
+  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?["''`](?!BG|GB|NK|KN|TN|NT|ZZ)[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z] ?\d{2} ?\d{2} ?\d{2} ?[A-D]["''`]'
+  fix_guidance: >-
+    Remove the National Insurance number everywhere it appears and treat it as exposed.
+
+- id: pii-hardcoded-name
+  classification: pii
+  title: Person's name hardcoded in a name field
+  severity: low
+  confidence: low
+  # first_name / last_name / full_name / … set to a capitalized literal. Placeholder names
+  # (John/Jane Doe, Test, Example, Foo, Bar, Alice, Bob) are skipped.
+  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?\b(?:[Ff]irst_?[Nn]ame|[Ll]ast_?[Nn]ame|[Ff]ull_?[Nn]ame|[Ss]ur_?[Nn]ame|[Gg]iven_?[Nn]ame|[Ff]amily_?[Nn]ame|[Cc]ustomer_?[Nn]ame|[Pp]atient_?[Nn]ame|FIRST_?NAME|LAST_?NAME|FULL_?NAME)["'']?\s*[:=]>?\s*["''](?!(?:John|Jane|Test|Example|Foo|Bar|Alice|Bob|Sample|Demo|User|Doe|Smith|Deleted|Anonymous|Unknown|Redacted|Placeholder|Guest)\b)[A-Z][a-z]+(?:[ ''-][A-Z][a-z]+){0,3}["'']'
+  fix_guidance: >-
+    Replace real names in fixtures and seed data with obvious placeholders, or generate
+    them (Faker) at test time.
+
+- id: pii-hardcoded-address
+  classification: pii
+  title: Street address hardcoded
+  severity: low
+  confidence: low
+  # House number + street + street type, with a ZIP/postcode later in the same string.
+  pattern: '^(?!.*\bexamples?["'']?\s*[:=(]).*?["''`]\d{1,5}\s+(?:[A-Z][a-z]+\s){1,3}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Way|Place|Pl)\b\.?,?[^"''`\n]{0,60}?\b(?:\d{5}(?:-\d{4})?|[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})\b[^"''`\n]{0,20}["''`]'
+  fix_guidance: >-
+    Remove real home addresses from code and fixtures; use clearly fictional sample
+    addresses.

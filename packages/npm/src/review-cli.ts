@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { runReview } from "./review.js";
 import { printScanReport } from "./scanners/report.js";
+import { parseFailOn } from "./scanners/severity.js";
 import type { Severity } from "./scanners/types.js";
 
 export function printReviewHelp(): void {
@@ -16,7 +17,7 @@ OPTIONS:
   --format json|table|csv     Console output (default: table)
   --output, -o FILE           CSV report path
   --no-csv                    Skip writing CSV file
-  --fail-on critical|high|moderate|low|info|never
+  --fail-on critical|high|medium|low|info|never   (moderate = medium)
   --fail-on-low-confidence   Let low-confidence rule matches trigger --fail-on too
 
 The path locates the repository; review covers its changed files.
@@ -54,10 +55,7 @@ export async function runReviewCli(args: string[]): Promise<number> {
           if (!["json", "table", "csv"].includes(value)) throw new Error(`Invalid format: ${value}`);
           format = value as typeof format;
         } else {
-          if (!["critical", "high", "moderate", "low", "info", "never"].includes(value)) {
-            throw new Error(`Invalid severity: ${value}`);
-          }
-          failOn = value as typeof failOn;
+          failOn = parseFailOn(value);
         }
       } else if (arg.startsWith("-")) throw new Error(`Unknown option: ${arg}`);
       else if (hasTarget) throw new Error("Only one review path is supported.");

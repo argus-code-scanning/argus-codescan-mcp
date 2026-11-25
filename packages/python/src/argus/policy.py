@@ -105,6 +105,42 @@ class AcceptedRisk:
 
 
 @dataclass
+class DataPolicy:
+    """``data_policy`` in .argus.yml: what personal data may appear in scan output (#54).
+
+    ``redact_pii``: ``auto`` (default) masks personal data in output that leaves the machine
+    (SARIF, MCP responses, cloud upload) and keeps it in the terminal and local JSON; ``true``
+    masks it everywhere; ``false`` nowhere except the cloud upload (ARGUS_UPLOAD_REDACT).
+    """
+
+    redact_pii: str = "auto"  # auto | true | false
+    max_snippet_lines: int | None = None
+    exclude_fields: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DataPolicy:
+        raw = data.get("redact_pii", "auto")
+        redact = "true" if raw is True else "false" if raw is False else str(raw).strip().lower()
+        if redact not in {"auto", "true", "false"}:
+            redact = "auto"
+        lines = data.get("max_snippet_lines")
+        return cls(
+            redact_pii=redact,
+            max_snippet_lines=int(lines) if isinstance(lines, int) and lines > 0 else None,
+            exclude_fields=[str(f) for f in data.get("exclude_fields", []) or []],
+        )
+
+    def should_redact(self, *, leaves_machine: bool, cli_flag: bool | None = None) -> bool:
+        if cli_flag is not None:
+            return cli_flag
+        if self.redact_pii == "true":
+            return True
+        if self.redact_pii == "false":
+            return False
+        return leaves_machine
+
+
+@dataclass
 class PolicyConfig:
     fail_on: str = "never"
     min_severity: str = "low"
@@ -117,6 +153,7 @@ class PolicyConfig:
     suppressions: list[Suppression] = field(default_factory=list)
     accepted_risks: list[AcceptedRisk] = field(default_factory=list)
     scans: list[str] | None = None
+    data_policy: DataPolicy = field(default_factory=lambda: DataPolicy())
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PolicyConfig:
@@ -155,6 +192,7 @@ class PolicyConfig:
             suppressions=suppressions,
             accepted_risks=accepted,
             scans=[str(s) for s in data["scans"]] if data.get("scans") else None,
+            data_policy=DataPolicy.from_dict(data.get("data_policy") or {}),
         )
 
 
@@ -202,10 +240,17 @@ def _is_suppressed(finding: dict[str, Any], suppressions: list[Suppression]) -> 
     return any(s.matches(finding) for s in suppressions)
 
 
-def apply_policy(report_dict: dict[str, Any], policy: PolicyConfig) -> dict[str, Any]:
-    """Filter findings by policy rules (paths, severity, suppressions)."""
+def apply_policy(
+    report_dict: dict[str, Any], policy: PolicyConfig, *, filter_severity: bool = True
+) -> dict[str, Any]:
+    """Filter findings by policy rules (paths, severity, suppressions).
+
+    ``min_severity`` only hides findings from what is shown. The CLI passes
+    ``filter_severity=False`` and hides them at display time, so ``--fail-on`` still sees
+    every finding (``--min-severity critical --fail-on high`` must fail on a high finding).
+    """
     report = copy.deepcopy(report_dict)
-    min_threshold = _SEV_ORDER.get(policy.min_severity, 99)
+    min_threshold = _SEV_ORDER.get(policy.min_severity, 99) if filter_severity else 99
 
     for result in report.get("results", []):
         filtered: list[dict[str, Any]] = []

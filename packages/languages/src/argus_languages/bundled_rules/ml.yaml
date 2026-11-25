@@ -169,3 +169,89 @@
   fix_guidance: >-
     Render model output as text by default. If rich HTML is required, sanitize it with a
     maintained HTML sanitizer and apply a restrictive Content Security Policy.
+
+- id: ml-openai-anthropic-unbounded-output
+  title: LLM request omits its maximum output-token limit
+  severity: medium
+  pattern: '(?is)\A(?=[\s\S]*(?:\b(?:import\s+openai|from\s+openai\s+import|import\s+anthropic|from\s+anthropic\s+import)|@anthropic-ai/sdk|\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\(|\b(?:client|openai|anthropic)\s*\.))[\s\S]*?(?P<finding>\b(?:client|openai|anthropic)\s*\.\s*(?:chat\.completions|responses|messages)\s*\.\s*create\s*\((?:(?!\b(?:max_tokens["'']?\s*[:=]|max_output_tokens["'']?\s*[:=]|max_completion_tokens["'']?\s*[:=]))[\s\S]){0,3000}?\))'
+  flags: [i]
+  multiline: true
+  languages: [python, javascript, typescript]
+  fix_guidance: >-
+    Set the provider's required or supported output-token limit (max_tokens,
+    max_output_tokens, or max_completion_tokens) to an application-specific value.
+    Do not accept an unlimited value from the request.
+- id: ml-gemini-unbounded-output
+  title: Gemini generation omits max_output_tokens
+  severity: medium
+  pattern: 'generate_content\s*\((?:(?!\bmax_output_tokens["'']?\s*[:=])[\s\S]){0,3000}?\)'
+  flags: [i]
+  multiline: true
+  languages: [python, javascript, typescript]
+  fix_guidance: >-
+    Configure generation_config.max_output_tokens (or the SDK's equivalent)
+    with a conservative application-specific limit.
+- id: ml-mistral-unbounded-output
+  title: Mistral request omits its maximum output-token limit
+  severity: medium
+  pattern: 'chat\.(?:complete|stream)\s*\((?:(?!\bmax_tokens["'']?\s*[:=])[\s\S]){0,3000}?\)'
+  flags: [i]
+  multiline: true
+  languages: [python, javascript, typescript]
+  fix_guidance: Set max_tokens to an application-specific upper bound for every Mistral request.
+- id: ml-litellm-unbounded-output
+  title: LiteLLM request omits its maximum output-token limit
+  severity: medium
+  pattern: '(?is)\A(?=[\s\S]*(?:\bimport\s+litellm\b|\bfrom\s+litellm\s+import\b|\blitellm\s*\.))[\s\S]*?(?P<finding>(?<![\w.])litellm\s*\.\s*(?:completion|acompletion)\s*\((?:(?!\bmax_tokens["'']?\s*[:=])[\s\S]){0,3000}?\))'
+  flags: [i]
+  multiline: true
+  languages: [python, javascript, typescript]
+  fix_guidance: Set max_tokens to an application-specific upper bound for every LiteLLM request.
+- id: ml-langchain-unbounded-output
+  title: LangChain chat model is created without an output-token limit
+  severity: medium
+  pattern: 'Chat(?:OpenAI|Anthropic|GoogleGenerativeAI|MistralAI)\s*\((?:(?!\b(?:max_tokens|max_output_tokens|max_completion_tokens)["'']?\s*[:=])[\s\S]){0,2000}?\)'
+  flags: [i]
+  multiline: true
+  languages: [python, javascript, typescript]
+  fix_guidance: Configure the chat model's supported token-limit option instead of relying on provider defaults.
+
+- id: ml-llm-output-token-limit-too-high
+  title: LLM output-token limit exceeds 16,000 tokens
+  severity: low
+  confidence: low
+  pattern: '\b(?:max_tokens|max_output_tokens|max_completion_tokens)["'']?\s*[:=]\s*(?:1[6-9]\d{3}|[2-9]\d{4,})\b'
+  flags: [i]
+  languages: [python, javascript, typescript]
+  fix_guidance: Review whether this output budget is necessary and lower it to the smallest value the feature requires.
+- id: ml-llm-model-or-history-from-request
+  title: LLM model or message history is taken directly from an HTTP request
+  severity: high
+  pattern: '\b(?:model|messages)["'']?\s*[:=]\s*(?:request\.(?:json|body|args|query)|req\.(?:body|query)|body(?:\.|\[))'
+  flags: [i]
+  languages: [python, javascript, typescript]
+  fix_guidance: >-
+    Select models from a server-side allow-list and validate, bound, and normalize
+    conversation history before sending it to a provider. Enforce per-user quotas.
+- id: ml-llm-request-without-timeout
+  title: LLM request has no visible timeout
+  severity: low
+  confidence: low
+  pattern: '(?is)\A(?=[\s\S]*(?:\b(?:import\s+openai|from\s+openai\s+import|import\s+anthropic|from\s+anthropic\s+import)|@anthropic-ai/sdk|\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\(|\b(?:client|openai|anthropic)\s*\.))(?![\s\S]*\b(?:new\s+)?(?:OpenAI|Anthropic)\s*\([^)]*\btimeout\b)[\s\S]*?(?P<finding>\b(?:client|openai|anthropic)\s*\.\s*(?:chat\.completions|responses|messages)\s*\.\s*create\s*\((?:(?!\btimeout["'']?\s*[:=])[\s\S]){0,3000}?\))'
+  flags: [i]
+  multiline: true
+  languages: [python, javascript, typescript]
+  fix_guidance: >-
+    Configure a finite SDK timeout or an AbortSignal timeout and handle timeout
+    failures. A client-level timeout may also satisfy this requirement.
+- id: ml-llm-route-without-rate-limit
+  title: Request handler calls an LLM without an evident rate limiter
+  severity: high
+  confidence: medium
+  pattern: '(?is)\A(?=[\s\S]*\b(?:app|router)\.(?:get|post|put|patch|delete)\s*\()(?=[\s\S]*\b(?:chat\.completions|responses|messages|generate_content|chat\.complete|completion|acompletion)(?:\.create)?\s*\()(?!(?s:[\s\S]*(?:rate_limit|rateLimit|RateLimiter|throttl|slowapi|express-rate-limit|limiter\.limit)))[\s\S]+'
+  multiline: true
+  languages: [python, javascript, typescript]
+  fix_guidance: >-
+    Apply per-user and per-IP rate limits to the LLM route, enforce request and
+    token budgets, and return 429 responses when quotas are exceeded. Also bound
+    input history and configure provider timeouts.
