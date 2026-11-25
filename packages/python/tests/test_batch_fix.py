@@ -62,9 +62,9 @@ def items() -> list[FixItem]:
 
 @pytest.mark.asyncio
 async def test_preview_changes_nothing_and_shows_one_diff(repo: Path) -> None:
-    before = (repo / ".github/workflows/ci.yml").read_text()
+    before = (repo / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     out = await batch_fix(str(repo), items())
-    assert (repo / ".github/workflows/ci.yml").read_text() == before
+    assert (repo / ".github/workflows/ci.yml").read_text(encoding="utf-8") == before
     assert out["applied"] is False and out["confirm_token"]
     assert out["fixable"] == 3 and out["files"] == [".github/workflows/ci.yml"]
     assert out["diff"].count("--- a/.github/workflows/ci.yml") == 1
@@ -77,15 +77,15 @@ async def test_preview_changes_nothing_and_shows_one_diff(repo: Path) -> None:
 @pytest.mark.asyncio
 async def test_apply_needs_the_matching_token(repo: Path) -> None:
     path = repo / ".github/workflows/ci.yml"
-    before = path.read_text()
+    before = path.read_text(encoding="utf-8")
     preview = await batch_fix(str(repo), items())
 
     refused = await batch_fix(str(repo), items(), apply=True, confirm_token="wrong")
-    assert refused["applied"] is False and path.read_text() == before
+    assert refused["applied"] is False and path.read_text(encoding="utf-8") == before
 
     done = await batch_fix(str(repo), items(), apply=True, confirm_token=preview["confirm_token"])
     assert done["applied"] is True
-    steps = yaml.safe_load(path.read_text())["jobs"]["build"]["steps"]
+    steps = yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]["build"]["steps"]
     assert steps[0]["env"] == {"HEAD_REF": "${{ github.head_ref }}"}
     assert (
         steps[1]["uses"] == f"actions/checkout@{SHA}"
@@ -97,10 +97,10 @@ async def test_apply_needs_the_matching_token(repo: Path) -> None:
 async def test_file_changed_after_preview_is_not_overwritten(repo: Path) -> None:
     path = repo / ".github/workflows/ci.yml"
     preview = await batch_fix(str(repo), items())
-    path.write_text(path.read_text() + "# edited by someone else\n")
+    path.write_text(path.read_text(encoding="utf-8") + "# edited by someone else\n")
     out = await batch_fix(str(repo), items(), apply=True, confirm_token=preview["confirm_token"])
     assert out["applied"] is False and "doesn't match" in out["message"]
-    assert path.read_text().endswith("# edited by someone else\n")
+    assert path.read_text(encoding="utf-8").endswith("# edited by someone else\n")
 
 
 @pytest.mark.asyncio
@@ -142,11 +142,12 @@ async def test_tool_fixes_run_on_a_sibling_copy(
         FixItem("src/app.js", "eslint-security", "sast", "security/detect-eval-with-expression", 1)
     ]
     preview = await batch_fix(str(repo), item)
-    assert src.read_text() == "eval(userInput);\n" and not seen[0].exists()
+    assert src.read_text(encoding="utf-8") == "eval(userInput);\n" and not seen[0].exists()
     assert "+JSON.parse(userInput);" in preview["diff"]
     await batch_fix(str(repo), item, apply=True, confirm_token=preview["confirm_token"])
-    assert src.read_text() == "JSON.parse(userInput);\n"
-    assert os.stat(src).st_mode & 0o777 == 0o755
+    assert src.read_text(encoding="utf-8") == "JSON.parse(userInput);\n"
+    if os.name != "nt":  # Windows has no Unix permission bits
+        assert os.stat(src).st_mode & 0o777 == 0o755
     assert sorted(p.name for p in src.parent.iterdir()) == ["app.js"]  # no temp files left
 
 
