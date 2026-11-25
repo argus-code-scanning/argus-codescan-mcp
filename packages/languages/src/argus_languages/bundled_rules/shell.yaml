@@ -11,7 +11,9 @@
 - id: sh-rm-unguarded-variable
   title: rm -rf on a variable path with no empty-value guard (an empty variable deletes from /)
   severity: high
-  pattern: '\brm\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+(?:-[a-zA-Z-]+\s+)*(?:--\s+)?"?\$(?:\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)"?/(?:\*|["''\s;]|$)'
+  # Options are read as one group, with a lookahead requiring an -r style option among them.
+  # The old split (options before / after -r) was quadratic: 9.8 s on a 60,000-char line (#265).
+  pattern: '\brm\s+(?=(?:-[a-zA-Z-]+\s+)*?-[a-zA-Z]*[rR][a-zA-Z]*\s)(?:-[a-zA-Z-]+\s+)+"?\$(?:\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)"?/(?:\*|["''\s;]|$)'
   languages: [shell]
   fix_guidance: 'Fail on an empty value before deleting: rm -rf "${DIR:?}/" (or check [ -n "$DIR" ] and that it is not /). The Steam installer bug wiped home directories this way.'
 

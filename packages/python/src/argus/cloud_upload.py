@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import subprocess
 import tempfile
 import time
@@ -31,9 +30,6 @@ _SEV_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4, "unkno
 
 # Upload redaction (on by default; ARGUS_UPLOAD_REDACT=0 disables it).
 MAX_UPLOAD_MESSAGE_CHARS = 500
-_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
-_SSN_RE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
-_CARD_RE = re.compile(r"\b\d(?:[ -]?\d){12,18}\b")
 
 
 class CloudConfig:

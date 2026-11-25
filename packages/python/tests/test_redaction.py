@@ -158,3 +158,17 @@ async def test_mcp_responses_are_masked_unless_policy_says_not(tmp_path: Path) -
         aggregated(), scan_type="pii", timer=ScanTimer(), fmt="json", target_path=str(tmp_path)
     )
     assert "gmail.com" in out[0].text
+
+
+def test_email_pattern_is_linear_on_hostile_input() -> None:
+    """#265: the unbounded email pattern took 1.5 s on 40,000 characters."""
+    import time
+
+    hostile = "a@" + "a." * 20000 + "!"
+    start = time.perf_counter()
+    redact_text(hostile)
+    assert time.perf_counter() - start < 0.5
+    assert redact_text("mail maria.gonzalez@gmail.com now")[0] == "mail [REDACTED:EMAIL] now"
+    assert (
+        redact_text("x" * 70 + "@gmail.com")[1] == 1
+    )  # long local part: still masked (last 64 chars)

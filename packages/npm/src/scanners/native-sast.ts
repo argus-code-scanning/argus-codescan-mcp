@@ -171,7 +171,8 @@ const RULES: Rule[] = [
     id: "sh-rm-unguarded-variable",
     title: "rm -rf on a variable path with no empty-value guard (an empty variable deletes from /)",
     severity: "high",
-    pattern: /\brm\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+(?:-[a-zA-Z-]+\s+)*(?:--\s+)?"?\$(?:\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)"?\/(?:\*|["'\s;]|$)/,
+    // One options group + lookahead for an -r style option: linear (the old split was quadratic, #265).
+    pattern: /\brm\s+(?=(?:-[a-zA-Z-]+\s+)*?-[a-zA-Z]*[rR][a-zA-Z]*\s)(?:-[a-zA-Z-]+\s+)+"?\$(?:\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)"?\/(?:\*|["'\s;]|$)/,
     languages: ["shell"],
   },
   {
