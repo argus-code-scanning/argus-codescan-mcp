@@ -6,7 +6,7 @@
  */
 
 import { lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { runNativeSast, sharedRules, type Rule } from "./native-sast.js";
 import { downgrade, pathContext } from "./noise.js";
 import type { Finding, ScanResult } from "./types.js";
@@ -23,6 +23,11 @@ const KNOWN_TEST_PANS = new Set([
   "5555555555554444", "5105105105105100", "2223003122003222", "378282246310005",
   "371449635398431", "6011111111111117", "6011000990139424",
 ]);
+/** Report paths with "/" on every OS (Windows relative() gives "data\\customers.json"). */
+function posixRel(root: string, file: string): string {
+  return (relative(root, file) || basename(file)).split(sep).join("/");
+}
+
 export const DISCLAIMER = "Code pattern, not a legal assessment: review with whoever owns privacy compliance.";
 
 export function luhnValid(digits: string): boolean {
@@ -94,6 +99,7 @@ export async function runPiiScan(target: string): Promise<ScanResult> {
   const rules = sharedRules("pii", "pii-hardcoded", "pci-pan");
   const result = await runNativeSast(target, { rules, tool: "argus-pii" });
   result.errors = result.errors.filter((e) => e !== "No source files found to scan");
+  for (const f of result.findings) if (f.file) f.file = f.file.split(sep).join("/");
   const root = lstatSync(target).isDirectory() ? target : dirname(target);
   const panRule = rules.find((r) => r.id === PAN_RULE);
   const cache = new Map<string, string[]>();
@@ -134,7 +140,7 @@ export async function runPiiScan(target: string): Promise<ScanResult> {
     } catch {
       continue;
     }
-    const rel = relative(root, file) || basename(file);
+    const rel = posixRel(root, file);
     const context = pathContext(rel);
     const lines = readLines(file, cache);
     lines.forEach((text, i) => {
@@ -196,6 +202,7 @@ function finding(ruleId: string, title: string, severity: Finding["severity"], f
 export async function runPrivacyScan(target: string): Promise<ScanResult> {
   const result = await runNativeSast(target, { rules: sharedRules("privacy-gdpr", "pii"), tool: "argus-privacy" });
   result.errors = result.errors.filter((e) => e !== "No source files found to scan");
+  for (const f of result.findings) if (f.file) f.file = f.file.split(sep).join("/");
   const root = lstatSync(target).isDirectory() ? target : dirname(target);
   const files: string[] = [];
   if (lstatSync(target).isDirectory()) walk(target, files, (n) => SOURCE_EXT.test(n) && !LOCKFILES.has(n));
@@ -206,7 +213,7 @@ export async function runPrivacyScan(target: string): Promise<ScanResult> {
   const userRoutes: string[] = [];
   const models: Array<{ name: string; file: string; line: number }> = [];
   for (const file of files) {
-    const rel = relative(root, file) || basename(file);
+    const rel = posixRel(root, file);
     if (pathContext(rel)) continue;
     let text: string;
     try {

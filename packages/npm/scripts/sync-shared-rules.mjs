@@ -82,7 +82,8 @@ export function generate() {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const text = generate();
   if (process.argv.includes("--check")) {
-    const current = readFileSync(OUT, "utf8");
+    // Windows checkouts may use CRLF: compare content, not line endings.
+    const current = readFileSync(OUT, "utf8").replace(/\r\n/g, "\n");
     if (current !== text) {
       console.error("shared-rules.generated.ts is out of date: run `npm run sync-rules`.");
       process.exit(1);
