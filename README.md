@@ -207,6 +207,7 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
 | `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |
+| `scan_pii` | Personal data: real-looking emails, phones, SSN / UK NI numbers, names and addresses hardcoded in code, config and fixtures (JSON/YAML/CSV/.env/SQL), PII in logs, Luhn-valid card numbers. CLI: `argus scan pii .` |
 | `scan_container` | Container image CVE scanning |
 | `scan_all` | Everything, in parallel |
 | `review_code` | Local code review — secrets + SAST + malware on git-changed / staged files only |

@@ -40,6 +40,7 @@ from argus.tools.iac import (
 from argus.tools.malware import run_malware_scan, run_malware_triage
 from argus.tools.ml import run_ml_scan
 from argus.tools.pci import run_pci_scan
+from argus.tools.pii import run_pii_scan
 from argus.tools.review import review_summary_lines, run_review
 from argus.tools.sast import (
     run_all_sast,
@@ -100,7 +101,9 @@ async def list_resources() -> list[types.Resource]:
 @server.read_resource()
 async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
     """Read a documented Argus resource, rejecting unrecognised URIs."""
-    return [ReadResourceContents(content=read_resource_json(str(uri)), mime_type="application/json")]
+    return [
+        ReadResourceContents(content=read_resource_json(str(uri)), mime_type="application/json")
+    ]
 
 
 @server.list_tools()  # type: ignore[attr-defined]
@@ -496,6 +499,37 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="scan_pii",
+            description=(
+                "Scan for personal data (PII): real-looking emails, phone numbers, US SSNs, UK "
+                "National Insurance numbers, names and street addresses hardcoded in code, "
+                "config and fixtures (JSON/YAML/CSV/.env/SQL), PII written to logs, and "
+                "Luhn-valid card numbers. Example/test values are ignored. Built-in rules. "
+                "Don't repeat the personal data itself in your summary."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to project directory or file",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json", "sarif"],
+                        "description": "Output format (default: markdown)",
+                        "default": "markdown",
+                    },
+                    "fail_on": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low", "never"],
+                        "description": "Severity threshold that marks an uploaded scan as failed",
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_pci",
             description=(
                 "Scan source for PCI-DSS cardholder-data exposure heuristics: CVV/CVC stored "
@@ -646,8 +680,24 @@ async def list_tools() -> list[types.Tool]:
                         "required": ["title", "severity", "scan_type", "tool"],
                         "properties": {
                             "title": {"type": "string", "minLength": 1},
-                            "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info", "unknown"]},
-                            "scan_type": {"type": "string", "enum": ["sast", "dast", "sca", "secrets", "iac", "container", "ml", "malware", "pci"]},
+                            "severity": {
+                                "type": "string",
+                                "enum": ["critical", "high", "medium", "low", "info", "unknown"],
+                            },
+                            "scan_type": {
+                                "type": "string",
+                                "enum": [
+                                    "sast",
+                                    "dast",
+                                    "sca",
+                                    "secrets",
+                                    "iac",
+                                    "container",
+                                    "ml",
+                                    "malware",
+                                    "pci",
+                                ],
+                            },
                             "tool": {"type": "string", "minLength": 1},
                         },
                     },
@@ -826,6 +876,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_triage_malware(arguments)
         elif name == "scan_pci":
             return await _handle_scan_pci(arguments)
+        elif name == "scan_pii":
+            return await _handle_scan_pii(arguments)
         elif name == "review_code":
             return await _handle_review_code(arguments)
         elif name == "scan_container":
@@ -1206,6 +1258,22 @@ async def _handle_scan_pci(args: dict[str, Any]) -> list[types.TextContent]:
     )
 
 
+async def _handle_scan_pii(args: dict[str, Any]) -> list[types.TextContent]:
+    timer = ScanTimer()
+    target = args["target"]
+    result = await run_pii_scan(target)
+    report = AggregatedReport(target=target, results=[result])
+    return await _finish_scan(
+        report,
+        scan_type="pii",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+        include_raw_json=True,
+        target_path=target,
+    )
+
+
 async def _handle_review_code(args: dict[str, Any]) -> list[types.TextContent]:
     timer = ScanTimer()
     target = args["target"]
@@ -1486,7 +1554,9 @@ async def _handle_get_fix_plan(args: dict[str, Any]) -> list[types.TextContent]:
 
     raw = args.get("scan_result_json")
     if not isinstance(raw, str):
-        return [types.TextContent(type="text", text="Invalid input: scan_result_json must be a string")]
+        return [
+            types.TextContent(type="text", text="Invalid input: scan_result_json must be a string")
+        ]
     try:
         plan = build_fix_plan(json.loads(raw))
     except (ValueError, TypeError) as exc:
