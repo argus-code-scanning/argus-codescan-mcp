@@ -69,7 +69,14 @@ PACKAGES: dict[str, tuple[str, str, list[Location]]] = {
     "vscode": (
         "argus-scan (VS Code)",
         "Marketplace",
-        [Location("extensions/vscode/package.json", r'(?m)^  "version": "([^"]+)"')],
+        [
+            Location("extensions/vscode/package.json", r'(?m)^  "version": "([^"]+)"'),
+            Location("extensions/vscode/package-lock.json", r'(?m)^  "version": "([^"]+)"'),
+            Location(
+                "extensions/vscode/package-lock.json",
+                r'"": \{\s*"name": "argus-scan",\s*"version": "([^"]+)"',
+            ),
+        ],
     ),
 }
 PIN = Location("packages/python/pyproject.toml", r'"argus-languages>=([^"]+)"')
