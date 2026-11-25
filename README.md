@@ -339,6 +339,20 @@ accepted_risks:
 
 The finding stays in the report (`accepted risk until 2026-12-17`) but doesn't fail `--fail-on`. Every other finding still does. Argus prints a note when an acceptance expires within 14 days, when it has expired (the finding fails again), when an entry has no `expires`, and when an entry no longer matches anything (it can be removed). This replaces hand-written `npm audit | jq` allow-list scripts, and works for every scanner and ecosystem, in both `argus` and `npx argus-codescan` (which now reads `.argus.yml` too; `--policy <file>` to choose one).
 
+#### Personal data in scan output (`data_policy`)
+
+Findings can quote code, and code can hold personal data. Argus masks emails, phone numbers, US SSNs, UK NI numbers and Luhn-valid card numbers (`[REDACTED:EMAIL]`) **wherever output leaves your machine**: SARIF, MCP responses to AI clients, and the cloud upload. Terminal and local JSON output keep the details you need to reproduce a finding. File, line, rule and severity are never changed, so SARIF locations and baselines keep working.
+
+```yaml
+data_policy:
+  redact_pii: auto           # auto (default) | true (everywhere) | false (nowhere but the cloud upload)
+  max_snippet_lines: 5       # cut long code excerpts / tool output in findings
+  exclude_fields:            # drop these from every finding in the output
+    - fix_guidance
+```
+
+`--redact-pii` / `--no-redact-pii` override it for one run. Set `ARGUS_REDACTION_KEY` (a secret) to get stable tags such as `[REDACTED:EMAIL:1a2b3c4d]` (an HMAC), so the same value can be matched across runs without revealing it; without a key there's no hash, because a plain hash of an SSN or phone number can be reversed by trying them all. Argus keeps no scan reports on disk: temp files are deleted after each run, and `--output` writes only where you tell it.
+
 Argus auto-discovers `.argus.yml` when scanning. Override with `--policy path/to/.argus.yml`.
 
 ### Cutting false positives

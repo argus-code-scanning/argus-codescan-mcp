@@ -961,12 +961,24 @@ async def _finish_scan(
 ) -> list[types.TextContent]:
     """Format scan output and optionally upload to the cloud dashboard."""
     from argus.formatters.sarif import aggregated_report_to_sarif
-    from argus.policy import apply_policy, load_policy
+    from argus.policy import DataPolicy, apply_policy, load_policy
+    from argus.redaction import redact_report
 
     report_dict = report.to_dict()
+    data_policy = DataPolicy()
     if target_path:
         policy = load_policy(start=target_path)
         report_dict = apply_policy(report_dict, policy)
+        data_policy = policy.data_policy
+    # MCP responses go to an AI client, so personal data is masked unless data_policy says not.
+    redact = data_policy.should_redact(leaves_machine=True)
+    if redact or data_policy.max_snippet_lines or data_policy.exclude_fields:
+        report_dict, _ = redact_report(
+            report_dict,
+            pii=redact,
+            max_snippet_lines=data_policy.max_snippet_lines,
+            exclude_fields=data_policy.exclude_fields,
+        )
 
     upload_note = ""
 
