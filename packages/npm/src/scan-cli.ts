@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { buildReport, printScanReport } from "./scanners/report.js";
 import { runAllSast } from "./scanners/sast.js";
+import { parseFailOn } from "./scanners/severity.js";
 import { runOsvDependencyCheck } from "./scanners/osv-deps.js";
 import { runNpmAuditSca } from "./scanners/sca.js";
 import { runTerraformDependencyCheck } from "./scanners/terraform-deps.js";
@@ -28,7 +29,7 @@ OPTIONS:
   --format json|table|csv     Console output (default: table)
   --output, -o FILE           CSV file path (default: argus-<type>-<timestamp>.csv in cwd)
   --no-csv                    Skip writing CSV file
-  --fail-on critical|high|moderate
+  --fail-on critical|high|medium|low|never   (moderate = medium)
   --fail-on-low-confidence    Let low-confidence rule matches trigger --fail-on too
   --policy <file>             .argus.yml to use (default: found by walking up from the target)
   --no-network                Skip the OSV dependency lookup (also ARGUS_NO_NETWORK=1)
@@ -77,7 +78,7 @@ function parseScanArgs(args: string[]): {
     } else if (arg === "--fail-on-low-confidence") {
       includeLowConfidence = true;
     } else if (arg === "--fail-on" && args[i + 1]) {
-      failOn = args[++i] as Severity | "never";
+      failOn = parseFailOn(args[++i]);
     } else if (!arg.startsWith("-")) {
       positional.push(arg);
     }
@@ -105,9 +106,14 @@ export async function runScanCli(args: string[]): Promise<number> {
   }
 
   const scanType = args[0];
-  const { format, failOn, target, csvPath, writeCsv, includeLowConfidence, policyPath } = parseScanArgs(
-    args.slice(1),
-  );
+  let parsed: ReturnType<typeof parseScanArgs>;
+  try {
+    parsed = parseScanArgs(args.slice(1));
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return 2;
+  }
+  const { format, failOn, target, csvPath, writeCsv, includeLowConfidence, policyPath } = parsed;
   const reportOpts = { csvPath, writeCsv, includeLowConfidence, policyPath };
 
   if (scanType === "sca") {
