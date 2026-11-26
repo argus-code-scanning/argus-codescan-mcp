@@ -8,6 +8,7 @@ import { runTerraformDependencyCheck } from "./scanners/terraform-deps.js";
 import { runAllSecrets } from "./scanners/secrets.js";
 import { runPiiScan, runPrivacyScan } from "./scanners/privacy.js";
 import { runToolsCommand } from "./scanners/tools.js";
+import { runVibeScan } from "./scanners/vibe.js";
 import type { Severity } from "./scanners/types.js";
 
 function printScanHelp(): void {
@@ -19,6 +20,9 @@ USAGE:
   argus-codescan scan sast [path]      Source code (built-in scanners)
   argus-codescan scan secrets [path]   Credentials / API keys
   argus-codescan scan all [path]       Everything
+  argus-codescan scan vibe [path]      Launch check for apps built with AI tools (Cursor, Lovable, Bolt, v0):
+                                       Supabase RLS, Firebase rules, exposed keys, unprotected routes.
+                                       Safety score, plain fixes and a prompt per finding to paste into your AI tool
   argus-codescan scan pii [path]       Personal data hardcoded in code, config and fixtures (opt-in)
   argus-codescan scan privacy [path]   GDPR/CCPA code patterns: trackers, consent, deletion, retention (opt-in)
   argus-codescan tools                 What's bundled
@@ -162,6 +166,14 @@ export async function runScanCli(args: string[]): Promise<number> {
     console.error(`Running privacy scan on: ${target} (code patterns, not a legal assessment)`);
     const result = await runPrivacyScan(target);
     return printScanReport(buildReport(target, "privacy", [result]), format, failOn, reportOpts);
+  }
+
+  if (scanType === "vibe") {
+    console.error(`Running launch check on: ${target}`);
+    const results = await runVibeScan(target);
+    // A CSV only when asked for: --output FILE.
+    const vibeOpts = { ...reportOpts, writeCsv: writeCsv && csvPath !== undefined, vibe: true };
+    return printScanReport(buildReport(target, "vibe", results), format, failOn, vibeOpts);
   }
 
   if (scanType === "all") {

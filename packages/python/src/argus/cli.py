@@ -256,6 +256,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common(privacy_p)
 
+    vibe_p = scan_sub.add_parser(
+        "vibe",
+        help="Launch check for apps built with AI tools (Cursor, Lovable, Bolt, v0): Supabase "
+        "RLS, Firebase rules, exposed keys, unprotected routes. Score, plain fixes and a prompt "
+        "per finding (built-in)",
+    )
+    _add_common(vibe_p)
+
     sca_p = scan_sub.add_parser("sca", help="Software Composition Analysis (dependencies)")
     _add_common(sca_p)
 
@@ -643,6 +651,7 @@ def _emit(
     include_low_confidence: bool = False,
     data_policy: DataPolicy | None = None,
     redact_flag: bool | None = None,
+    vibe_root: str | None = None,
 ) -> int:
     """Render the report and return the exit code."""
     from argus.formatters.sarif import aggregated_report_to_sarif
@@ -665,7 +674,17 @@ def _emit(
         if masked:
             print(f"Redacted {masked} personal data value(s) from the output.", file=sys.stderr)
 
-    if fmt == "json":
+    vibe = None
+    if vibe_root is not None and fmt != "sarif":
+        from argus.vibe_report import format_vibe_markdown, vibe_summary
+
+        vibe = vibe_summary(filtered, vibe_root, redact_pii=redact)
+        filtered["vibe"] = vibe
+
+    if vibe is not None and fmt in {"markdown", "table"}:
+        text = format_vibe_markdown(vibe, str(filtered.get("target", "")))
+        fmt = "markdown"
+    elif fmt == "json":
         text = json.dumps(filtered, indent=2)
     elif fmt == "sarif":
         text = json.dumps(aggregated_report_to_sarif(filtered), indent=2)
@@ -775,6 +794,11 @@ async def _dispatch_scan(
         from argus.tools.pci import run_pci_scan
 
         return [await run_pci_scan(target)]
+
+    if scan_type == "vibe":
+        from argus.vibe_report import run_vibe_scan
+
+        return await run_vibe_scan(target)
 
     if scan_type == "sca":
         from argus.tools.sca import run_all_sca
@@ -985,6 +1009,7 @@ async def _run_scan(args: argparse.Namespace) -> int:
         or policy.fail_on_low_confidence,
         data_policy=policy.data_policy,
         redact_flag=getattr(args, "redact_pii", None),
+        vibe_root=args.target if scan_type == "vibe" else None,
     )
 
 
@@ -1211,7 +1236,10 @@ def _cmd_tools() -> None:
         "pip-audit": ("SCA (Python)", "pip install pip-audit"),
         "npm": ("SCA (Node.js)", "Install Node.js from nodejs.org"),
         "govulncheck": ("SCA (Go)", "go install golang.org/x/vuln/cmd/govulncheck@v1.10.0"),
-        "composer": ("SCA (PHP)", "Download Composer 2.11.3 from https://getcomposer.org/download/"),
+        "composer": (
+            "SCA (PHP)",
+            "Download Composer 2.11.3 from https://getcomposer.org/download/",
+        ),
         "gitleaks": ("Secrets", "brew install gitleaks"),
         "detect-secrets": ("Secrets", "pip install detect-secrets"),
         "trufflehog": ("Secrets", "brew install trufflehog"),
