@@ -330,6 +330,7 @@ async def run_all_sast(
     from argus.tools.code import run_native_languages
     from argus.tools.security_headers import run_security_headers_check
     from argus.tools.taint_sql import run_taint_sql_check
+    from argus.tools.vibe_checks import run_vibe_checks
 
     target_path = Path(target)
     tasks = []
@@ -340,6 +341,9 @@ async def run_all_sast(
     tasks.append(run_abuse_control_check(target))
     # Missing / disabled HTTP security headers (#198) — built in, always runs
     tasks.append(run_security_headers_check(target))
+    # Failures common in AI-built apps: Supabase RLS, Firebase rules, public env secrets,
+    # routes that change data without an auth check (#272) — built in, always runs
+    tasks.append(run_vibe_checks(target))
     # SQL injection across lines: request input → SQL execution, Python (#183) — built in
     tasks.append(run_taint_sql_check(target))
 

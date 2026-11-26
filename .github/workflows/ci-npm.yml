@@ -15,6 +15,7 @@ on:
       - 'packages/languages/src/argus_languages/bundled_rules/privacy-gdpr.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/prototype-pollution.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/header-injection.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/vibe.yaml'
   pull_request:
     branches: [main, dev]
     paths:
@@ -28,6 +29,7 @@ on:
       - 'packages/languages/src/argus_languages/bundled_rules/privacy-gdpr.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/prototype-pollution.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/header-injection.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/vibe.yaml'
 
 defaults:
   run:

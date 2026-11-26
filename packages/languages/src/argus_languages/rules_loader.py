@@ -21,6 +21,7 @@ RULE_FILES = (
     "pii.yaml",
     "auth-jwt.yaml",
     "cookies.yaml",
+    "vibe.yaml",
     "prototype-pollution.yaml",
     "java.yaml",
     "php.yaml",

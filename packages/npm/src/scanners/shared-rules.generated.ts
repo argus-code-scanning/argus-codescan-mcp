@@ -15,6 +15,8 @@ export interface SharedRuleDef {
   fixGuidance: string;
   /** When this matches anywhere in the file, findings get low confidence. */
   guardedBy: string;
+  /** false: an argus-ignore comment can't silence it (leaked keys). */
+  inlineIgnore: boolean;
 }
 
 export const SHARED_RULES: SharedRuleDef[] = [
@@ -33,7 +35,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Pass options: res.cookie(\"session\", token, { httpOnly: true, secure: true, sameSite: \"lax\" }). Use sameSite \"strict\" when the cookie is never needed on links from other sites.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "js-cookie-httponly-disabled",
@@ -50,7 +53,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Set httpOnly: true on session and auth cookies. If the browser needs a value, send it in a separate non-sensitive cookie or response body.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "js-cookie-secure-disabled",
@@ -67,7 +71,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Set secure: true in production (behind a proxy also set app.set(\"trust proxy\", 1) for express-session). For local HTTP development, use secure: process.env.NODE_ENV === \"production\" rather than false.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "python-cookie-sensitive-no-options",
@@ -83,7 +88,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Pass the flags: response.set_cookie(\"session\", sid, secure=True, httponly=True, samesite=\"Lax\").",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "python-cookie-flag-disabled",
@@ -99,7 +105,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Use secure=True and httponly=True for session and auth cookies.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "python-session-cookie-settings-insecure",
@@ -115,7 +122,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Set SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY and CSRF_COOKIE_SECURE to True in production settings. Keep any False values in a development-only settings file.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "java-cookie-without-httponly",
@@ -131,7 +139,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Call cookie.setHttpOnly(true) and cookie.setSecure(true) before response.addCookie, or use ResponseCookie.from(name, value).httpOnly(true).secure(true).sameSite(\"Lax\").",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "java-cookie-flag-disabled",
@@ -147,7 +156,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Use setHttpOnly(true) and setSecure(true) on session and auth cookies.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "spring-session-cookie-insecure",
@@ -163,7 +173,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Set server.servlet.session.cookie.secure=true and http-only=true (and same-site=lax) in production configuration.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "php-setcookie-sensitive-no-options",
@@ -179,7 +190,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Pass an options array: setcookie(\"session\", $id, [\"secure\" => true, \"httponly\" => true, \"samesite\" => \"Lax\"]).",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "php-cookie-flag-disabled",
@@ -195,7 +207,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Use \"httponly\" => true and \"secure\" => true, and session.cookie_httponly = 1, session.cookie_secure = 1 for PHP sessions.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "csharp-cookie-flag-disabled",
@@ -211,7 +224,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Use HttpOnly = true and Secure = true in CookieOptions, and CookieSecurePolicy.Always / HttpOnlyPolicy.Always in cookie policy options.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-email-in-logs",
@@ -231,7 +245,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Log a stable user id instead of the email, or mask it (j***@example.com). Use structured logging with an allowlist of fields so new PII is not logged by accident.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-in-logs",
@@ -251,7 +266,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Remove the field or log a non-identifying reference (user id, last 4 digits, a hash). Configure the logger with a field allowlist or a redaction filter for PII keys.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-print-debug",
@@ -269,7 +285,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Remove debug prints before committing; stdout usually ends up in container and CI logs. Use the application logger at debug level with PII redaction instead.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-exception-message",
@@ -289,7 +306,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Exception messages end up in logs, error trackers and API responses. Put a user id or request id in the message and keep PII out; attach details only where access is controlled.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-third-party-context",
@@ -309,7 +327,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Send only an opaque user id to third-party services. In Sentry, keep send_default_pii off and scrub fields in before_send; record the processor in your GDPR records if PII is needed.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-request-dump-in-logs",
@@ -327,7 +346,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Log the specific, non-sensitive fields you need (or the request id), never the full form/body. Request payloads routinely contain passwords, tokens and personal data.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "hipaa-phi-in-logs",
@@ -345,7 +365,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "phi",
     "fixGuidance": "",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-hardcoded-email",
@@ -371,7 +392,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Don't keep real people's email addresses in source, config or fixtures. Use example.com addresses for sample data, and load real recipients from a database or environment configuration.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-hardcoded-phone",
@@ -397,7 +419,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Remove real phone numbers from source and fixtures; use reserved fictional numbers (for example +1 202-555-0123) in sample data.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-hardcoded-ssn",
@@ -423,7 +446,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Remove the SSN everywhere it appears (including git history) and treat it as exposed. Government ID numbers must never be stored in code or fixtures.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-hardcoded-uk-nino",
@@ -449,7 +473,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Remove the National Insurance number everywhere it appears and treat it as exposed.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-hardcoded-name",
@@ -475,7 +500,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "low",
     "classification": "pii",
     "fixGuidance": "Replace real names in fixtures and seed data with obvious placeholders, or generate them (Faker) at test time.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pii-hardcoded-address",
@@ -501,7 +527,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "low",
     "classification": "pii",
     "fixGuidance": "Remove real home addresses from code and fixtures; use clearly fictional sample addresses.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "pci-pan-in-source",
@@ -527,7 +554,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pci",
     "fixGuidance": "",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "privacy-third-party-tracker",
@@ -553,7 +581,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Load trackers only after the visitor consents (a consent manager or Google Consent Mode), list them in your privacy notice with their purpose, and sign a data processing agreement with the vendor. Strictly necessary analytics can be self-hosted and anonymised instead.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "privacy-non-eu-storage-region",
@@ -579,7 +608,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "low",
     "classification": "pii",
     "fixGuidance": "If this stores personal data of people in the EU/UK, document the transfer (adequacy decision, Standard Contractual Clauses or the EU-US Data Privacy Framework) or move it to an EU region.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "privacy-fingerprinting",
@@ -598,7 +628,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "pii",
     "fixGuidance": "Fingerprinting is tracking under GDPR/ePrivacy and needs prior consent. Use it only for fraud prevention with a documented legitimate interest, never for marketing.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "js-prototype-pollution-deep-merge",
@@ -615,7 +646,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Validate the body with a schema (zod, joi, ajv with removeAdditional) before merging, or merge into Object.create(null) / a Map. Reject the keys __proto__, constructor and prototype, and keep lodash at 4.17.21 or later.",
-    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)"
+    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)",
+    "inlineIgnore": true
   },
   {
     "id": "js-prototype-pollution-computed-key",
@@ -632,7 +664,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Don't use request input as a property name on a plain object. Use a Map, an Object.create(null) object, or an allowlist of keys, and reject __proto__, constructor and prototype.",
-    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)"
+    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)",
+    "inlineIgnore": true
   },
   {
     "id": "js-prototype-pollution-object-assign",
@@ -649,7 +682,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "low",
     "classification": "unset",
     "fixGuidance": "Pick the fields you expect (const { name, email } = req.body) or validate with a schema instead of copying the whole body into an existing object.",
-    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)"
+    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)",
+    "inlineIgnore": true
   },
   {
     "id": "py-response-header-from-request",
@@ -665,7 +699,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Don't copy request input into response headers. If you must, allow only expected values (an allowlist or a strict pattern) and strip \\r and \\n.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "py-email-header-from-request",
@@ -681,7 +716,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Never let request input choose recipients or raw email headers. Send to addresses from your own data, use email.headerregistry / EmailMessage (which rejects newlines), and validate any user-supplied address with email.utils.parseaddr plus an allowlist.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "js-response-header-from-request",
@@ -698,7 +734,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "low",
     "classification": "unset",
     "fixGuidance": "Node rejects CR/LF in header values, but the request still chooses what this header says. Map input to known values instead of copying it.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "js-email-from-request",
@@ -715,7 +752,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Don't let the request choose recipients or headers: anyone can then send mail through your server. Send only to addresses from your own records (the logged-in user's email), and rate-limit contact forms.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "php-mail-header-injection",
@@ -731,7 +769,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "mail() passes extra headers through unchecked: input with \\r\\n adds Bcc: and other headers. Validate addresses with filter_var($x, FILTER_VALIDATE_EMAIL), never put input in the headers argument, or use a mailer library (Symfony Mailer, PHPMailer).",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "php-header-from-request",
@@ -747,7 +786,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Don't copy request input into response headers; allow only expected values.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "java-response-header-from-request",
@@ -764,7 +804,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Don't copy request input into headers or cookie values; allow only expected values and strip \\r and \\n (older servlet containers don't).",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "java-email-header-from-request",
@@ -781,7 +822,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Don't let request input choose recipients or headers. Send to addresses from your own records and validate any user-supplied address (InternetAddress with strict parsing).",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
   },
   {
     "id": "content-disposition-filename-from-request",
@@ -802,6 +844,169 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Build the filename yourself or encode it (RFC 6266 filename*=UTF-8''...; the content-disposition npm package; urllib.parse.quote). A raw name with quotes or ; can change the header and the downloaded file.",
-    "guardedBy": ""
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "vibe-public-env-secret",
+    "pack": "vibe",
+    "title": "Secret key in a public env variable — it's bundled into the website and anyone can read it",
+    "severity": "high",
+    "source": "\\b(?:NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|NUXT_PUBLIC|GATSBY|PUBLIC)_(?![A-Z0-9_]*(?:PUBLISHABLE|ANON_KEY|_ANON\\b|PUBLIC_KEY|SITE_KEY|MEASUREMENT_ID|_URL\\b))[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|SERVICE_ROLE|SERVICE_KEY|OPENAI|ANTHROPIC|CLAUDE|GEMINI|GROQ|MISTRAL|COHERE|REPLICATE|HUGGINGFACE|HF_TOKEN|DEEPSEEK|PERPLEXITY|ELEVENLABS|STRIPE_SK|DATABASE_URL|DB_PASSWORD|DB_URL|POSTGRES_URL|MONGODB_URI|MONGO_URI|REDIS_URL|RESEND|SENDGRID|TWILIO_AUTH|AWS_SECRET|ADMIN_PASSWORD|JWT_SECRET|GITHUB_TOKEN)[A-Z0-9_]*\\b",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript",
+      "python",
+      "java",
+      "kotlin",
+      "go",
+      "php",
+      "ruby",
+      "csharp",
+      "html",
+      "vue"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Anything in a NEXT_PUBLIC_ / VITE_ / REACT_APP_ / EXPO_PUBLIC_ variable is copied into the JavaScript every visitor downloads. Rename it without the prefix, use it only in server code (an API route, server action or edge function), and rotate the key now: assume it has already been copied.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "vibe-llm-key-in-browser",
+    "pack": "vibe",
+    "title": "AI API key used from the browser (dangerouslyAllowBrowser) — anyone can copy it and run up your bill",
+    "severity": "high",
+    "source": "\\bdangerouslyAllowBrowser\\s*:\\s*true\\b",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript",
+      "vue",
+      "html"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Call OpenAI / Anthropic from your server (an API route or server action) and keep the key in a server-only env variable. The browser should call your endpoint, which checks the user is logged in and limits how often they can call it. Rotate the exposed key.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "vibe-supabase-service-role-key",
+    "pack": "vibe",
+    "title": "Supabase service_role key hardcoded — it bypasses every security rule in your database",
+    "severity": "critical",
+    "source": "\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]*(?:icm9sZSI6InNlcnZpY2Vfcm9sZ|InJvbGUiOiJzZXJ2aWNlX3JvbG|Jyb2xlIjoic2VydmljZV9yb2xl)[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]+",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript",
+      "python",
+      "java",
+      "kotlin",
+      "go",
+      "php",
+      "ruby",
+      "csharp",
+      "html",
+      "vue"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "The service_role key ignores Row Level Security: whoever has it can read and change every table. Rotate it in Supabase (Settings → API), keep the new one in a server-only env variable, and use the anon key with RLS policies in the app.",
+    "guardedBy": "",
+    "inlineIgnore": false
+  },
+  {
+    "id": "vibe-token-in-localstorage",
+    "pack": "vibe",
+    "title": "Login token stored in localStorage — any XSS bug can steal the session",
+    "severity": "moderate",
+    "source": "\\b(?:localStorage|sessionStorage)\\.setItem\\(\\s*[\"'`][^\"'`]*(?:token|jwt|session|auth|access|refresh|api_?key|bearer)[^\"'`]*[\"'`]",
+    "flags": "i",
+    "languages": [
+      "javascript",
+      "typescript",
+      "vue",
+      "html"
+    ],
+    "multiline": false,
+    "confidence": "low",
+    "classification": "unset",
+    "fixGuidance": "Keep session tokens in httpOnly, Secure, SameSite cookies set by your server (Supabase, NextAuth/Auth.js and Clerk can do this for you), so page scripts can't read them.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "vibe-supabase-policy-allows-all",
+    "pack": "vibe",
+    "title": "Supabase policy lets anyone, even logged out, change rows (using (true) / with check (true))",
+    "severity": "high",
+    "source": "\\bcreate\\s+policy\\b(?![^;]*\\bto\\s+(?:authenticated|service_role|supabase_\\w+)\\b)[^;]*?\\bfor\\s+(?:all|insert|update|delete)\\b[^;]*?\\b(?:using|with\\s+check)\\s*\\(\\s*true\\s*\\)",
+    "flags": "i",
+    "languages": [
+      "sql"
+    ],
+    "multiline": true,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "A policy of (true) means every visitor, logged in or not, can do this. Limit it to the row's owner, e.g. using (auth.uid() = user_id) with check (auth.uid() = user_id), and add \"to authenticated\".",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "vibe-supabase-policy-any-user",
+    "pack": "vibe",
+    "title": "Supabase policy lets any signed-in user change rows that aren't theirs (with check (true))",
+    "severity": "moderate",
+    "source": "\\bcreate\\s+policy\\b(?=[^;]*\\bto\\s+authenticated\\b)[^;]*?\\bfor\\s+(?:all|insert|update|delete)\\b[^;]*?\\b(?:using|with\\s+check)\\s*\\(\\s*true\\s*\\)",
+    "flags": "i",
+    "languages": [
+      "sql"
+    ],
+    "multiline": true,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Anyone can create an account, so a signed-in check alone lets strangers write here. Tie the row to its owner: with check (auth.uid() = user_id), or to a role you grant (has_role(auth.uid(), 'admin')). If any user really may insert (a contact form, an audit log), say so in a comment and keep the columns they can set to a minimum.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "vibe-supabase-policy-reads-all",
+    "pack": "vibe",
+    "title": "Supabase policy lets every user read every row of a private table (using (true))",
+    "severity": "moderate",
+    "source": "\\bcreate\\s+policy\\b[^;]*?\\bon\\s+(?:\"?\\w+\"?\\.)?\"?\\w*(?:user|profile|order|payment|subscription|invoice|message|account|customer|address|billing|transaction|chat|conversation|contact|lead|patient|employee)\\w*\"?\\s(?![^;]*\\bto\\s+service_role\\b)[^;]*?\\bfor\\s+select\\b[^;]*?\\busing\\s*\\(\\s*true\\s*\\)",
+    "flags": "i",
+    "languages": [
+      "sql"
+    ],
+    "multiline": true,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Every signed-in user (or every visitor, without \"to authenticated\") can list all rows, including other customers' data. Limit reads to the owner, e.g. using (auth.uid() = user_id), or to a team the user belongs to.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "vibe-supabase-rls-disabled",
+    "pack": "vibe",
+    "title": "Row Level Security turned off for a table — anyone with your public key can read and change it",
+    "severity": "high",
+    "source": "\\balter\\s+table\\b[^;]*?\\bdisable\\s+row\\s+level\\s+security\\b",
+    "flags": "i",
+    "languages": [
+      "sql"
+    ],
+    "multiline": true,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Supabase tables are reachable with the anon key that ships in your app. Keep RLS on (alter table ... enable row level security) and add policies for exactly who may read and write.",
+    "guardedBy": "",
+    "inlineIgnore": true
   }
 ];

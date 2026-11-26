@@ -1,0 +1,102 @@
+# Failures common in apps built mostly with AI tools (Cursor, Claude Code, Lovable, Bolt, v0,
+# Replit) (#272). Titles say what an attacker can do, in plain language.
+# Project-level checks (Supabase tables without RLS, open Firebase rules, routes that change
+# data without an auth check, secrets in .env public variables) live in argus-scan
+# (argus/tools/vibe_checks.py). Shared with argus-codescan via the rule generator.
+
+- id: vibe-public-env-secret
+  title: Secret key in a public env variable — it's bundled into the website and anyone can read it
+  severity: high
+  # Framework prefixes that ship to the browser + a name that says it's secret. Publishable
+  # and anon keys are public by design and are not matched.
+  pattern: '\b(?:NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|NUXT_PUBLIC|GATSBY|PUBLIC)_(?![A-Z0-9_]*(?:PUBLISHABLE|ANON_KEY|_ANON\b|PUBLIC_KEY|SITE_KEY|MEASUREMENT_ID|_URL\b))[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|SERVICE_ROLE|SERVICE_KEY|OPENAI|ANTHROPIC|CLAUDE|GEMINI|GROQ|MISTRAL|COHERE|REPLICATE|HUGGINGFACE|HF_TOKEN|DEEPSEEK|PERPLEXITY|ELEVENLABS|STRIPE_SK|DATABASE_URL|DB_PASSWORD|DB_URL|POSTGRES_URL|MONGODB_URI|MONGO_URI|REDIS_URL|RESEND|SENDGRID|TWILIO_AUTH|AWS_SECRET|ADMIN_PASSWORD|JWT_SECRET|GITHUB_TOKEN)[A-Z0-9_]*\b'
+  fix_guidance: >-
+    Anything in a NEXT_PUBLIC_ / VITE_ / REACT_APP_ / EXPO_PUBLIC_ variable is copied into the
+    JavaScript every visitor downloads. Rename it without the prefix, use it only in server
+    code (an API route, server action or edge function), and rotate the key now: assume it
+    has already been copied.
+
+- id: vibe-llm-key-in-browser
+  title: AI API key used from the browser (dangerouslyAllowBrowser) — anyone can copy it and run up your bill
+  severity: high
+  pattern: '\bdangerouslyAllowBrowser\s*:\s*true\b'
+  languages: [javascript, typescript, vue, html]
+  fix_guidance: >-
+    Call OpenAI / Anthropic from your server (an API route or server action) and keep the key
+    in a server-only env variable. The browser should call your endpoint, which checks the
+    user is logged in and limits how often they can call it. Rotate the exposed key.
+
+- id: vibe-supabase-service-role-key
+  title: Supabase service_role key hardcoded — it bypasses every security rule in your database
+  severity: critical
+  # A JWT whose payload contains "role":"service_role" (base64url, any alignment).
+  pattern: '\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*(?:icm9sZSI6InNlcnZpY2Vfcm9sZ|InJvbGUiOiJzZXJ2aWNlX3JvbG|Jyb2xlIjoic2VydmljZV9yb2xl)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+'
+  inline_ignore: false
+  fix_guidance: >-
+    The service_role key ignores Row Level Security: whoever has it can read and change every
+    table. Rotate it in Supabase (Settings → API), keep the new one in a server-only env
+    variable, and use the anon key with RLS policies in the app.
+
+- id: vibe-token-in-localstorage
+  title: Login token stored in localStorage — any XSS bug can steal the session
+  severity: medium
+  confidence: low
+  pattern: '\b(?:localStorage|sessionStorage)\.setItem\(\s*["''`][^"''`]*(?:token|jwt|session|auth|access|refresh|api_?key|bearer)[^"''`]*["''`]'
+  flags: [i]
+  languages: [javascript, typescript, vue, html]
+  fix_guidance: >-
+    Keep session tokens in httpOnly, Secure, SameSite cookies set by your server (Supabase,
+    NextAuth/Auth.js and Clerk can do this for you), so page scripts can't read them.
+
+- id: vibe-supabase-policy-allows-all
+  title: Supabase policy lets anyone, even logged out, change rows (using (true) / with check (true))
+  severity: high
+  # CREATE POLICY ... FOR ALL|INSERT|UPDATE|DELETE ... (true), with no TO clause or TO anon /
+  # public: the whole statement, across lines. TO authenticated is the next rule.
+  pattern: '\bcreate\s+policy\b(?![^;]*\bto\s+(?:authenticated|service_role|supabase_\w+)\b)[^;]*?\bfor\s+(?:all|insert|update|delete)\b[^;]*?\b(?:using|with\s+check)\s*\(\s*true\s*\)'
+  flags: [i]
+  multiline: true
+  languages: [sql]
+  fix_guidance: >-
+    A policy of (true) means every visitor, logged in or not, can do this. Limit it to the
+    row's owner, e.g. using (auth.uid() = user_id) with check (auth.uid() = user_id), and add
+    "to authenticated".
+
+- id: vibe-supabase-policy-any-user
+  title: Supabase policy lets any signed-in user change rows that aren't theirs (with check (true))
+  severity: medium
+  # Anyone can sign up, so "to authenticated" alone is not a permission check.
+  pattern: '\bcreate\s+policy\b(?=[^;]*\bto\s+authenticated\b)[^;]*?\bfor\s+(?:all|insert|update|delete)\b[^;]*?\b(?:using|with\s+check)\s*\(\s*true\s*\)'
+  flags: [i]
+  multiline: true
+  languages: [sql]
+  fix_guidance: >-
+    Anyone can create an account, so a signed-in check alone lets strangers write here. Tie
+    the row to its owner: with check (auth.uid() = user_id), or to a role you grant
+    (has_role(auth.uid(), 'admin')). If any user really may insert (a contact form, an audit
+    log), say so in a comment and keep the columns they can set to a minimum.
+
+- id: vibe-supabase-policy-reads-all
+  title: Supabase policy lets every user read every row of a private table (using (true))
+  severity: medium
+  # SELECT using (true) is fine for a product catalogue, not for users, orders or messages.
+  pattern: '\bcreate\s+policy\b[^;]*?\bon\s+(?:"?\w+"?\.)?"?\w*(?:user|profile|order|payment|subscription|invoice|message|account|customer|address|billing|transaction|chat|conversation|contact|lead|patient|employee)\w*"?\s(?![^;]*\bto\s+service_role\b)[^;]*?\bfor\s+select\b[^;]*?\busing\s*\(\s*true\s*\)'
+  flags: [i]
+  multiline: true
+  languages: [sql]
+  fix_guidance: >-
+    Every signed-in user (or every visitor, without "to authenticated") can list all rows,
+    including other customers' data. Limit reads to the owner, e.g. using (auth.uid() =
+    user_id), or to a team the user belongs to.
+
+- id: vibe-supabase-rls-disabled
+  title: Row Level Security turned off for a table — anyone with your public key can read and change it
+  severity: high
+  pattern: '\balter\s+table\b[^;]*?\bdisable\s+row\s+level\s+security\b'
+  flags: [i]
+  multiline: true
+  languages: [sql]
+  fix_guidance: >-
+    Supabase tables are reachable with the anon key that ships in your app. Keep RLS on
+    (alter table ... enable row level security) and add policies for exactly who may read and
+    write.
