@@ -162,6 +162,39 @@ When Trivy isn't installed, `argus scan sca` still checks Maven and Gradle depen
 
 Tests, docs and examples are ignored. Login delegated to an identity provider (Auth0, Cognito, Keycloak, Okta, Clerk, Firebase…) skips the lockout finding.
 
+### Apps built with AI tools (`argus scan vibe`)
+
+A launch check for apps built mostly with Cursor, Claude Code, Lovable, Bolt, v0 or Replit. These apps tend to fail in the same few ways, and this check looks for them:
+
+- Supabase tables without Row Level Security, policies of `(true)`, and RLS turned off
+- open Firebase / Firestore / Storage rules, or rules still in test mode
+- secret keys in `NEXT_PUBLIC_` / `VITE_` / `REACT_APP_` / `EXPO_PUBLIC_` variables, the Supabase `service_role` key in browser code, and `dangerouslyAllowBrowser: true`
+- API routes, server actions and Python endpoints that change data without checking who is calling
+- secrets, security headers, rate limiting, hallucinated packages, cookies and personal data in logs
+
+```bash
+argus scan vibe .                  # or: npx argus-codescan scan vibe .
+```
+
+The output is a 0–100 safety score with a verdict, then a plain explanation and fix for each problem. Each fix comes with a prompt you can paste into your AI tool. Prompts include a short code excerpt with secret values masked, so a key never ends up in a chat. Only built-in checks run, so there is nothing else to install. Use `--format json` for the score and prompts as data, and `--fail-on high` to block a deploy. The same check is available to AI clients as the MCP tool `scan_vibe`.
+
+### Is the app tested? (`argus unit-test`)
+
+A separate check from `scan vibe`, because missing tests aren't a vulnerability. It reads the project and runs nothing. It reports:
+- no test runner, no tests, or the placeholder `npm test` script;
+- routes, server actions and Python endpoints that change data and have no test;
+- tests with no `expect` or `assert`;
+- `.only` or `.skip` left in;
+- a CI pipeline that never runs the tests;
+- no end-to-end test for login, signup or checkout.
+
+```bash
+argus unit-test .                  # or: npx argus-codescan unit-test .
+argus unit-test . --fail-under 50  # CI: fail when the testing score is below 50
+```
+
+You get a 0–100 testing score, and each item has a prompt that asks your AI tool to write the missing tests. The prompt names the runner to use and the cases to cover (logged out gets 401, users can't touch each other's records, the owner can). It tells the tool to mock databases, payments and email and never to use real customer data or keys. The same check is available to AI clients as the MCP tool `check_unit_tests`.
+
 ### Known threats (IOCs)
 
 `argus scan threats` matches your repository against **known indicators of compromise**: malware URLs, C2 domains and IPs, and file hashes. It's also part of `argus scan malware` and `scan all`. A match is **critical**.
@@ -207,6 +240,8 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
 | `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |
+| `scan_vibe` | Launch check for apps built with AI tools: Supabase RLS and policies, Firebase rules, exposed keys, unprotected routes. 0–100 score, plain fixes and a fix prompt per finding (secrets masked). CLI: `argus scan vibe .` |
+| `check_unit_tests` | Is the app tested? Test runner, untested routes that change data, tests with no assertions, `.only`/`.skip`, CI, end-to-end tests. 0–100 testing score and a prompt per item that writes the tests. CLI: `argus unit-test .` |
 | `scan_pii` | Personal data: real-looking emails, phones, SSN / UK NI numbers, names and addresses hardcoded in code, config and fixtures (JSON/YAML/CSV/.env/SQL), PII in logs, Luhn-valid card numbers. CLI: `argus scan pii .` |
 | `scan_privacy` | GDPR/CCPA code patterns: trackers without a consent mechanism, no data deletion/export, no retention field, PII in logs, fingerprinting, non-EU storage. Not a legal assessment ([docs](docs/privacy-scanning.md)). CLI: `argus scan privacy .` |
 | `scan_container` | Container image CVE scanning |
@@ -457,9 +492,9 @@ Each package has its own version number. These are the versions released togethe
 <!-- versions:start -->
 | Package | Version | Install |
 |---|---|---|
-| `argus-scan` (CLI + MCP) | 0.11.0 | `pip install argus-scan==0.11.0` (needs `argus-languages>=0.9.0`) |
-| `argus-languages` (built-in rules) | 0.9.0 | `pip install argus-languages==0.9.0` |
-| `argus-codescan` (npm) | 0.13.0 | `npx argus-codescan@0.13.0` |
+| `argus-scan` (CLI + MCP) | 0.12.0 | `pip install argus-scan==0.12.0` (needs `argus-languages>=0.10.0`) |
+| `argus-languages` (built-in rules) | 0.10.0 | `pip install argus-languages==0.10.0` |
+| `argus-codescan` (npm) | 0.14.0 | `npx argus-codescan@0.14.0` |
 | VS Code extension | 0.2.0 | Marketplace: `arestechub.argus-scan` |
 <!-- versions:end -->
 

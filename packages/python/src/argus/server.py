@@ -529,6 +529,63 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="scan_vibe",
+            description=(
+                "Launch check for apps built with AI tools (Cursor, Claude Code, Lovable, Bolt, "
+                "v0, Replit): Supabase tables without RLS and policies of (true), open Firebase "
+                "rules, secret keys in NEXT_PUBLIC_/VITE_ variables or browser code, routes and "
+                "server actions that change data without an auth check, plus secrets, security "
+                "headers, rate limiting, hallucinated packages and cookies. Returns a 0-100 "
+                "score, a verdict, a plain explanation per finding and a fix prompt with secret "
+                "values masked. Built-in, nothing to install. Use it before someone launches an "
+                "app; then fix the items from the top, and never echo key values back."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Path to the app's project directory",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json"],
+                        "description": "Output format (default: markdown)",
+                        "default": "markdown",
+                    },
+                    "fail_on": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low", "never"],
+                        "description": "Severity threshold that marks an uploaded scan as failed",
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
+            name="check_unit_tests",
+            description=(
+                "Is the app tested? Reads the project (runs nothing) and reports a 0-100 testing "
+                "score: no test runner or no tests, the placeholder npm test script, routes, "
+                "server actions and endpoints that change data with no test, tests with no "
+                "assertions, .only / .skip left in, CI that never runs tests, and no end-to-end "
+                "test for login or checkout. Each item comes with a prompt that writes the "
+                "tests. CLI: argus unit-test ."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "Path to the project directory"},
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json"],
+                        "default": "markdown",
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_pii",
             description=(
                 "Scan for personal data (PII): real-looking emails, phone numbers, US SSNs, UK "
@@ -981,6 +1038,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_triage_malware(arguments)
         elif name == "scan_pci":
             return await _handle_scan_pci(arguments)
+        elif name == "check_unit_tests":
+            return await _handle_check_unit_tests(arguments)
+        elif name == "scan_vibe":
+            return await _handle_scan_vibe(arguments)
         elif name == "scan_pii":
             return await _handle_scan_pii(arguments)
         elif name == "scan_privacy":
@@ -1028,6 +1089,7 @@ async def _finish_scan(
     fail_on: str | None = None,
     include_raw_json: bool = False,
     target_path: str | None = None,
+    vibe: bool = False,
 ) -> list[types.TextContent]:
     """Format scan output and optionally upload to the cloud dashboard."""
     from argus.formatters.sarif import aggregated_report_to_sarif
@@ -1066,6 +1128,18 @@ async def _finish_scan(
     except Exception as exc:
         logger.warning("Cloud upload failed: %s", exc)
         upload_note = f"\n\n⚠️ Cloud upload failed: {exc}"
+
+    if vibe and target_path:
+        from argus.vibe_report import format_vibe_markdown, vibe_summary
+
+        summary = vibe_summary(report_dict, target_path, redact_pii=redact)
+        if fmt != "json":
+            return [
+                types.TextContent(
+                    type="text", text=format_vibe_markdown(summary, report.target) + upload_note
+                )
+            ]
+        report_dict["vibe"] = summary
 
     if fmt == "json":
         text = json.dumps(report_dict, indent=2)
@@ -1394,6 +1468,34 @@ async def _handle_scan_pii(args: dict[str, Any]) -> list[types.TextContent]:
         fail_on=args.get("fail_on"),
         include_raw_json=True,
         target_path=target,
+    )
+
+
+async def _handle_check_unit_tests(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.unit_test_report import format_tests_markdown, run_unit_test_scan, tests_summary
+
+    target = args["target"]
+    report = AggregatedReport(target=target, results=await run_unit_test_scan(target)).to_dict()
+    summary = tests_summary(report, target, redact_pii=True)
+    if args.get("format") == "json":
+        return [types.TextContent(type="text", text=json.dumps(summary, indent=2))]
+    return [types.TextContent(type="text", text=format_tests_markdown(summary, target))]
+
+
+async def _handle_scan_vibe(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.vibe_report import run_vibe_scan
+
+    timer = ScanTimer()
+    target = args["target"]
+    report = AggregatedReport(target=target, results=await run_vibe_scan(target))
+    return await _finish_scan(
+        report,
+        scan_type="vibe",
+        timer=timer,
+        fmt=args.get("format", "markdown"),
+        fail_on=args.get("fail_on"),
+        target_path=target,
+        vibe=True,
     )
 
 

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import type { ScanReport, ScanResult, Severity } from "./types.js";
 import { countsTowardFailure } from "./noise.js";
 import { applyPolicy, loadPolicy } from "./policy.js";
+import { formatVibeReport, vibeSummary } from "./vibe.js";
 
 function countBySeverity(results: ScanResult[]) {
   const counts = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };
@@ -204,7 +205,14 @@ export function printScanReport(
   report: ScanReport,
   format: "json" | "table" | "csv",
   failOn: Severity | "never",
-  options: { csvPath?: string; writeCsv?: boolean; includeLowConfidence?: boolean; policyPath?: string } = {},
+  options: {
+    csvPath?: string;
+    writeCsv?: boolean;
+    includeLowConfidence?: boolean;
+    policyPath?: string;
+    /** `scan vibe`: score, verdict and fix prompts instead of the findings table. */
+    vibe?: boolean;
+  } = {},
 ): number {
   applyPolicy(report, loadPolicy(report.target, options.policyPath));
   report.summary = countBySeverity(report.results); // suppressions may have removed findings
@@ -217,7 +225,10 @@ export function printScanReport(
     console.error(`CSV report written: ${csvPath}`);
   }
 
-  if (format === "json") {
+  if (options.vibe && format !== "csv") {
+    const summary = vibeSummary(report.results, report.target);
+    console.log(format === "json" ? JSON.stringify({ ...report, vibe: summary }, null, 2) : formatVibeReport(summary, report.target));
+  } else if (format === "json") {
     console.log(JSON.stringify(report, null, 2));
   } else if (format === "csv") {
     console.log(formatCsv(report));

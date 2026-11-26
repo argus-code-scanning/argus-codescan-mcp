@@ -34,6 +34,8 @@ npx argus-codescan scan sca .       # dependency vulnerabilities
 npx argus-codescan scan sast .      # source code (JS/TS/JSX)
 npx argus-codescan scan secrets .   # leaked API keys & tokens
 npx argus-codescan scan all .       # everything above
+npx argus-codescan scan vibe .      # launch check for apps built with AI tools: score + fix prompts
+npx argus-codescan unit-test .      # is the app tested? testing score + prompts that write the tests
 npx argus-codescan scan pii .       # personal data hardcoded in code, config and fixtures
 npx argus-codescan scan privacy .   # GDPR/CCPA patterns: trackers, consent, deletion, retention
 npx argus-codescan tools            # show what's bundled
@@ -106,6 +108,29 @@ npx argus-codescan scan sast ./src --fail-on high
 **File types:** `.js` `.jsx` `.ts` `.tsx` `.mjs` `.cjs`
 
 ---
+
+### Apps built with AI tools (`scan vibe`)
+
+A launch check for apps built with Cursor, Claude Code, Lovable, Bolt, v0 or Replit. It looks for:
+- Supabase tables without RLS, and policies of `(true)`;
+- open or test-mode Firebase rules;
+- secret keys in `NEXT_PUBLIC_` / `VITE_` variables or browser code;
+- routes and server actions that change data without an auth check;
+- secrets and cookies.
+
+You get a 0–100 safety score, a plain fix for each problem, and a prompt to paste into your AI tool. Secret values are masked in every prompt. Same checks, rule ids and score as `argus scan vibe` in the Python package. `--format json` returns the score and prompts as data, and `--fail-on high` blocks a deploy.
+
+### Is the app tested? (`unit-test`)
+
+`npx argus-codescan unit-test .` reads the project, runs nothing, and checks for:
+- no test runner, or the placeholder `npm test`;
+- routes and server actions that change data and have no test;
+- tests that assert nothing;
+- `.only` or `.skip` left in;
+- CI that never runs the tests;
+- no end-to-end test for login or checkout.
+
+You get a 0–100 testing score and a prompt per item that writes the tests. `--fail-under 50` fails a CI job when the score is below 50, and `--format json` returns the score and prompts as data. Same checks, rule ids and score as `argus unit-test` in the Python package.
 
 ### Personal data and privacy (`scan pii`, `scan privacy`)
 
