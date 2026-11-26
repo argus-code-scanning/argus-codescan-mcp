@@ -871,6 +871,42 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="sanitize_report",
+            description=(
+                "Return a copy of an Argus JSON report that is safe to paste into an AI chat, a "
+                "ticket or an email: personal data (emails, phones, SSN/NI, card numbers) and "
+                "secret values echoed by scanners are masked, file paths can be replaced with "
+                "stable tags, only the most severe findings can be kept, and fields such as raw "
+                "tool output are dropped. Line numbers, rule ids and severities are kept."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "scan_result_json": {
+                        "type": "string",
+                        "description": "An Argus JSON report (from a scan with format json)",
+                    },
+                    "redact_pii": {"type": "boolean", "default": True},
+                    "hash_paths": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Replace file paths with [path:1a2b3c4d].ext tags",
+                    },
+                    "max_findings": {
+                        "type": "integer",
+                        "description": "Keep only the N most severe findings",
+                    },
+                    "drop_fields": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Finding fields to remove, e.g. fix_guidance or "
+                        "description (file, line, rule_id, severity and tool are always kept)",
+                    },
+                },
+                "required": ["scan_result_json"],
+            },
+        ),
+        types.Tool(
             name="apply_fixes",
             description=(
                 "Preview, then apply, automated fixes for many findings at once. "
@@ -969,6 +1005,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_apply_fix(arguments)
         elif name == "apply_fixes":
             return await _handle_apply_fixes(arguments)
+        elif name == "sanitize_report":
+            return await _handle_sanitize_report(arguments)
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
     except Exception as exc:
@@ -1712,6 +1750,28 @@ async def _handle_apply_fix(args: dict[str, Any]) -> list[types.TextContent]:
         apply=bool(args.get("apply", False)),
         semgrep_config=args.get("semgrep_config", "auto"),
         timeout=int(args.get("timeout", 120)),
+    )
+    return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def _handle_sanitize_report(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.redaction import sanitize_report
+
+    raw = args.get("scan_result_json")
+    try:
+        report = json.loads(raw) if isinstance(raw, str) else raw
+    except json.JSONDecodeError as exc:
+        return [types.TextContent(type="text", text=json.dumps({"error": f"Invalid JSON: {exc}"}))]
+    if not isinstance(report, dict) or "results" not in report:
+        error = {"error": "scan_result_json must be an Argus JSON report (with 'results')."}
+        return [types.TextContent(type="text", text=json.dumps(error))]
+    max_findings = args.get("max_findings")
+    result = sanitize_report(
+        report,
+        redact_pii=bool(args.get("redact_pii", True)),
+        hash_paths=bool(args.get("hash_paths", False)),
+        max_findings=int(max_findings) if max_findings is not None else None,
+        drop_fields=[str(f) for f in args.get("drop_fields") or []],
     )
     return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
