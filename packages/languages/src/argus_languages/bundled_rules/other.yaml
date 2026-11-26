@@ -88,7 +88,8 @@
 - id: sql-grant-all
   title: GRANT ALL privileges
   severity: moderate
-  pattern: 'GRANT\s+ALL'
+  # Supabase migrations grant all to its own server roles by design.
+  pattern: 'GRANT\s+ALL\b(?![^;\n]*\bTO\s+(?:service_role|postgres|supabase_admin|supabase_auth_admin)\s*;)'
   flags: [i]
   languages: [sql]
 

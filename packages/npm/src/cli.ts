@@ -15,9 +15,15 @@ import { runReviewCli } from "./review-cli.js";
 
 const args = process.argv.slice(2);
 
+/** process.exit() drops output still queued for a pipe (`scan … --format json | jq` was cut at 64 KB). */
+async function exitAfterFlush(code: number): Promise<never> {
+  await new Promise<void>((done) => process.stdout.write("", () => done()));
+  process.exit(code);
+}
+
 async function main() {
   if (args[0] === "review") {
-    process.exit(await runReviewCli(args.slice(1)));
+    await exitAfterFlush(await runReviewCli(args.slice(1)));
   }
 
   if (args.includes("--help") || args.includes("-h")) {
@@ -40,7 +46,7 @@ async function main() {
   // Native scans — no Python
   if (args[0] === "scan") {
     const code = await runScanCli(args.slice(1));
-    process.exit(code);
+    await exitAfterFlush(code);
   }
 
   if (args[0] === "tools") {
