@@ -404,6 +404,8 @@ Built-in static rules for SQL injection, connection strings, migration GRANTs, O
 
 - **JavaScript / TypeScript ORMs** (both packages): values interpolated into TypeORM `.where()` / `.andWhere()` / `.having()`, Knex `whereRaw` / `orderByRaw` / `knex.raw`, Prisma `$queryRawUnsafe` / `$executeRawUnsafe` / `Prisma.raw`, and `sequelize.literal()`. Named parameters, bindings and tagged templates are not flagged, nor are `${UPPER_CASE}` constants. An `ORDER BY` column taken from the request is reported as low confidence: check it is limited to an allow-list.
 
+- **Across lines** (`argus scan sast`, argus-scan): request input followed through variables to a SQL call inside each function, in **Python** (`ast`) and **JavaScript / TypeScript** (tree-sitter, incl. NestJS `@Query()` / `@Body()` parameters). `const id = req.query.id` → `` const sql = `… ${id}` `` → `db.query(sql)` is reported on the `db.query` line with the path. Casts (`parseInt`, `Number`, `int()`), `if (!ALLOWED.includes(col)) return` allowlists and parameterized calls clear it.
+
 ```bash
 argus scan code .    # includes database.yaml rules via argus-languages
 ```

@@ -14,7 +14,7 @@ allowlist pattern (``if col not in ALLOWED: return``) clear the taint; parameter
 (``execute("… %s", (x,))``) are safe. Only flows that cross lines are reported: same-line string
 building is already covered by the line rules.
 
-JavaScript / TypeScript are not covered yet (they need a parser; see #183).
+JavaScript / TypeScript use tree-sitter (``taint_sql_js.py``), same rules.
 """
 
 from __future__ import annotations
@@ -45,6 +45,7 @@ _SKIP_DIRS = frozenset(
     }
 )
 _MAX_FILE = 1024 * 1024
+_JS_SKIP_DIRS = frozenset({"bower_components", "coverage", ".next", "out", "vendor"})
 
 # request.<attr> (Flask, Django, Starlette / FastAPI, DRF, Bottle, Falcon, aiohttp)
 _REQUEST_ATTRS = frozenset(
@@ -425,7 +426,75 @@ def taint_findings(target: str) -> tuple[list[Finding], dict[str, object]]:
                     ],
                 )
             )
-    return findings, {"python_files": files}
+    js_findings, js_files, parser_ok = _js_taint_findings(root, base)
+    findings.extend(js_findings)
+    metadata: dict[str, object] = {"python_files": files, "js_ts_files": js_files}
+    if not parser_ok:
+        metadata["js_ts_skipped"] = "tree-sitter is not installed"
+    return findings, metadata
+
+
+def _js_taint_findings(root: Path, base: Path) -> tuple[list[Finding], int, bool]:
+    from argus.tools.taint_sql_js import analyze_js_source, available, dialect_for
+
+    if not available():
+        return [], 0, False
+    if root.is_file():
+        paths = [root] if dialect_for(root.name) else []
+    else:
+        paths = []
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [
+                d
+                for d in dirnames
+                if d not in _SKIP_DIRS and d not in _JS_SKIP_DIRS and not d.startswith(".")
+            ]
+            paths.extend(Path(dirpath) / f for f in filenames if dialect_for(f))
+    findings: list[Finding] = []
+    files = 0
+    for path in paths:
+        relative = path.relative_to(base).as_posix() if path != base else path.name
+        dialect = dialect_for(path.name)
+        if dialect is None or path_context(relative) in {"test", "docs", "generated"}:
+            continue
+        try:
+            if path.stat().st_size > _MAX_FILE:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        files += 1
+        for hit in analyze_js_source(text, dialect):
+            findings.append(
+                Finding(
+                    title=(
+                        f"User input reaches a SQL query: {hit.origin.what} (line {hit.origin.line}) "
+                        f"→ {hit.sink}({hit.variable}) (line {hit.sink_line})"
+                    ),
+                    severity=Severity.HIGH,
+                    scan_type=ScanType.SAST,
+                    tool=TOOL_NAME,
+                    file=relative,
+                    line=hit.sink_line,
+                    rule_id="js-sql-injection-taint",
+                    confidence="high",
+                    cwe="CWE-89",
+                    description=(
+                        f"`{hit.variable}` is built from {hit.origin.what} (line {hit.origin.line}) "
+                        f"and passed to {hit.sink}() as SQL text on line {hit.sink_line}."
+                    ),
+                    fix_guidance=(
+                        "Keep the SQL text constant and pass values separately: "
+                        'db.query("SELECT … WHERE id = $1", [id]), knex.raw("… = ?", [id]), '
+                        "prisma.$queryRaw`… ${id}` (tagged template, not $queryRawUnsafe). For "
+                        "identifiers (column / table names) check against an allowlist."
+                    ),
+                    references=[
+                        "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
+                    ],
+                )
+            )
+    return findings, files, True
 
 
 async def run_taint_sql_check(target: str) -> ScanResult:
