@@ -1518,12 +1518,12 @@ TOOLS_REGISTRY: dict[str, dict[str, str]] = {
     },
     "govulncheck": {
         "category": "SCA (Go)",
-        "install": "go install golang.org/x/vuln/cmd/govulncheck@latest",
+        "install": "go install golang.org/x/vuln/cmd/govulncheck@v1.10.0",
         "docs": "https://go.dev/doc/tutorial/govulncheck",
     },
     "composer": {
         "category": "SCA (PHP)",
-        "install": "brew install composer  OR  see https://getcomposer.org/download/",
+        "install": "Download Composer 2.11.3 from https://getcomposer.org/download/",
         "docs": "https://getcomposer.org/doc/03-cli.md#audit",
     },
     "gitleaks": {
