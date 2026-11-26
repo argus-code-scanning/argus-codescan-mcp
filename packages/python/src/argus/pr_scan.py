@@ -145,6 +145,38 @@ def format_scope(scope: ScanScope) -> str:
     return json.dumps(scope.to_dict(), indent=2) + "\n"
 
 
+def rebase_finding_paths(results: list[ScanResult], scanned: str, root: str) -> None:
+    """Make finding paths relative to the repository root after scanning one path.
+
+    With ``--paths-file`` each changed file is scanned as its own target, so scanners report
+    ``server.py`` instead of ``packages/python/src/argus/server.py``. ``.argus.yml``
+    exclude_paths and suppressions (``tests/**``, ``**/argus/server.py``) and the PR comment
+    need the full path, the same one a whole-repository scan reports.
+    """
+    root_path = Path(root).resolve()
+    scanned_path = Path(scanned)
+    if not scanned_path.is_absolute():
+        scanned_path = (Path.cwd() / scanned_path).resolve()
+    base = scanned_path if scanned_path.is_dir() else scanned_path.parent
+    for result in results:
+        for finding in result.findings:
+            if not finding.file:
+                continue
+            reported = Path(finding.file)
+            if reported.is_absolute():
+                candidate = reported
+            elif len(reported.parts) > 1 and (root_path / reported).exists():
+                continue  # already relative to the repository root
+            elif not scanned_path.is_dir() and reported.name == scanned_path.name:
+                candidate = scanned_path
+            else:
+                candidate = base / reported
+            try:
+                finding.file = candidate.resolve().relative_to(root_path).as_posix()
+            except ValueError:
+                continue  # outside the repository: leave it as reported
+
+
 def merge_results_by_tool(results: list[ScanResult]) -> list[ScanResult]:
     """Collapse per-path results so each tool appears once.
 

@@ -11,6 +11,7 @@ from argus.models import Finding, ScanResult, ScanType, Severity
 from argus.pr_scan import (
     merge_results_by_tool,
     read_paths_file,
+    rebase_finding_paths,
     resolve_pr_scan_scope,
     select_scan_scope,
 )
@@ -207,3 +208,67 @@ def test_paths_file_scans_only_listed_files(tmp_path: Path, monkeypatch) -> None
     files = [finding["file"] for result in data["results"] for finding in result["findings"]]
     assert any(path.endswith("hit.py") for path in files)
     assert not any(path.endswith("miss.py") for path in files)
+
+
+def _finding(file: str) -> Finding:
+    return Finding(
+        title="t", severity=Severity.HIGH, scan_type=ScanType.SAST, tool="x", file=file, line=1
+    )
+
+
+def test_rebase_finding_paths_to_repository_root(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "src" / "app").mkdir(parents=True)
+    (tmp_path / "src" / "app" / "server.py").write_text("x\n")
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "a.py").write_text("x\n")
+    results = [
+        ScanResult(
+            tool="x",
+            scan_type=ScanType.SAST,
+            target="src/app/server.py",
+            findings=[
+                _finding("server.py"),  # bare name from a one-file scan
+                _finding(str(tmp_path / "src" / "app" / "server.py")),  # absolute
+                _finding("pkg/a.py"),  # already relative to the root
+                _finding("/elsewhere/x.py"),  # outside: left alone
+            ],
+        )
+    ]
+    rebase_finding_paths(results, "src/app/server.py", str(tmp_path))
+    assert [f.file for f in results[0].findings] == [
+        "src/app/server.py",
+        "src/app/server.py",
+        "pkg/a.py",
+        "/elsewhere/x.py",
+    ]
+
+
+def test_paths_file_scan_applies_argus_yml(tmp_path: Path, monkeypatch) -> None:
+    """exclude_paths and suppressions match full paths in a PR scan too (they didn't: the
+    findings said `server.py`, so `tests/**` and `**/app/server.py` never matched)."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("eval(user)\n")
+    (tmp_path / "src" / "app").mkdir(parents=True)
+    (tmp_path / "src" / "app" / "server.py").write_text("eval(user)\n")
+    (tmp_path / "src" / "app" / "real.py").write_text("eval(user)\n")
+    (tmp_path / ".argus.yml").write_text(
+        'exclude_paths:\n  - "tests/**"\n'
+        "suppressions:\n"
+        "  - rule_id: injection-eval\n"
+        '    path: "**/app/server.py"\n'
+        '    reason: "reviewed"\n'
+    )
+    paths = tmp_path / "paths.txt"
+    paths.write_text("tests/test_a.py\nsrc/app/server.py\nsrc/app/real.py\n")
+    report = tmp_path / "report.json"
+    main(
+        [
+            "scan", "code", ".", "--paths-file", str(paths), "--format", "json",
+            "--output", str(report), "--fail-on", "never",
+        ]
+    )  # fmt: skip
+    data = json.loads(report.read_text(encoding="utf-8"))
+    files = {f["file"] for r in data["results"] for f in r["findings"]}
+    assert files == {"src/app/real.py"}
