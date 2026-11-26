@@ -563,6 +563,29 @@ async def list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="check_unit_tests",
+            description=(
+                "Is the app tested? Reads the project (runs nothing) and reports a 0-100 testing "
+                "score: no test runner or no tests, the placeholder npm test script, routes, "
+                "server actions and endpoints that change data with no test, tests with no "
+                "assertions, .only / .skip left in, CI that never runs tests, and no end-to-end "
+                "test for login or checkout. Each item comes with a prompt that writes the "
+                "tests. CLI: argus unit-test ."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "Path to the project directory"},
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "json"],
+                        "default": "markdown",
+                    },
+                },
+                "required": ["target"],
+            },
+        ),
+        types.Tool(
             name="scan_pii",
             description=(
                 "Scan for personal data (PII): real-looking emails, phone numbers, US SSNs, UK "
@@ -1015,6 +1038,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
             return await _handle_triage_malware(arguments)
         elif name == "scan_pci":
             return await _handle_scan_pci(arguments)
+        elif name == "check_unit_tests":
+            return await _handle_check_unit_tests(arguments)
         elif name == "scan_vibe":
             return await _handle_scan_vibe(arguments)
         elif name == "scan_pii":
@@ -1444,6 +1469,17 @@ async def _handle_scan_pii(args: dict[str, Any]) -> list[types.TextContent]:
         include_raw_json=True,
         target_path=target,
     )
+
+
+async def _handle_check_unit_tests(args: dict[str, Any]) -> list[types.TextContent]:
+    from argus.unit_test_report import format_tests_markdown, run_unit_test_scan, tests_summary
+
+    target = args["target"]
+    report = AggregatedReport(target=target, results=await run_unit_test_scan(target)).to_dict()
+    summary = tests_summary(report, target, redact_pii=True)
+    if args.get("format") == "json":
+        return [types.TextContent(type="text", text=json.dumps(summary, indent=2))]
+    return [types.TextContent(type="text", text=format_tests_markdown(summary, target))]
 
 
 async def _handle_scan_vibe(args: dict[str, Any]) -> list[types.TextContent]:

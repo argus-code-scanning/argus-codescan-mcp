@@ -432,6 +432,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Semgrep ruleset for the review SAST pass (default: auto)",
     )
 
+    # ── unit-test ───────────────────────────────────────────────────────────
+    ut_p = sub.add_parser(
+        "unit-test",
+        help="Is your app tested? Test runner, untested routes that change data, tests that "
+        "assert nothing, .only/.skip left in, CI, end-to-end tests. Score and a prompt per item "
+        "that writes the tests (reads files, runs nothing)",
+    )
+    ut_p.add_argument("target", nargs="?", default=".", help="Project directory (default: .)")
+    ut_p.add_argument(
+        "--format", "-f", choices=["markdown", "json"], default="markdown", help="Output format"
+    )
+    ut_p.add_argument("--output", "-o", metavar="FILE", help="Write output to FILE")
+    ut_p.add_argument(
+        "--fail-under",
+        type=int,
+        metavar="SCORE",
+        help="Exit 1 when the testing score is below SCORE (0-100), e.g. in CI",
+    )
+
     # ── tools ───────────────────────────────────────────────────────────────
     sub.add_parser("tools", help="List installed security tools and their status")
 
@@ -1354,6 +1373,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "compare":
         return _cmd_compare(args)
 
+    if args.command == "unit-test":
+        return _cmd_unit_test(args)
+
     if args.command == "review":
         return _run_with_artifact_policy(parser, args, _run_review)
 
@@ -1364,6 +1386,33 @@ def main(argv: list[str] | None = None) -> int:
         return _run_with_artifact_policy(parser, args, _run_scan)
 
     parser.print_help()
+    return 0
+
+
+def _cmd_unit_test(args: argparse.Namespace) -> int:
+    from argus.unit_test_report import format_tests_markdown, run_unit_test_scan, tests_summary
+
+    target = args.target
+    if not Path(target).exists():
+        print(f"Not found: {target}", file=sys.stderr)
+        return 2
+    print(f"Checking tests in: {target}", file=sys.stderr)
+    results = asyncio.run(run_unit_test_scan(target))
+    report = AggregatedReport(target=target, results=results).to_dict()
+    summary = tests_summary(report, target)
+    if args.format == "json":
+        text = json.dumps({**report, "testing": summary}, indent=2)
+    else:
+        text = format_tests_markdown(summary, target)
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        print(f"Report written to: {args.output}", file=sys.stderr)
+    else:
+        print(text)
+    score = summary["score"]
+    if args.fail_under is not None and score is not None and score < args.fail_under:
+        print(f"Failed: testing score {score} is below {args.fail_under}", file=sys.stderr)
+        return 1
     return 0
 
 
