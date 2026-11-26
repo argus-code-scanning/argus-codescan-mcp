@@ -20,6 +20,8 @@ A Docker image bundling the Argus MCP server **and all supported scanners** — 
 | KICS | IaC (Terraform, K8s, Ansible, …) |
 | ansible-lint | Ansible playbook linting |
 | Nikto | Web server scanner |
+| govulncheck | Go vulnerability analysis |
+| Composer | PHP dependency management and auditing |
 
 > OWASP ZAP is **not** bundled (it needs its own container). See [DAST (OWASP ZAP) inside the container](#dast-owasp-zap-inside-the-container).
 
