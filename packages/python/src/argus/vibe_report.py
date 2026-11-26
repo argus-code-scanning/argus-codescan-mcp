@@ -123,6 +123,39 @@ def _excerpt(root: Path, file: str, line: int, context: int = 2) -> str:
     )
 
 
+# For each security finding, the test that keeps it fixed once your AI tool has fixed it.
+_REGRESSION_TEST = (
+    (
+        "vibe-unprotected-mutation",
+        "a request with no logged-in user gets 401/403 and changes nothing",
+    ),
+    (
+        "vibe-supabase-",
+        "signed in as user B, reading or changing user A's rows returns nothing (run it against "
+        "a local Supabase with two test users)",
+    ),
+    (
+        "vibe-public-env-secret",
+        "fail when any NEXT_PUBLIC_ / VITE_ / REACT_APP_ variable name contains SECRET, "
+        "SERVICE_ROLE or an AI provider's key name",
+    ),
+    (
+        "vibe-firebase-",
+        "with @firebase/rules-unit-testing, a read and a write by a logged-out user are denied",
+    ),
+    (
+        "vibe-llm-key-in-browser",
+        "the browser calls your own API route, and the built bundle doesn't contain the key",
+    ),
+    ("xss-", "rendering a value like <img src=x onerror=alert(1)> shows it as text"),
+    ("sql", "an input like ' OR 1=1 -- returns no extra rows and no error"),
+)
+
+
+def _regression_test(rule_id: str) -> str:
+    return next((t for prefix, t in _REGRESSION_TEST if rule_id.startswith(prefix)), "")
+
+
 def fix_prompt(item: dict[str, Any], excerpt: str) -> str:
     where = f"{item['file']} (line {item['line']})" if item["line"] else item["file"] or "project"
     parts = [
@@ -137,6 +170,9 @@ def fix_prompt(item: dict[str, Any], excerpt: str) -> str:
         parts += ["", "Code:", "```", excerpt, "```"]
     if item["fix"]:
         parts += ["", f"What to change: {item['fix']}"]
+    test = _regression_test(item["rule_id"])
+    if test:
+        parts += ["", f"Then add a test that keeps it fixed: {test}."]
     parts += [
         "",
         "Change only what is needed and keep the app working. Never put secret values in code "
@@ -204,22 +240,13 @@ def vibe_summary(
                     ).strip(),
                 }
             )
-    items.sort(
-        key=lambda i: (_ORDER[i["severity"]], i["confidence"] == "low", i["file"], i["line"])
-    )
 
-    # Each repeat of a rule costs a third of the first, up to three times one finding: 30 tables
-    # without RLS are one mistake made 30 times, not 30 times the risk of one.
-    per_rule: dict[str, float] = {}
-    for item in items:
-        weight = SEVERITY_WEIGHT[item["severity"]]
-        if item["confidence"] == "low":
-            weight /= 4
-        rule = item["rule_id"] or item["title"]
-        cost = weight if rule not in per_rule else weight / 3
-        per_rule[rule] = min(per_rule.get(rule, 0.0) + cost, weight * 3)
-    penalty = sum(per_rule.values())
-    score = max(0, round(100 - penalty))
+    def order(i: dict[str, Any]) -> tuple[int, bool, str, int]:
+        return (_ORDER[i["severity"]], i["confidence"] == "low", i["file"], i["line"])
+
+    items.sort(key=order)
+
+    score = max(0, round(100 - _penalty(items, SEVERITY_WEIGHT)))
     if any(i["severity"] == "critical" and i["confidence"] != "low" for i in items):
         score = min(score, 39)
     verdict, detail = _verdict(score)
@@ -239,6 +266,20 @@ def vibe_summary(
         "not_shipped": not_shipped,
         "items": items,
     }
+
+
+def _penalty(items: list[dict[str, Any]], weights: dict[str, float]) -> float:
+    """Each repeat of a rule costs a third of the first, up to three times one finding: 30 tables
+    without RLS are one mistake made 30 times, not 30 times the risk of one."""
+    per_rule: dict[str, float] = {}
+    for item in items:
+        weight = weights.get(item["severity"], 0.0)
+        if item["confidence"] == "low":
+            weight /= 4
+        rule = item["rule_id"] or item["title"]
+        cost = weight if rule not in per_rule else weight / 3
+        per_rule[rule] = min(per_rule.get(rule, 0.0) + cost, weight * 3)
+    return sum(per_rule.values())
 
 
 _ICON = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "⚪"}
@@ -262,18 +303,28 @@ def format_vibe_markdown(summary: dict[str, Any], target: str = "") -> str:
             "",
             "No problems found by these checks. Keep secrets out of client code as you build.",
         ]
-        return "\n".join(lines) + "\n"
-    for n, item in enumerate(summary["items"], 1):
-        where = f"`{item['file']}:{item['line']}`" if item["line"] else f"`{item['file']}`"
+    lines += _markdown_items(summary["items"])
+    lines += ["", "Check your tests too: `argus unit-test .`"]
+    return "\n".join(lines) + "\n"
+
+
+def _markdown_items(
+    items: list[dict[str, Any]], prompt_label: str = "Prompt for your AI tool"
+) -> list[str]:
+    lines: list[str] = []
+    for n, item in enumerate(items, 1):
+        where = f"{item['file']}:{item['line']}" if item["line"] else item["file"]
         maybe = " (worth a look, may be fine)" if item["confidence"] == "low" else ""
-        lines += ["", f"## {n}. {_ICON[item['severity']]} {item['title']}{maybe}", "", where]
+        lines += ["", f"## {n}. {_ICON[item['severity']]} {item['title']}{maybe}"]
+        if where:
+            lines += ["", f"`{where}`"]
         if item["explanation"]:
             lines += ["", item["explanation"]]
         if item["fix"]:
             lines += ["", f"**Fix:** {item['fix']}"]
         lines += [
             "",
-            "<details><summary>Prompt for your AI tool</summary>",
+            f"<details><summary>{prompt_label}</summary>",
             "",
             "````text",
             item["prompt"],
@@ -281,4 +332,4 @@ def format_vibe_markdown(summary: dict[str, Any], target: str = "") -> str:
             "",
             "</details>",
         ]
-    return "\n".join(lines) + "\n"
+    return lines

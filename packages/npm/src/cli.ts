@@ -43,6 +43,11 @@ async function main() {
     process.exit(0);
   }
 
+  if (args[0] === "unit-test") {
+    const { runUnitTestCli } = await import("./scanners/unit-test.js");
+    await exitAfterFlush(await runUnitTestCli(args.slice(1)));
+  }
+
   // Native scans — no Python
   if (args[0] === "scan") {
     const code = await runScanCli(args.slice(1));
@@ -77,6 +82,8 @@ USAGE:
   argus-codescan scan all [path]     Everything above
   argus-codescan scan pii [path]     Personal data hardcoded in code, config and fixtures
   argus-codescan scan privacy [path] GDPR/CCPA patterns: trackers, consent, deletion, retention
+  argus-codescan scan vibe [path]    Launch check for apps built with AI tools: score + fix prompts
+  argus-codescan unit-test [path]    Is the app tested? Testing score + prompts that write the tests
   argus-codescan review [path]       Review changed files (SAST + secrets)
   argus-codescan tools               Show installed scanners
   argus-codescan mcp                 Start MCP server (requires Python)
