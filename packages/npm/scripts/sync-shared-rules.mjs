@@ -15,7 +15,15 @@ const here = dirname(fileURLToPath(import.meta.url));
 const RULES_DIR = join(here, "..", "..", "languages", "src", "argus_languages", "bundled_rules");
 const OUT = join(here, "..", "src", "scanners", "shared-rules.generated.ts");
 
-export const PACKS = ["cookies", "pii", "pii-hardcoded", "pci-pan", "privacy-gdpr", "prototype-pollution"];
+export const PACKS = [
+  "cookies",
+  "pii",
+  "pii-hardcoded",
+  "pci-pan",
+  "privacy-gdpr",
+  "prototype-pollution",
+  "header-injection",
+];
 
 // YAML language names -> argus-native language names. Rules without `languages` run on
 // source code and HTML/Vue templates (where trackers and fingerprinting scripts live).

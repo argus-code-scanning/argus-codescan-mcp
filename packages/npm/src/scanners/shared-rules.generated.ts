@@ -650,5 +650,158 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "classification": "unset",
     "fixGuidance": "Pick the fields you expect (const { name, email } = req.body) or validate with a schema instead of copying the whole body into an existing object.",
     "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)"
+  },
+  {
+    "id": "py-response-header-from-request",
+    "pack": "header-injection",
+    "title": "Response header value taken from request input",
+    "severity": "moderate",
+    "source": "^(?!.*(?:\\.replace\\([^)]*\\\\[rn]|quote\\(|urlencode\\(|re\\.sub\\()).*\\b(?:\\w+\\.headers|response|resp)\\s*\\[\\s*[\"'](?!Location[\"'])[\\w-]+[\"']\\s*\\]\\s*=(?!=).*\\brequest\\.(?:args|form|values|headers|cookies|GET|POST|json|query_params)\\b",
+    "flags": "",
+    "languages": [
+      "python"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Don't copy request input into response headers. If you must, allow only expected values (an allowlist or a strict pattern) and strip \\r and \\n.",
+    "guardedBy": ""
+  },
+  {
+    "id": "py-email-header-from-request",
+    "pack": "header-injection",
+    "title": "Email header or recipient taken from request input (header injection, spam relay)",
+    "severity": "high",
+    "source": "^(?!.*(?:\\.replace\\([^)]*\\\\[rn]|re\\.sub\\()).*\\b\\w+\\s*\\[\\s*[\"'](?:To|Cc|Bcc|From|Reply-To|Subject|Sender)[\"']\\s*\\]\\s*=(?!=).*\\brequest\\.(?:args|form|values|GET|POST|json|data)\\b",
+    "flags": "",
+    "languages": [
+      "python"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Never let request input choose recipients or raw email headers. Send to addresses from your own data, use email.headerregistry / EmailMessage (which rejects newlines), and validate any user-supplied address with email.utils.parseaddr plus an allowlist.",
+    "guardedBy": ""
+  },
+  {
+    "id": "js-response-header-from-request",
+    "pack": "header-injection",
+    "title": "Response header value taken from request input",
+    "severity": "moderate",
+    "source": "^(?!.*(?:encodeURIComponent\\(|encodeURI\\(|\\.replace\\([^)]*\\\\[rn])).*\\bres\\.(?:setHeader|set|header|append|cookie)\\(\\s*[\"'`](?![Ll]ocation[\"'`])[\\w-]+[\"'`]\\s*,\\s*[^)\\n]*\\b(?:req|request)\\.(?:body|query|params|headers|cookies)\\b",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript"
+    ],
+    "multiline": false,
+    "confidence": "low",
+    "classification": "unset",
+    "fixGuidance": "Node rejects CR/LF in header values, but the request still chooses what this header says. Map input to known values instead of copying it.",
+    "guardedBy": ""
+  },
+  {
+    "id": "js-email-from-request",
+    "pack": "header-injection",
+    "title": "Email recipient or header taken from request input (spam relay)",
+    "severity": "high",
+    "source": "\\b(?:sendMail|send|createMessage)\\(\\s*\\{[^}\\n]*\\b(?:to|cc|bcc|from|replyTo|headers)\\s*:\\s*(?:req|request)\\.(?:body|query|params)\\b",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Don't let the request choose recipients or headers: anyone can then send mail through your server. Send only to addresses from your own records (the logged-in user's email), and rate-limit contact forms.",
+    "guardedBy": ""
+  },
+  {
+    "id": "php-mail-header-injection",
+    "pack": "header-injection",
+    "title": "mail() called with request input (header injection, spam relay)",
+    "severity": "high",
+    "source": "^(?!.*(?:str_replace\\([^)]*\\\\[rn]|preg_replace\\([^)]*\\\\[rn]|filter_var\\()).*\\bmail\\s*\\([^;\\n]*\\$_(?:GET|POST|REQUEST|COOKIE)\\b",
+    "flags": "",
+    "languages": [
+      "php"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "mail() passes extra headers through unchecked: input with \\r\\n adds Bcc: and other headers. Validate addresses with filter_var($x, FILTER_VALIDATE_EMAIL), never put input in the headers argument, or use a mailer library (Symfony Mailer, PHPMailer).",
+    "guardedBy": ""
+  },
+  {
+    "id": "php-header-from-request",
+    "pack": "header-injection",
+    "title": "Response header value taken from request input",
+    "severity": "moderate",
+    "source": "^(?!.*(?:str_replace\\([^)]*\\\\[rn]|preg_replace\\([^)]*\\\\[rn]|urlencode\\(|rawurlencode\\()).*\\bheader\\s*\\(\\s*[\"'](?![Ll]ocation\\s*:)[\\w-]+\\s*:[^;\\n]*\\$_(?:GET|POST|REQUEST|COOKIE|SERVER\\[[\"']HTTP_)",
+    "flags": "",
+    "languages": [
+      "php"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Don't copy request input into response headers; allow only expected values.",
+    "guardedBy": ""
+  },
+  {
+    "id": "java-response-header-from-request",
+    "pack": "header-injection",
+    "title": "Response header or cookie value taken from request input",
+    "severity": "moderate",
+    "source": "^(?!.*(?:\\.replace\\([^)]*\\\\[rn]|URLEncoder\\.encode\\()).*(?:\\.(?:setHeader|addHeader)\\(\\s*\"(?!Location\")[^\"]+\"\\s*,|\\bnew\\s+Cookie\\(\\s*\"[^\"]+\"\\s*,)[^;\\n]*\\brequest\\.(?:getParameter|getHeader)\\(",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Don't copy request input into headers or cookie values; allow only expected values and strip \\r and \\n (older servlet containers don't).",
+    "guardedBy": ""
+  },
+  {
+    "id": "java-email-header-from-request",
+    "pack": "header-injection",
+    "title": "Email recipient or header taken from request input (spam relay)",
+    "severity": "high",
+    "source": "\\.(?:setSubject|setFrom|setReplyTo|addRecipients?|setRecipients?|addHeader|setHeader)\\([^;\\n]*\\brequest\\.getParameter\\(",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Don't let request input choose recipients or headers. Send to addresses from your own records and validate any user-supplied address (InternetAddress with strict parsing).",
+    "guardedBy": ""
+  },
+  {
+    "id": "content-disposition-filename-from-request",
+    "pack": "header-injection",
+    "title": "Content-Disposition filename taken from request input",
+    "severity": "moderate",
+    "source": "^(?!.*(?:quote\\(|encodeURIComponent\\(|urlencode\\(|rawurlencode\\(|URLEncoder\\.encode\\(|contentDisposition\\()).*Content-Disposition[^\\n]*filename=[^\\n]*(?:\\brequest\\.(?:args|form|GET|POST|query|body|params|getParameter)|\\breq\\.(?:query|body|params)|\\$_(?:GET|POST|REQUEST))",
+    "flags": "",
+    "languages": [
+      "python",
+      "javascript",
+      "typescript",
+      "php",
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Build the filename yourself or encode it (RFC 6266 filename*=UTF-8''...; the content-disposition npm package; urllib.parse.quote). A raw name with quotes or ; can change the header and the downloaded file.",
+    "guardedBy": ""
   }
 ];

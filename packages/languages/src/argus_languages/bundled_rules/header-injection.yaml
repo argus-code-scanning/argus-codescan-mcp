@@ -1,0 +1,94 @@
+# Request input in HTTP response headers and email headers (#187).
+#
+# Modern frameworks (Node http, Werkzeug, Django, PHP header()) reject CR/LF in response header
+# values, so these are "attacker controls this header" findings (cookies, caching, CORS):
+# medium. Email is different: PHP mail() extra headers and Python email.message take values as
+# given, and a request-chosen recipient turns the app into a spam relay: high.
+# Location headers are open redirects and are covered by the open-redirect pack (#196).
+# Lines that strip CR/LF or encode the value (quote, urlencode, encodeURIComponent) are skipped.
+# Shared with argus-codescan (packages/npm/scripts/sync-shared-rules.mjs).
+
+- id: py-response-header-from-request
+  title: Response header value taken from request input
+  severity: medium
+  pattern: '^(?!.*(?:\.replace\([^)]*\\[rn]|quote\(|urlencode\(|re\.sub\()).*\b(?:\w+\.headers|response|resp)\s*\[\s*["''](?!Location["''])[\w-]+["'']\s*\]\s*=(?!=).*\brequest\.(?:args|form|values|headers|cookies|GET|POST|json|query_params)\b'
+  languages: [python]
+  fix_guidance: >-
+    Don't copy request input into response headers. If you must, allow only expected values
+    (an allowlist or a strict pattern) and strip \r and \n.
+
+- id: py-email-header-from-request
+  title: Email header or recipient taken from request input (header injection, spam relay)
+  severity: high
+  pattern: '^(?!.*(?:\.replace\([^)]*\\[rn]|re\.sub\()).*\b\w+\s*\[\s*["''](?:To|Cc|Bcc|From|Reply-To|Subject|Sender)["'']\s*\]\s*=(?!=).*\brequest\.(?:args|form|values|GET|POST|json|data)\b'
+  languages: [python]
+  fix_guidance: >-
+    Never let request input choose recipients or raw email headers. Send to addresses from
+    your own data, use email.headerregistry / EmailMessage (which rejects newlines), and
+    validate any user-supplied address with email.utils.parseaddr plus an allowlist.
+
+- id: js-response-header-from-request
+  title: Response header value taken from request input
+  severity: medium
+  confidence: low
+  pattern: '^(?!.*(?:encodeURIComponent\(|encodeURI\(|\.replace\([^)]*\\[rn])).*\bres\.(?:setHeader|set|header|append|cookie)\(\s*["''`](?![Ll]ocation["''`])[\w-]+["''`]\s*,\s*[^)\n]*\b(?:req|request)\.(?:body|query|params|headers|cookies)\b'
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Node rejects CR/LF in header values, but the request still chooses what this header says.
+    Map input to known values instead of copying it.
+
+- id: js-email-from-request
+  title: Email recipient or header taken from request input (spam relay)
+  severity: high
+  pattern: '\b(?:sendMail|send|createMessage)\(\s*\{[^}\n]*\b(?:to|cc|bcc|from|replyTo|headers)\s*:\s*(?:req|request)\.(?:body|query|params)\b'
+  languages: [javascript, typescript]
+  fix_guidance: >-
+    Don't let the request choose recipients or headers: anyone can then send mail through your
+    server. Send only to addresses from your own records (the logged-in user's email), and
+    rate-limit contact forms.
+
+- id: php-mail-header-injection
+  title: mail() called with request input (header injection, spam relay)
+  severity: high
+  pattern: '^(?!.*(?:str_replace\([^)]*\\[rn]|preg_replace\([^)]*\\[rn]|filter_var\()).*\bmail\s*\([^;\n]*\$_(?:GET|POST|REQUEST|COOKIE)\b'
+  languages: [php]
+  fix_guidance: >-
+    mail() passes extra headers through unchecked: input with \r\n adds Bcc: and other headers.
+    Validate addresses with filter_var($x, FILTER_VALIDATE_EMAIL), never put input in the
+    headers argument, or use a mailer library (Symfony Mailer, PHPMailer).
+
+- id: php-header-from-request
+  title: Response header value taken from request input
+  severity: medium
+  pattern: '^(?!.*(?:str_replace\([^)]*\\[rn]|preg_replace\([^)]*\\[rn]|urlencode\(|rawurlencode\()).*\bheader\s*\(\s*["''](?![Ll]ocation\s*:)[\w-]+\s*:[^;\n]*\$_(?:GET|POST|REQUEST|COOKIE|SERVER\[["'']HTTP_)'
+  languages: [php]
+  fix_guidance: >-
+    Don't copy request input into response headers; allow only expected values.
+
+- id: java-response-header-from-request
+  title: Response header or cookie value taken from request input
+  severity: medium
+  pattern: '^(?!.*(?:\.replace\([^)]*\\[rn]|URLEncoder\.encode\()).*(?:\.(?:setHeader|addHeader)\(\s*"(?!Location")[^"]+"\s*,|\bnew\s+Cookie\(\s*"[^"]+"\s*,)[^;\n]*\brequest\.(?:getParameter|getHeader)\('
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Don't copy request input into headers or cookie values; allow only expected values and
+    strip \r and \n (older servlet containers don't).
+
+- id: java-email-header-from-request
+  title: Email recipient or header taken from request input (spam relay)
+  severity: high
+  pattern: '\.(?:setSubject|setFrom|setReplyTo|addRecipients?|setRecipients?|addHeader|setHeader)\([^;\n]*\brequest\.getParameter\('
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Don't let request input choose recipients or headers. Send to addresses from your own
+    records and validate any user-supplied address (InternetAddress with strict parsing).
+
+- id: content-disposition-filename-from-request
+  title: Content-Disposition filename taken from request input
+  severity: medium
+  pattern: '^(?!.*(?:quote\(|encodeURIComponent\(|urlencode\(|rawurlencode\(|URLEncoder\.encode\(|contentDisposition\()).*Content-Disposition[^\n]*filename=[^\n]*(?:\brequest\.(?:args|form|GET|POST|query|body|params|getParameter)|\breq\.(?:query|body|params)|\$_(?:GET|POST|REQUEST))'
+  languages: [python, javascript, typescript, php, java, kotlin]
+  fix_guidance: >-
+    Build the filename yourself or encode it (RFC 6266 filename*=UTF-8''...; the
+    content-disposition npm package; urllib.parse.quote). A raw name with quotes or ; can
+    change the header and the downloaded file.
