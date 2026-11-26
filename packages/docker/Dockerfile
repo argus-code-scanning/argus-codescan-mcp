@@ -10,9 +10,21 @@
 #   docker run --rm -v $(pwd):/workspace ghcr.io/okirigabriel/argus-codescan-mcp \
 #     scan all /workspace
 
+# ── govulncheck (pinned Go builder stage) ───────────────────────────────────
+
+FROM golang:1.27.4-bookworm AS govulncheck-builder
+
+RUN go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
+
 FROM python:3.12-slim-bookworm AS base
 
 ARG TARGETARCH
+
+# ── Go toolchain and govulncheck from the builder stage ──────────────────────
+
+COPY --from=govulncheck-builder /usr/local/go /usr/local/go
+COPY --from=govulncheck-builder /go/bin/govulncheck /usr/local/bin/govulncheck
+ENV PATH="/usr/local/go/bin:${PATH}"
 
 # ── System packages ──────────────────────────────────────────────────────────
 
@@ -22,11 +34,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     ca-certificates \
     perl \
+    php-cli \
     libnet-ssleay-perl \
     liburi-perl \
     nodejs \
     npm \
     && rm -rf /var/lib/apt/lists/*
+
+# ── Composer (pinned and checksum verified) ───────────────────────────────────
+
+ARG COMPOSER_VERSION=2.11.3
+ARG COMPOSER_SHA256=04f8b003da4e3a2459056591fbfebd02b4dc3e5adeb158616b90cf55a65113ec
+
+RUN curl -fsSL \
+      "https://getcomposer.org/download/${COMPOSER_VERSION}/composer.phar" \
+      -o /usr/local/bin/composer \
+    && echo "${COMPOSER_SHA256}  /usr/local/bin/composer" | sha256sum -c - \
+    && chmod 755 /usr/local/bin/composer
+
 
 # ── Nikto (not in Debian repos — install from source) ───────────────────────
 
