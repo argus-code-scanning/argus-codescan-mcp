@@ -332,6 +332,8 @@ const RULES: Rule[] = [
     severity: "high",
     pattern: /(innerHTML\s*=|dangerouslySetInnerHTML|document\.write\s*\(|v-html\s*=)/,
     languages: ["javascript", "typescript", "php"],
+    // shadcn/ui chart.tsx (in most Lovable / v0 apps) writes CSS built from its own THEMES constant.
+    guardedBy: /__html:\s*Object\.entries\(THEMES\)/,
   },
   {
     id: "path-traversal",

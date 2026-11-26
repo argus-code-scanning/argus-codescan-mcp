@@ -87,7 +87,7 @@ function walkFiles(dir: string, base: string, out: string[], depth = 0): void {
   }
 }
 
-async function runPatternSecrets(target: string): Promise<ScanResult> {
+export async function runPatternSecrets(target: string): Promise<ScanResult> {
   const result: ScanResult = {
     tool: "argus-secrets",
     scanType: "secrets",

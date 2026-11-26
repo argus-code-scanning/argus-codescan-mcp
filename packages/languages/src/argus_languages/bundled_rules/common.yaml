@@ -90,6 +90,8 @@
   severity: high
   pattern: '(innerHTML\s*=|dangerouslySetInnerHTML|document\.write\s*\()'
   languages: [javascript, typescript, vue, php]
+  # shadcn/ui chart.tsx (in most Lovable / v0 apps) writes CSS built from its own THEMES constant.
+  guarded_by: '__html:\s*Object\.entries\(THEMES\)'
 
 - id: nosql-injection
   title: Possible NoSQL injection
