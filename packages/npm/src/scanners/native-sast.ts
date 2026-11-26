@@ -31,6 +31,8 @@ const EXT_LANG: Record<string, string> = {
   ".bat": "batch", ".cmd": "batch",
   // Templates: only rules that list them (trackers, fingerprinting) run here.
   ".html": "html", ".htm": "html", ".vue": "vue",
+  // Migrations: only rules that list sql (Supabase RLS and policies) run here.
+  ".sql": "sql",
 };
 
 const SHEBANG = /^#!\s*(?:\/usr)?(?:\/local)?\/bin\/(?:env\s+(?:-\S+\s+)*)?(\w+)/;
@@ -64,6 +66,7 @@ function isBuildOutput(dir: string): boolean {
 
 function isComment(line: string, lang: string): boolean {
   const t = line.trim();
+  if (lang === "sql") return t.startsWith("--");
   if (t.startsWith("//") || t.startsWith("#")) return true;
   return lang === "batch" && (t.startsWith("::") || /^@?rem(?:\s|$)/i.test(t));
 }
@@ -81,6 +84,8 @@ export interface Rule {
   fix?: string;
   /** When this matches anywhere in the file (e.g. a __proto__ key check), confidence is low. */
   guardedBy?: RegExp;
+  /** false: an argus-ignore comment can't silence it (leaked keys). Default true. */
+  inlineIgnore?: boolean;
 }
 
 /** Rules generated from the argus-languages YAML packs (same ids as argus-scan). */
@@ -95,6 +100,7 @@ export function sharedRules(...packs: string[]): Rule[] {
     confidence: r.confidence,
     fix: r.fixGuidance || undefined,
     guardedBy: r.guardedBy ? new RegExp(r.guardedBy, r.flags) : undefined,
+    inlineIgnore: r.inlineIgnore,
   }));
 }
 
@@ -566,12 +572,12 @@ function languageOf(name: string, full?: string): string | undefined {
 
 // Config files and templates only get rules written for them; generic code rules would misfire
 // on KEY=value or on HTML.
-const CONFIG_LANGUAGES = new Set(["spring-config", "html", "vue"]);
+const CONFIG_LANGUAGES = new Set(["spring-config", "html", "vue", "sql"]);
 
 // Same default set as argus-scan: its cookie and PII-in-logs packs run in every code scan.
 const DEFAULT_RULES: Rule[] = [
   ...RULES,
-  ...sharedRules("cookies", "pii", "prototype-pollution", "header-injection"),
+  ...sharedRules("cookies", "pii", "prototype-pollution", "header-injection", "vibe"),
 ];
 
 function walkFiles(dir: string, out: string[], depth = 0): void {
@@ -686,7 +692,7 @@ export async function runNativeSast(
       for (const lineNumber of [...matchedLines].sort((a, b) => a - b)) {
         const marker = markers[lineNumber - 1];
         let description = `Language: ${lang}`;
-        if (marker && markerCovers(marker, rule.id)) {
+        if (marker && rule.inlineIgnore !== false && markerCovers(marker, rule.id)) {
           if (marker.reason) {
             (result.suppressed ??= []).push({
               ruleId: rule.id,

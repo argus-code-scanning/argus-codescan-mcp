@@ -23,6 +23,7 @@ export const PACKS = [
   "privacy-gdpr",
   "prototype-pollution",
   "header-injection",
+  "vibe",
 ];
 
 // YAML language names -> argus-native language names. Rules without `languages` run on
@@ -30,7 +31,7 @@ export const PACKS = [
 const LANGS = {
   python: "python", javascript: "javascript", typescript: "typescript", java: "java",
   kotlin: "kotlin", go: "go", php: "php", ruby: "ruby", csharp: "csharp",
-  "spring-config": "spring-config", html: "html", vue: "vue",
+  "spring-config": "spring-config", html: "html", vue: "vue", sql: "sql",
 };
 const DEFAULT_LANGS = ["javascript", "typescript", "python", "java", "kotlin", "go", "php", "ruby", "csharp", "html", "vue"];
 const SEVERITY = { critical: "critical", high: "high", medium: "moderate", moderate: "moderate", low: "low", info: "info" };
@@ -63,6 +64,7 @@ function toRule(pack, r) {
     classification: r.classification ?? "unset",
     fixGuidance: String(r.fix_guidance ?? "").trim(),
     guardedBy,
+    inlineIgnore: r.inline_ignore !== false,
   };
 }
 
@@ -89,6 +91,8 @@ export function generate() {
     "  fixGuidance: string;",
     "  /** When this matches anywhere in the file, findings get low confidence. */",
     "  guardedBy: string;",
+    "  /** false: an argus-ignore comment can't silence it (leaked keys). */",
+    "  inlineIgnore: boolean;",
     "}",
     "",
     `export const SHARED_RULES: SharedRuleDef[] = ${JSON.stringify(rules, null, 2)};`,
