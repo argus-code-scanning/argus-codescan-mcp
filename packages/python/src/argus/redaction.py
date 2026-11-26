@@ -180,3 +180,114 @@ def redact_report(
     if total:
         out["redactions"] = total
     return out, total
+
+
+_SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+# Secret values that can appear in finding text (code excerpts, scanner messages).
+_SECRET_TOKENS = re.compile(
+    r"\bAKIA[0-9A-Z]{16}\b"  # AWS access key id
+    r"|\bgh[pousr]_[A-Za-z0-9]{36,}\b"  # GitHub tokens
+    r"|\bxox[abposr]-[A-Za-z0-9-]{10,}\b"  # Slack
+    r"|\b[rs]k_(?:live|test)_[A-Za-z0-9]{16,}\b"  # Stripe
+    r"|\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"  # JWT
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)"
+)
+# name = "value" where the name says it's a secret; the value is replaced, the name kept.
+_SECRET_ASSIGNMENT = re.compile(
+    r"""((?:pass(?:word|wd)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret)"""
+    r"""["']?\s*[:=]\s*)(["'])(?!\[REDACTED)([^"'\n]{4,})\2""",
+    re.IGNORECASE,
+)
+
+
+def mask_secret_values(text: str) -> tuple[str, int]:
+    """Replace secret values in free text. Returns (text, number masked)."""
+    count = 0
+
+    def token(_: re.Match[str]) -> str:
+        nonlocal count
+        count += 1
+        return "[REDACTED:SECRET]"
+
+    def assignment(m: re.Match[str]) -> str:
+        nonlocal count
+        count += 1
+        return f"{m.group(1)}{m.group(2)}[REDACTED:SECRET]{m.group(2)}"
+
+    text = _SECRET_TOKENS.sub(token, text)
+    text = _SECRET_ASSIGNMENT.sub(assignment, text)
+    return text, count
+
+
+def _path_tag(path: str, key: bytes | None) -> str:
+    """Stable stand-in for a file path that keeps the extension (``[path:1a2b3c4d].py``)."""
+    if not path:
+        return path
+    name = path.replace("\\", "/").rsplit("/", 1)[-1]
+    ext = name[name.rfind(".") :] if "." in name[1:] else ""
+    if key:
+        digest = hmac.new(key, path.encode(), hashlib.sha256).hexdigest()[:8]
+    else:
+        digest = hashlib.sha256(path.encode()).hexdigest()[:8]
+    return f"[path:{digest}]{ext}"
+
+
+def sanitize_report(
+    report: dict[str, Any],
+    *,
+    redact_pii: bool = True,
+    hash_paths: bool = False,
+    max_findings: int | None = None,
+    drop_fields: tuple[str, ...] | list[str] = (),
+) -> dict[str, Any]:
+    """A copy of a report that is safe to paste into an AI chat or a ticket (#59).
+
+    Masks personal data and echoed secret values, optionally replaces file paths with stable
+    tags, keeps only the most severe ``max_findings`` findings, and drops ``drop_fields``.
+    Line numbers, rule ids and severities are kept so findings stay actionable.
+    """
+    from argus.utils import refresh_report_summary
+
+    out, masked = redact_report(report, pii=redact_pii, exclude_fields=drop_fields)
+    key = redaction_key()
+    secrets_masked = 0
+    for result in out.get("results", []):
+        if hash_paths and result.get("target"):
+            result["target"] = _path_tag(str(result["target"]), key)
+        for finding in result.get("findings", []):
+            for name, value in list(finding.items()):
+                if isinstance(value, str) and name not in STRUCTURAL_FIELDS:
+                    finding[name], n = mask_secret_values(value)
+                    secrets_masked += n
+            if hash_paths and finding.get("file"):
+                finding["file"] = _path_tag(str(finding["file"]), key)
+
+    omitted = 0
+    if max_findings is not None and max_findings >= 0:
+        ranked = sorted(
+            (
+                (_SEVERITY_RANK.get(str(f.get("severity", "")).lower(), 5), r_i, f_i)
+                for r_i, r in enumerate(out.get("results", []))
+                for f_i, f in enumerate(r.get("findings", []))
+            )
+        )
+        keep = {(r_i, f_i) for _, r_i, f_i in ranked[:max_findings]}
+        omitted = len(ranked) - len(keep)
+        for r_i, r in enumerate(out.get("results", [])):
+            r["findings"] = [f for f_i, f in enumerate(r.get("findings", [])) if (r_i, f_i) in keep]
+
+    if hash_paths and out.get("target"):
+        out["target"] = _path_tag(str(out["target"]), key)
+    out.pop("redactions", None)
+    refresh_report_summary(out)
+    out["sanitized"] = {
+        "personal_data_masked": masked,
+        "secret_values_masked": secrets_masked,
+        "paths_hashed": hash_paths,
+        "findings_omitted": omitted,
+        "fields_dropped": [
+            f for f in drop_fields if f not in {"file", "line", "rule_id", "severity", "tool"}
+        ],
+    }
+    return out
