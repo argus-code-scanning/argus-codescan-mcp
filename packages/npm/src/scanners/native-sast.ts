@@ -566,7 +566,7 @@ function languageOf(name: string, full?: string): string | undefined {
 const CONFIG_LANGUAGES = new Set(["spring-config", "html", "vue"]);
 
 // Same default set as argus-scan: its cookie and PII-in-logs packs run in every code scan.
-const DEFAULT_RULES: Rule[] = [...RULES, ...sharedRules("cookies", "pii")];
+const DEFAULT_RULES: Rule[] = [...RULES, ...sharedRules("cookies", "pii", "header-injection")];
 
 function walkFiles(dir: string, out: string[], depth = 0): void {
   if (depth > 14) return;

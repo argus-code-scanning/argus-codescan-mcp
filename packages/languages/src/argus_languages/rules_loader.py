@@ -35,6 +35,7 @@ RULE_FILES = (
     "github-actions.yaml",
     "exposed-endpoints.yaml",
     "ssti.yaml",
+    "header-injection.yaml",
     "xpath.yaml",
     "agent-rules.yaml",
     "shell.yaml",
