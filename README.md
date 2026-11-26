@@ -178,6 +178,23 @@ argus scan vibe .                  # or: npx argus-codescan scan vibe .
 
 The output is a 0–100 safety score with a verdict, then a plain explanation and fix for each problem. Each fix comes with a prompt you can paste into your AI tool. Prompts include a short code excerpt with secret values masked, so a key never ends up in a chat. Only built-in checks run, so there is nothing else to install. Use `--format json` for the score and prompts as data, and `--fail-on high` to block a deploy. The same check is available to AI clients as the MCP tool `scan_vibe`.
 
+### Is the app tested? (`argus unit-test`)
+
+A separate check from `scan vibe`, because missing tests aren't a vulnerability. It reads the project and runs nothing. It reports:
+- no test runner, no tests, or the placeholder `npm test` script;
+- routes, server actions and Python endpoints that change data and have no test;
+- tests with no `expect` or `assert`;
+- `.only` or `.skip` left in;
+- a CI pipeline that never runs the tests;
+- no end-to-end test for login, signup or checkout.
+
+```bash
+argus unit-test .                  # or: npx argus-codescan unit-test .
+argus unit-test . --fail-under 50  # CI: fail when the testing score is below 50
+```
+
+You get a 0–100 testing score, and each item has a prompt that asks your AI tool to write the missing tests. The prompt names the runner to use and the cases to cover (logged out gets 401, users can't touch each other's records, the owner can). It tells the tool to mock databases, payments and email and never to use real customer data or keys. The same check is available to AI clients as the MCP tool `check_unit_tests`.
+
 ### Known threats (IOCs)
 
 `argus scan threats` matches your repository against **known indicators of compromise**: malware URLs, C2 domains and IPs, and file hashes. It's also part of `argus scan malware` and `scan all`. A match is **critical**.
@@ -224,6 +241,7 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
 | `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |
 | `scan_vibe` | Launch check for apps built with AI tools: Supabase RLS and policies, Firebase rules, exposed keys, unprotected routes. 0–100 score, plain fixes and a fix prompt per finding (secrets masked). CLI: `argus scan vibe .` |
+| `check_unit_tests` | Is the app tested? Test runner, untested routes that change data, tests with no assertions, `.only`/`.skip`, CI, end-to-end tests. 0–100 testing score and a prompt per item that writes the tests. CLI: `argus unit-test .` |
 | `scan_pii` | Personal data: real-looking emails, phones, SSN / UK NI numbers, names and addresses hardcoded in code, config and fixtures (JSON/YAML/CSV/.env/SQL), PII in logs, Luhn-valid card numbers. CLI: `argus scan pii .` |
 | `scan_privacy` | GDPR/CCPA code patterns: trackers without a consent mechanism, no data deletion/export, no retention field, PII in logs, fingerprinting, non-EU storage. Not a legal assessment ([docs](docs/privacy-scanning.md)). CLI: `argus scan privacy .` |
 | `scan_container` | Container image CVE scanning |

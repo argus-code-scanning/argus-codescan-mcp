@@ -37,11 +37,11 @@ const FIRESTORE_TEST_MODE = /request\.time\s*<\s*timestamp\.date\(/g;
 const RTDB_OPEN = /"\.(?:read|write)"\s*:\s*(?:true|"true")/g;
 const SERVICE_ROLE_REF = /service_?role/i;
 const USE_CLIENT = /^\s*['"]use client['"]/m;
-const USE_SERVER = /^\s*['"]use server['"]/m;
-const ROUTE_MUTATION =
+export const USE_SERVER = /^\s*['"]use server['"]/m;
+export const ROUTE_MUTATION =
   /export\s+(?:async\s+)?function\s+(POST|PUT|PATCH|DELETE)\b|export\s+const\s+(POST|PUT|PATCH|DELETE)\s*=/;
-const SERVER_ACTION = /export\s+(?:default\s+)?async\s+function\s+(\w*)/;
-const DATA_CHANGE = new RegExp(
+export const SERVER_ACTION = /export\s+(?:default\s+)?async\s+function\s+(\w*)/;
+export const DATA_CHANGE = new RegExp(
   [
     String.raw`\.(?:insert|upsert|update|delete|remove)\s*\(`,
     String.raw`\bprisma\.\w+\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(`,
@@ -65,12 +65,12 @@ const AUTH_EVIDENCE = new RegExp(
 );
 const MIDDLEWARE_AUTH =
   /clerkMiddleware|authMiddleware|withAuth|NextAuth|auth\(|getToken\(|updateSession|createServerClient|kindeMiddleware/;
-const PY_MUTATION_ROUTE =
+export const PY_MUTATION_ROUTE =
   /@\w+\.(?:post|put|patch|delete)\s*\(|@\w+\.route\([^)]*methods\s*=\s*\[[^\]]*['"](?:POST|PUT|PATCH|DELETE)['"]/;
-const PY_DATA_CHANGE =
+export const PY_DATA_CHANGE =
   /\.(?:add|commit|delete|insert|update|upsert|save|create)\s*\(|\b(?:INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b/i;
 
-interface Project {
+export interface Project {
   root: string;
   files: string[];
   packageJson: string;
@@ -80,11 +80,11 @@ interface Project {
   middlewareAuth?: string;
 }
 
-function rel(project: Project, file: string): string {
+export function rel(project: Project, file: string): string {
   return (relative(project.root, file) || basename(file)).split(sep).join("/");
 }
 
-function read(file: string): string {
+export function read(file: string): string {
   try {
     if (statSync(file).size > MAX_FILE) return "";
     return readFileSync(file, "utf8");
@@ -93,13 +93,13 @@ function read(file: string): string {
   }
 }
 
-function lineOf(text: string, index: number): number {
+export function lineOf(text: string, index: number): number {
   let n = 1;
   for (let i = 0; i < index; i++) if (text.charCodeAt(i) === 10) n++;
   return n;
 }
 
-function ext(name: string): string {
+export function ext(name: string): string {
   const i = name.lastIndexOf(".");
   return i > 0 ? name.slice(i).toLowerCase() : "";
 }
@@ -415,7 +415,7 @@ export async function runVibeScan(target: string): Promise<ScanResult[]> {
 
 // --- score, verdict and fix prompts (kept in step with vibe_report.py) ---------------------
 
-type Level = "critical" | "high" | "moderate" | "low";
+export type Level = "critical" | "high" | "moderate" | "low";
 const WEIGHT: Record<Level, number> = { critical: 25, high: 12, moderate: 5, low: 1 };
 const ORDER: Level[] = ["critical", "high", "moderate", "low"];
 const NOT_SHIPPED = new Set(["test", "docs", "generated", "example"]);
@@ -461,7 +461,7 @@ export function maskForPrompt(text: string, envFile = false): string {
   return out.replace(SECRET_ASSIGNMENT, "$1$2[REDACTED:SECRET]$2");
 }
 
-function excerpt(root: string, file: string, line: number, context = 2): string {
+export function excerpt(root: string, file: string, line: number, context = 2): string {
   if (!file || line <= 0) return "";
   const path = resolve(root, file);
   const inside = relative(root, path);
@@ -504,12 +504,23 @@ export interface VibeSummary {
   items: VibeItem[];
 }
 
-function explanation(description: string): string {
+export function explanation(description: string): string {
   const kept = description
     .split("\n")
     .filter((l) => l.trim() && !/^(?:Language:|To ignore|Suppress)/.test(l));
   return maskForPrompt(kept.join("\n")).trim();
 }
+
+// For each security finding, the test that keeps it fixed (same list as vibe_report.py).
+const REGRESSION_TEST: Array<[string, string]> = [
+  ["vibe-unprotected-mutation", "a request with no logged-in user gets 401/403 and changes nothing"],
+  ["vibe-supabase-", "signed in as user B, reading or changing user A's rows returns nothing (run it against a local Supabase with two test users)"],
+  ["vibe-public-env-secret", "fail when any NEXT_PUBLIC_ / VITE_ / REACT_APP_ variable name contains SECRET, SERVICE_ROLE or an AI provider's key name"],
+  ["vibe-firebase-", "with @firebase/rules-unit-testing, a read and a write by a logged-out user are denied"],
+  ["vibe-llm-key-in-browser", "the browser calls your own API route, and the built bundle doesn't contain the key"],
+  ["xss-", "rendering a value like <img src=x onerror=alert(1)> shows it as text"],
+  ["sql", "an input like ' OR 1=1 -- returns no extra rows and no error"],
+];
 
 export function fixPrompt(item: Omit<VibeItem, "prompt">, code: string): string {
   const where = item.line ? `${item.file} (line ${item.line})` : item.file || "project";
@@ -517,11 +528,29 @@ export function fixPrompt(item: Omit<VibeItem, "prompt">, code: string): string 
   if (item.explanation) parts.push(item.explanation);
   if (code) parts.push("", "Code:", "```", code, "```");
   if (item.fix) parts.push("", `What to change: ${item.fix}`);
+  const test = REGRESSION_TEST.find(([prefix]) => item.ruleId.startsWith(prefix))?.[1];
+  if (test) parts.push("", `Then add a test that keeps it fixed: ${test}.`);
   parts.push(
     "",
     "Change only what is needed and keep the app working. Never put secret values in code or in client-side env variables; read them from server-only environment variables. Tell me if a key has to be rotated.",
   );
   return parts.join("\n");
+}
+
+/** Each repeat of a rule costs a third of the first, up to three times one finding. */
+export function penalty(
+  items: Array<{ severity: Level; confidence: Confidence; ruleId: string; title: string }>,
+  weights: Record<Level, number>,
+): number {
+  const perRule = new Map<string, number>();
+  for (const item of items) {
+    let weight = weights[item.severity];
+    if (item.confidence === "low") weight /= 4;
+    const rule = item.ruleId || item.title;
+    const cost = perRule.has(rule) ? weight / 3 : weight;
+    perRule.set(rule, Math.min((perRule.get(rule) ?? 0) + cost, weight * 3));
+  }
+  return [...perRule.values()].reduce((a, b) => a + b, 0);
 }
 
 export function vibeSummary(results: ScanResult[], root: string): VibeSummary {
@@ -570,17 +599,7 @@ export function vibeSummary(results: ScanResult[], root: string): VibeSummary {
       a.line - b.line,
   );
 
-  // Each repeat of a rule costs a third of the first, up to three times one finding.
-  const perRule = new Map<string, number>();
-  for (const item of items) {
-    let weight = WEIGHT[item.severity];
-    if (item.confidence === "low") weight /= 4;
-    const rule = item.ruleId || item.title;
-    const cost = perRule.has(rule) ? weight / 3 : weight;
-    perRule.set(rule, Math.min((perRule.get(rule) ?? 0) + cost, weight * 3));
-  }
-  const penalty = [...perRule.values()].reduce((a, b) => a + b, 0);
-  let score = Math.max(0, Math.round(100 - penalty));
+  let score = Math.max(0, Math.round(100 - penalty(items, WEIGHT)));
   if (items.some((i) => i.severity === "critical" && i.confidence !== "low")) score = Math.min(score, 39);
   const [, verdict, detail] = VERDICTS.find(([floor]) => score >= floor) ?? VERDICTS[VERDICTS.length - 1];
   const counts = { critical: 0, high: 0, moderate: 0, low: 0 } as Record<Level, number>;
@@ -600,6 +619,7 @@ export function formatVibeReport(summary: VibeSummary, target = "", showPrompts 
   if (summary.notShipped) lines.push(`${summary.notShipped} finding(s) in tests, docs or examples not counted.`);
   if (!summary.items.length) {
     lines.push("", "No problems found by these checks. Keep secrets out of client code as you build.");
+    lines.push("", "Check your tests too: npx argus-codescan unit-test .");
     return lines.join("\n");
   }
   summary.items.forEach((item, i) => {
@@ -612,5 +632,6 @@ export function formatVibeReport(summary: VibeSummary, target = "", showPrompts 
       lines.push("", "   --- prompt for your AI tool ---", ...item.prompt.split("\n").map((l) => `   ${l}`), "   ---");
     }
   });
+  lines.push("", "Check your tests too: npx argus-codescan unit-test .");
   return lines.join("\n");
 }
