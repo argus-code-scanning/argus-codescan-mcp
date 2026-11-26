@@ -20,6 +20,10 @@ suppressions:
   - rule_id: malware-curl-pipe-shell
     path: "**/argus/tools/terraform.py"
     reason: "install hints shown to users, not executed"
+  # Fix advice text for the launch check ("no dangerouslySetInnerHTML / innerHTML").
+  - rule_id: xss-innerhtml
+    path: "packages/npm/src/scanners/vibe.ts"
+    reason: "fix advice that names the unsafe API, not a call to it"
   # The docstring explains which .pth payloads are detected; malware rules read docstrings
   # on purpose, so this one is reviewed here.
   - rule_id: malware-eval-base64

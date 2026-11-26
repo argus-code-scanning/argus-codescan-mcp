@@ -933,7 +933,7 @@ async def _run_scan(args: argparse.Namespace) -> int:
     if policy.semgrep_config != "auto":
         semgrep_cfg = policy.semgrep_config
 
-    from argus.pr_scan import merge_results_by_tool, read_paths_file
+    from argus.pr_scan import merge_results_by_tool, read_paths_file, rebase_finding_paths
 
     paths_file = getattr(args, "paths_file", None)
     if paths_file:
@@ -958,6 +958,8 @@ async def _run_scan(args: argparse.Namespace) -> int:
         if batch is None:
             print(f"Unknown scan type: {scan_type}", file=sys.stderr)
             return 2
+        if paths_file:
+            rebase_finding_paths(batch, path, args.target)
         results.extend(batch)
 
     if paths_file:
