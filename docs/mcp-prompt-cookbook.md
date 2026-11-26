@@ -1,6 +1,6 @@
 # Argus MCP Prompt Cookbook
 
-Sixteen prompts for an AI assistant connected to the Argus MCP
+Seventeen prompts for an AI assistant connected to the Argus MCP
 server. Each example names the tool to use and describes how to summarize its
 results.
 
@@ -304,3 +304,17 @@ scanner that was unavailable in either run as "not verified", not as fixed.
 **Expected result:** Fixed / still open / new, so you know the change worked and
 didn't introduce anything else.
 
+## 17. Summarize my scan safely
+
+```text
+Take the latest Argus JSON report for /path/to/project and call sanitize_report on it
+with hash_paths set to true and max_findings set to 20. Use only the sanitized report
+from now on: summarize the findings by severity and suggest what to fix first. Do not
+ask me for the original report or for any value that was masked.
+```
+
+**MCP tool:** `sanitize_report`.
+
+**Expected result:** A summary built from a report with personal data and secret values
+masked and file paths replaced by tags, so it can be shared in tickets or chat. Line
+numbers, rule ids and severities are kept.

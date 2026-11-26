@@ -461,6 +461,22 @@ Fix **many findings at once** with one review step. Call with `apply: false` fir
 - Several fixes in one file are applied bottom-up so line numbers stay valid; at most 50 findings per call.
 - Files are written atomically and keep their permissions.
 
+## `sanitize_report`
+
+Return a copy of an Argus JSON report that is **safe to paste into an AI chat, a ticket or an email**. Nothing is scanned or changed on disk.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `scan_result_json` | `string` | ✅ | — | An Argus JSON report (`format: "json"`) |
+| `redact_pii` | `boolean` | ❌ | `true` | Mask emails, phone numbers, SSN/NI numbers and card numbers |
+| `hash_paths` | `boolean` | ❌ | `false` | Replace file paths with stable tags that keep the extension (`[path:1a2b3c4d].py`) |
+| `max_findings` | `integer` | ❌ | all | Keep only the N most severe findings |
+| `drop_fields` | `array` | ❌ | none | Finding fields to remove, e.g. `fix_guidance`, `description` |
+
+Secret values that appear in finding text (AWS, GitHub, Slack and Stripe tokens, JWTs, private keys, `password = "…"`) are always masked. `file`, `line`, `rule_id`, `severity` and `tool` are always kept so findings stay actionable. The result has a `sanitized` block saying what was masked, hashed, dropped and left out. Path tags are an HMAC when `ARGUS_REDACTION_KEY` is set (different per key), otherwise a plain hash.
+
 ## Finding Schema
 
 Every finding returned by any tool is normalised to this shape:
