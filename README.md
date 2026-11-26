@@ -498,7 +498,7 @@ Each package has its own version number. These are the versions released togethe
 | VS Code extension | 0.2.0 | Marketplace: `arestechub.argus-scan` |
 <!-- versions:end -->
 
-`argus-scan` always requires the `argus-languages` version it was tested with. Maintainers: `python scripts/versions.py bump --scan X --languages Y --npm Z` updates every file and this table, and `python scripts/versions.py check` (run in CI) fails when anything is out of sync.
+`argus-scan` always requires the `argus-languages` version it was tested with. Maintainers: `python scripts/versions.py bump --scan X --languages Y --npm Z` updates every file and this table, and `python scripts/versions.py check` (run in CI) fails when anything is out of sync. To release, merge the bump to `main`, then push a tag from it (`git tag vX.Y.Z && git push origin vX.Y.Z`): CI publishes to PyPI and npm and builds the Docker image. There is no manual `uv publish` / `npm publish` step.
 
 ## Install
 
