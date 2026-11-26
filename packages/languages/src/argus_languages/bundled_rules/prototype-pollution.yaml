@@ -1,0 +1,45 @@
+# Prototype pollution in JavaScript / TypeScript (#188): attacker-controlled objects merged or
+# assigned into application objects, so {"__proto__": {"isAdmin": true}} changes the
+# prototype of every object (auth bypass, DoS, RCE through template / child_process gadgets).
+#
+# Request input means req/request/ctx.request .body/.query/.params/.cookies/.headers, or
+# JSON.parse of request-ish input. Rules match one line. A file that checks keys against
+# __proto__ / constructor / prototype (or creates null-prototype objects) gets low confidence:
+# the finding is shown, but it doesn't fail --fail-on by default.
+# Shared with argus-codescan (packages/npm/scripts/sync-shared-rules.mjs).
+
+- id: js-prototype-pollution-deep-merge
+  title: Request input deep-merged into an object (prototype pollution)
+  severity: high
+  pattern: '(?:\b_\.(?:merge|mergeWith|defaultsDeep|set|setWith|zipObjectDeep)|\blodash\.(?:merge|mergeWith|defaultsDeep|set)|(?<![\w$])(?:\$|jQuery)\.extend(?=\s*\(\s*true\b)|\bdeepmerge(?:\.all)?|\bmergeDeep|\bmixinDeep|\bdeepExtend|\bdefaultsDeep|\bdotProp\.set|\bobjectPath\.set|\bmerge\b)\s*\([^;\n]*(?:\b(?:req|request)\.(?:body|query|params|cookies|headers)\b|\bctx\.request\.(?:body|query)\b|\bctx\.(?:query|params)\b|\bJSON\.parse\s*\(\s*(?:req|request|body|input|payload|event|userJson|raw)\b)'
+  languages: [javascript, typescript]
+  guarded_by: '["''`](?:__proto__|constructor|prototype)["''`]\s*(?:\]|\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\s*["''`](?:__proto__|constructor|prototype)["''`]|Object\.create\(\s*null\s*\)'
+  fix_guidance: >-
+    Validate the body with a schema (zod, joi, ajv with removeAdditional) before merging, or
+    merge into Object.create(null) / a Map. Reject the keys __proto__, constructor and
+    prototype, and keep lodash at 4.17.21 or later.
+
+- id: js-prototype-pollution-computed-key
+  title: Property name taken from request input (prototype pollution)
+  severity: medium
+  # obj[req.query.key] = …, and nested obj[a][b] = req.body.value
+  pattern: '\w\s*\[\s*(?:req|request)\.(?:body|query|params)(?:\.\w+|\[[^\]\n]+\])\s*\]\s*(?:\[[^\]\n]+\]\s*)?=(?!=)|\w\s*\[[^\]\n]+\]\s*\[[^\]\n]+\]\s*=(?!=)\s*(?:req|request)\.(?:body|query|params)\b'
+  languages: [javascript, typescript]
+  guarded_by: '["''`](?:__proto__|constructor|prototype)["''`]\s*(?:\]|\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\s*["''`](?:__proto__|constructor|prototype)["''`]|Object\.create\(\s*null\s*\)'
+  fix_guidance: >-
+    Don't use request input as a property name on a plain object. Use a Map, an
+    Object.create(null) object, or an allowlist of keys, and reject __proto__, constructor
+    and prototype.
+
+- id: js-prototype-pollution-object-assign
+  title: Request input copied with Object.assign / spread into an existing object
+  severity: medium
+  confidence: low
+  # Shallow, so it can't reach Object.prototype, but a "__proto__" key from JSON.parse still
+  # replaces the target's prototype, and the target is often merged deeply later.
+  pattern: '\bObject\.assign\(\s*(?!\{\s*\}|Object\.create\()[^,()\n]+,\s*(?:req|request)\.(?:body|query|params)\b'
+  languages: [javascript, typescript]
+  guarded_by: '["''`](?:__proto__|constructor|prototype)["''`]\s*(?:\]|\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\s*["''`](?:__proto__|constructor|prototype)["''`]|Object\.create\(\s*null\s*\)'
+  fix_guidance: >-
+    Pick the fields you expect (const { name, email } = req.body) or validate with a schema
+    instead of copying the whole body into an existing object.

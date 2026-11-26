@@ -15,7 +15,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const RULES_DIR = join(here, "..", "..", "languages", "src", "argus_languages", "bundled_rules");
 const OUT = join(here, "..", "src", "scanners", "shared-rules.generated.ts");
 
-export const PACKS = ["cookies", "pii", "pii-hardcoded", "pci-pan", "privacy-gdpr"];
+export const PACKS = ["cookies", "pii", "pii-hardcoded", "pci-pan", "privacy-gdpr", "prototype-pollution"];
 
 // YAML language names -> argus-native language names. Rules without `languages` run on
 // source code and HTML/Vue templates (where trackers and fingerprinting scripts live).
@@ -27,14 +27,20 @@ const LANGS = {
 const DEFAULT_LANGS = ["javascript", "typescript", "python", "java", "kotlin", "go", "php", "ruby", "csharp", "html", "vue"];
 const SEVERITY = { critical: "critical", high: "high", medium: "moderate", moderate: "moderate", low: "low", info: "info" };
 
+function checkSource(pack, id, source, flags) {
+  // Python-only syntax would be a runtime SyntaxError in Node 20: refuse to generate it.
+  if (/\(\?[a-z]+[:)]/.test(source) || /\\[AZ]/.test(source) || /\(\?P</.test(source)) {
+    throw new Error(`${pack}.yaml ${id}: pattern uses Python-only regex syntax`);
+  }
+  new RegExp(source, flags); // fail generation, not scans, on an invalid pattern
+}
+
 function toRule(pack, r) {
   const source = String(r.pattern);
-  // Python-only syntax would be a runtime SyntaxError in Node 20: refuse to generate it.
-  if (/\(\?[a-z]+:/.test(source) || /\\[AZ]/.test(source) || /\(\?P</.test(source)) {
-    throw new Error(`${pack}.yaml ${r.id}: pattern uses Python-only regex syntax`);
-  }
   const flags = (r.flags ?? []).map((f) => String(f).toLowerCase()).filter((f) => f === "i" || f === "m").join("");
-  new RegExp(source, flags); // fail generation, not scans, on an invalid pattern
+  checkSource(pack, r.id, source, flags);
+  const guardedBy = r.guarded_by ? String(r.guarded_by) : "";
+  if (guardedBy) checkSource(pack, r.id, guardedBy, flags);
   const languages = r.languages ? r.languages.map((l) => LANGS[l]).filter(Boolean) : DEFAULT_LANGS;
   return {
     id: r.id,
@@ -48,6 +54,7 @@ function toRule(pack, r) {
     confidence: r.confidence ?? "medium",
     classification: r.classification ?? "unset",
     fixGuidance: String(r.fix_guidance ?? "").trim(),
+    guardedBy,
   };
 }
 
@@ -72,6 +79,8 @@ export function generate() {
     '  confidence: "high" | "medium" | "low";',
     "  classification: string;",
     "  fixGuidance: string;",
+    "  /** When this matches anywhere in the file, findings get low confidence. */",
+    "  guardedBy: string;",
     "}",
     "",
     `export const SHARED_RULES: SharedRuleDef[] = ${JSON.stringify(rules, null, 2)};`,

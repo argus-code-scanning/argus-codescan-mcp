@@ -13,6 +13,7 @@ on:
       - 'packages/languages/src/argus_languages/bundled_rules/pii-hardcoded.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/pci-pan.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/privacy-gdpr.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/prototype-pollution.yaml'
   pull_request:
     branches: [main, dev]
     paths:
@@ -24,6 +25,7 @@ on:
       - 'packages/languages/src/argus_languages/bundled_rules/pii-hardcoded.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/pci-pan.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/privacy-gdpr.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/prototype-pollution.yaml'
 
 defaults:
   run:

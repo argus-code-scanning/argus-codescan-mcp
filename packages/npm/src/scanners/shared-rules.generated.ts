@@ -13,6 +13,8 @@ export interface SharedRuleDef {
   confidence: "high" | "medium" | "low";
   classification: string;
   fixGuidance: string;
+  /** When this matches anywhere in the file, findings get low confidence. */
+  guardedBy: string;
 }
 
 export const SHARED_RULES: SharedRuleDef[] = [
@@ -30,7 +32,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Pass options: res.cookie(\"session\", token, { httpOnly: true, secure: true, sameSite: \"lax\" }). Use sameSite \"strict\" when the cookie is never needed on links from other sites."
+    "fixGuidance": "Pass options: res.cookie(\"session\", token, { httpOnly: true, secure: true, sameSite: \"lax\" }). Use sameSite \"strict\" when the cookie is never needed on links from other sites.",
+    "guardedBy": ""
   },
   {
     "id": "js-cookie-httponly-disabled",
@@ -46,7 +49,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Set httpOnly: true on session and auth cookies. If the browser needs a value, send it in a separate non-sensitive cookie or response body."
+    "fixGuidance": "Set httpOnly: true on session and auth cookies. If the browser needs a value, send it in a separate non-sensitive cookie or response body.",
+    "guardedBy": ""
   },
   {
     "id": "js-cookie-secure-disabled",
@@ -62,7 +66,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Set secure: true in production (behind a proxy also set app.set(\"trust proxy\", 1) for express-session). For local HTTP development, use secure: process.env.NODE_ENV === \"production\" rather than false."
+    "fixGuidance": "Set secure: true in production (behind a proxy also set app.set(\"trust proxy\", 1) for express-session). For local HTTP development, use secure: process.env.NODE_ENV === \"production\" rather than false.",
+    "guardedBy": ""
   },
   {
     "id": "python-cookie-sensitive-no-options",
@@ -77,7 +82,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Pass the flags: response.set_cookie(\"session\", sid, secure=True, httponly=True, samesite=\"Lax\")."
+    "fixGuidance": "Pass the flags: response.set_cookie(\"session\", sid, secure=True, httponly=True, samesite=\"Lax\").",
+    "guardedBy": ""
   },
   {
     "id": "python-cookie-flag-disabled",
@@ -92,7 +98,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Use secure=True and httponly=True for session and auth cookies."
+    "fixGuidance": "Use secure=True and httponly=True for session and auth cookies.",
+    "guardedBy": ""
   },
   {
     "id": "python-session-cookie-settings-insecure",
@@ -107,7 +114,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Set SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY and CSRF_COOKIE_SECURE to True in production settings. Keep any False values in a development-only settings file."
+    "fixGuidance": "Set SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY and CSRF_COOKIE_SECURE to True in production settings. Keep any False values in a development-only settings file.",
+    "guardedBy": ""
   },
   {
     "id": "java-cookie-without-httponly",
@@ -122,7 +130,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": true,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Call cookie.setHttpOnly(true) and cookie.setSecure(true) before response.addCookie, or use ResponseCookie.from(name, value).httpOnly(true).secure(true).sameSite(\"Lax\")."
+    "fixGuidance": "Call cookie.setHttpOnly(true) and cookie.setSecure(true) before response.addCookie, or use ResponseCookie.from(name, value).httpOnly(true).secure(true).sameSite(\"Lax\").",
+    "guardedBy": ""
   },
   {
     "id": "java-cookie-flag-disabled",
@@ -137,7 +146,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Use setHttpOnly(true) and setSecure(true) on session and auth cookies."
+    "fixGuidance": "Use setHttpOnly(true) and setSecure(true) on session and auth cookies.",
+    "guardedBy": ""
   },
   {
     "id": "spring-session-cookie-insecure",
@@ -152,7 +162,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Set server.servlet.session.cookie.secure=true and http-only=true (and same-site=lax) in production configuration."
+    "fixGuidance": "Set server.servlet.session.cookie.secure=true and http-only=true (and same-site=lax) in production configuration.",
+    "guardedBy": ""
   },
   {
     "id": "php-setcookie-sensitive-no-options",
@@ -167,7 +178,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Pass an options array: setcookie(\"session\", $id, [\"secure\" => true, \"httponly\" => true, \"samesite\" => \"Lax\"])."
+    "fixGuidance": "Pass an options array: setcookie(\"session\", $id, [\"secure\" => true, \"httponly\" => true, \"samesite\" => \"Lax\"]).",
+    "guardedBy": ""
   },
   {
     "id": "php-cookie-flag-disabled",
@@ -182,7 +194,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Use \"httponly\" => true and \"secure\" => true, and session.cookie_httponly = 1, session.cookie_secure = 1 for PHP sessions."
+    "fixGuidance": "Use \"httponly\" => true and \"secure\" => true, and session.cookie_httponly = 1, session.cookie_secure = 1 for PHP sessions.",
+    "guardedBy": ""
   },
   {
     "id": "csharp-cookie-flag-disabled",
@@ -197,7 +210,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "unset",
-    "fixGuidance": "Use HttpOnly = true and Secure = true in CookieOptions, and CookieSecurePolicy.Always / HttpOnlyPolicy.Always in cookie policy options."
+    "fixGuidance": "Use HttpOnly = true and Secure = true in CookieOptions, and CookieSecurePolicy.Always / HttpOnlyPolicy.Always in cookie policy options.",
+    "guardedBy": ""
   },
   {
     "id": "pii-email-in-logs",
@@ -216,7 +230,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Log a stable user id instead of the email, or mask it (j***@example.com). Use structured logging with an allowlist of fields so new PII is not logged by accident."
+    "fixGuidance": "Log a stable user id instead of the email, or mask it (j***@example.com). Use structured logging with an allowlist of fields so new PII is not logged by accident.",
+    "guardedBy": ""
   },
   {
     "id": "pii-in-logs",
@@ -235,7 +250,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Remove the field or log a non-identifying reference (user id, last 4 digits, a hash). Configure the logger with a field allowlist or a redaction filter for PII keys."
+    "fixGuidance": "Remove the field or log a non-identifying reference (user id, last 4 digits, a hash). Configure the logger with a field allowlist or a redaction filter for PII keys.",
+    "guardedBy": ""
   },
   {
     "id": "pii-print-debug",
@@ -252,7 +268,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Remove debug prints before committing; stdout usually ends up in container and CI logs. Use the application logger at debug level with PII redaction instead."
+    "fixGuidance": "Remove debug prints before committing; stdout usually ends up in container and CI logs. Use the application logger at debug level with PII redaction instead.",
+    "guardedBy": ""
   },
   {
     "id": "pii-exception-message",
@@ -271,7 +288,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Exception messages end up in logs, error trackers and API responses. Put a user id or request id in the message and keep PII out; attach details only where access is controlled."
+    "fixGuidance": "Exception messages end up in logs, error trackers and API responses. Put a user id or request id in the message and keep PII out; attach details only where access is controlled.",
+    "guardedBy": ""
   },
   {
     "id": "pii-third-party-context",
@@ -290,7 +308,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Send only an opaque user id to third-party services. In Sentry, keep send_default_pii off and scrub fields in before_send; record the processor in your GDPR records if PII is needed."
+    "fixGuidance": "Send only an opaque user id to third-party services. In Sentry, keep send_default_pii off and scrub fields in before_send; record the processor in your GDPR records if PII is needed.",
+    "guardedBy": ""
   },
   {
     "id": "pii-request-dump-in-logs",
@@ -307,7 +326,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Log the specific, non-sensitive fields you need (or the request id), never the full form/body. Request payloads routinely contain passwords, tokens and personal data."
+    "fixGuidance": "Log the specific, non-sensitive fields you need (or the request id), never the full form/body. Request payloads routinely contain passwords, tokens and personal data.",
+    "guardedBy": ""
   },
   {
     "id": "hipaa-phi-in-logs",
@@ -324,7 +344,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "phi",
-    "fixGuidance": ""
+    "fixGuidance": "",
+    "guardedBy": ""
   },
   {
     "id": "pii-hardcoded-email",
@@ -349,7 +370,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Don't keep real people's email addresses in source, config or fixtures. Use example.com addresses for sample data, and load real recipients from a database or environment configuration."
+    "fixGuidance": "Don't keep real people's email addresses in source, config or fixtures. Use example.com addresses for sample data, and load real recipients from a database or environment configuration.",
+    "guardedBy": ""
   },
   {
     "id": "pii-hardcoded-phone",
@@ -374,7 +396,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Remove real phone numbers from source and fixtures; use reserved fictional numbers (for example +1 202-555-0123) in sample data."
+    "fixGuidance": "Remove real phone numbers from source and fixtures; use reserved fictional numbers (for example +1 202-555-0123) in sample data.",
+    "guardedBy": ""
   },
   {
     "id": "pii-hardcoded-ssn",
@@ -399,7 +422,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Remove the SSN everywhere it appears (including git history) and treat it as exposed. Government ID numbers must never be stored in code or fixtures."
+    "fixGuidance": "Remove the SSN everywhere it appears (including git history) and treat it as exposed. Government ID numbers must never be stored in code or fixtures.",
+    "guardedBy": ""
   },
   {
     "id": "pii-hardcoded-uk-nino",
@@ -424,7 +448,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Remove the National Insurance number everywhere it appears and treat it as exposed."
+    "fixGuidance": "Remove the National Insurance number everywhere it appears and treat it as exposed.",
+    "guardedBy": ""
   },
   {
     "id": "pii-hardcoded-name",
@@ -449,7 +474,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "low",
     "classification": "pii",
-    "fixGuidance": "Replace real names in fixtures and seed data with obvious placeholders, or generate them (Faker) at test time."
+    "fixGuidance": "Replace real names in fixtures and seed data with obvious placeholders, or generate them (Faker) at test time.",
+    "guardedBy": ""
   },
   {
     "id": "pii-hardcoded-address",
@@ -474,7 +500,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "low",
     "classification": "pii",
-    "fixGuidance": "Remove real home addresses from code and fixtures; use clearly fictional sample addresses."
+    "fixGuidance": "Remove real home addresses from code and fixtures; use clearly fictional sample addresses.",
+    "guardedBy": ""
   },
   {
     "id": "pci-pan-in-source",
@@ -499,7 +526,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pci",
-    "fixGuidance": ""
+    "fixGuidance": "",
+    "guardedBy": ""
   },
   {
     "id": "privacy-third-party-tracker",
@@ -524,7 +552,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Load trackers only after the visitor consents (a consent manager or Google Consent Mode), list them in your privacy notice with their purpose, and sign a data processing agreement with the vendor. Strictly necessary analytics can be self-hosted and anonymised instead."
+    "fixGuidance": "Load trackers only after the visitor consents (a consent manager or Google Consent Mode), list them in your privacy notice with their purpose, and sign a data processing agreement with the vendor. Strictly necessary analytics can be self-hosted and anonymised instead.",
+    "guardedBy": ""
   },
   {
     "id": "privacy-non-eu-storage-region",
@@ -549,7 +578,8 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "low",
     "classification": "pii",
-    "fixGuidance": "If this stores personal data of people in the EU/UK, document the transfer (adequacy decision, Standard Contractual Clauses or the EU-US Data Privacy Framework) or move it to an EU region."
+    "fixGuidance": "If this stores personal data of people in the EU/UK, document the transfer (adequacy decision, Standard Contractual Clauses or the EU-US Data Privacy Framework) or move it to an EU region.",
+    "guardedBy": ""
   },
   {
     "id": "privacy-fingerprinting",
@@ -567,6 +597,58 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "multiline": false,
     "confidence": "medium",
     "classification": "pii",
-    "fixGuidance": "Fingerprinting is tracking under GDPR/ePrivacy and needs prior consent. Use it only for fraud prevention with a documented legitimate interest, never for marketing."
+    "fixGuidance": "Fingerprinting is tracking under GDPR/ePrivacy and needs prior consent. Use it only for fraud prevention with a documented legitimate interest, never for marketing.",
+    "guardedBy": ""
+  },
+  {
+    "id": "js-prototype-pollution-deep-merge",
+    "pack": "prototype-pollution",
+    "title": "Request input deep-merged into an object (prototype pollution)",
+    "severity": "high",
+    "source": "(?:\\b_\\.(?:merge|mergeWith|defaultsDeep|set|setWith|zipObjectDeep)|\\blodash\\.(?:merge|mergeWith|defaultsDeep|set)|(?<![\\w$])(?:\\$|jQuery)\\.extend(?=\\s*\\(\\s*true\\b)|\\bdeepmerge(?:\\.all)?|\\bmergeDeep|\\bmixinDeep|\\bdeepExtend|\\bdefaultsDeep|\\bdotProp\\.set|\\bobjectPath\\.set|\\bmerge\\b)\\s*\\([^;\\n]*(?:\\b(?:req|request)\\.(?:body|query|params|cookies|headers)\\b|\\bctx\\.request\\.(?:body|query)\\b|\\bctx\\.(?:query|params)\\b|\\bJSON\\.parse\\s*\\(\\s*(?:req|request|body|input|payload|event|userJson|raw)\\b)",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Validate the body with a schema (zod, joi, ajv with removeAdditional) before merging, or merge into Object.create(null) / a Map. Reject the keys __proto__, constructor and prototype, and keep lodash at 4.17.21 or later.",
+    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)"
+  },
+  {
+    "id": "js-prototype-pollution-computed-key",
+    "pack": "prototype-pollution",
+    "title": "Property name taken from request input (prototype pollution)",
+    "severity": "moderate",
+    "source": "\\w\\s*\\[\\s*(?:req|request)\\.(?:body|query|params)(?:\\.\\w+|\\[[^\\]\\n]+\\])\\s*\\]\\s*(?:\\[[^\\]\\n]+\\]\\s*)?=(?!=)|\\w\\s*\\[[^\\]\\n]+\\]\\s*\\[[^\\]\\n]+\\]\\s*=(?!=)\\s*(?:req|request)\\.(?:body|query|params)\\b",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Don't use request input as a property name on a plain object. Use a Map, an Object.create(null) object, or an allowlist of keys, and reject __proto__, constructor and prototype.",
+    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)"
+  },
+  {
+    "id": "js-prototype-pollution-object-assign",
+    "pack": "prototype-pollution",
+    "title": "Request input copied with Object.assign / spread into an existing object",
+    "severity": "moderate",
+    "source": "\\bObject\\.assign\\(\\s*(?!\\{\\s*\\}|Object\\.create\\()[^,()\\n]+,\\s*(?:req|request)\\.(?:body|query|params)\\b",
+    "flags": "",
+    "languages": [
+      "javascript",
+      "typescript"
+    ],
+    "multiline": false,
+    "confidence": "low",
+    "classification": "unset",
+    "fixGuidance": "Pick the fields you expect (const { name, email } = req.body) or validate with a schema instead of copying the whole body into an existing object.",
+    "guardedBy": "[\"'`](?:__proto__|constructor|prototype)[\"'`]\\s*(?:\\]|\\)|,|===|!==|==|!=)|(?:===|!==|==|!=)\\s*[\"'`](?:__proto__|constructor|prototype)[\"'`]|Object\\.create\\(\\s*null\\s*\\)"
   }
 ];

@@ -79,6 +79,8 @@ export interface Rule {
   confidence?: Confidence;
   /** Shown as the finding's fix advice (shared rules carry it from the YAML packs). */
   fix?: string;
+  /** When this matches anywhere in the file (e.g. a __proto__ key check), confidence is low. */
+  guardedBy?: RegExp;
 }
 
 /** Rules generated from the argus-languages YAML packs (same ids as argus-scan). */
@@ -92,6 +94,7 @@ export function sharedRules(...packs: string[]): Rule[] {
     multiline: r.multiline,
     confidence: r.confidence,
     fix: r.fixGuidance || undefined,
+    guardedBy: r.guardedBy ? new RegExp(r.guardedBy, r.flags) : undefined,
   }));
 }
 
@@ -566,7 +569,7 @@ function languageOf(name: string, full?: string): string | undefined {
 const CONFIG_LANGUAGES = new Set(["spring-config", "html", "vue"]);
 
 // Same default set as argus-scan: its cookie and PII-in-logs packs run in every code scan.
-const DEFAULT_RULES: Rule[] = [...RULES, ...sharedRules("cookies", "pii")];
+const DEFAULT_RULES: Rule[] = [...RULES, ...sharedRules("cookies", "pii", "prototype-pollution")];
 
 function walkFiles(dir: string, out: string[], depth = 0): void {
   if (depth > 14) return;
@@ -702,6 +705,10 @@ export async function runNativeSast(
           description,
           confidence: rule.confidence ?? "medium",
         };
+        if (rule.guardedBy?.test(content)) {
+          finding.confidence = "low";
+          finding.description += " (the file has a guard for this; check it covers this line)";
+        }
         if (rule.fix) finding.fix = rule.fix;
         if (context) finding.context = context;
         result.findings.push(finding);
