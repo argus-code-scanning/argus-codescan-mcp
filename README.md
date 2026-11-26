@@ -492,9 +492,9 @@ Each package has its own version number. These are the versions released togethe
 <!-- versions:start -->
 | Package | Version | Install |
 |---|---|---|
-| `argus-scan` (CLI + MCP) | 0.11.0 | `pip install argus-scan==0.11.0` (needs `argus-languages>=0.9.0`) |
-| `argus-languages` (built-in rules) | 0.9.0 | `pip install argus-languages==0.9.0` |
-| `argus-codescan` (npm) | 0.13.0 | `npx argus-codescan@0.13.0` |
+| `argus-scan` (CLI + MCP) | 0.12.0 | `pip install argus-scan==0.12.0` (needs `argus-languages>=0.10.0`) |
+| `argus-languages` (built-in rules) | 0.10.0 | `pip install argus-languages==0.10.0` |
+| `argus-codescan` (npm) | 0.14.0 | `npx argus-codescan@0.14.0` |
 | VS Code extension | 0.2.0 | Marketplace: `arestechub.argus-scan` |
 <!-- versions:end -->
 
