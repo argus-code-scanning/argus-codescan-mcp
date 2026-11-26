@@ -79,8 +79,18 @@ def _skip_line(line: str, language: str) -> bool:
 # Config files only get rules written for them; generic code rules would
 # misfire on JSON and KEY=value lines.
 CONFIG_LANGUAGES = frozenset(
-    {"composer", "dotenv-production", "dotenv-example", "spring-config", "github-actions",
-     "npm-manifest", "python-requirements", "python-manifest", "dependency-source", "agent-rules"}
+    {
+        "composer",
+        "dotenv-production",
+        "dotenv-example",
+        "spring-config",
+        "github-actions",
+        "npm-manifest",
+        "python-requirements",
+        "python-manifest",
+        "dependency-source",
+        "agent-rules",
+    }
 )
 
 
@@ -172,6 +182,10 @@ def _scan_content(
                 description += _IGNORE_HINT.format(rule=rule.id)
 
             severity = rule.severity
+            confidence = rule.confidence
+            if rule.guarded_by is not None and rule.guarded_by.search(content):
+                confidence = "low"
+                description += " (the file has a guard for this; check it covers this line)"
             finding_context = ""
             if context and rule.context_sensitive:
                 severity = downgrade(severity)
@@ -188,7 +202,7 @@ def _scan_content(
                     language=language,
                     data_classification=rule.data_classification,
                     fix_guidance=rule.fix_guidance,
-                    confidence=rule.confidence,
+                    confidence=confidence,
                     context=finding_context,
                 )
             )
@@ -216,7 +230,6 @@ def _scan_content(
             finding.context = context
         findings.append(finding)
     return findings
-
 
 
 def _regex_pattern_is_dangerous(pattern: str) -> bool:
@@ -300,8 +313,11 @@ def _regex_pattern_is_dangerous(pattern: str) -> bool:
                 chars.update(branch_chars)
                 wildcard = wildcard or branch_wildcard
                 return chars, wildcard
-            if op in {parser.AT, getattr(parser, "ASSERT", object()),
-                      getattr(parser, "ASSERT_NOT", object())}:
+            if op in {
+                parser.AT,
+                getattr(parser, "ASSERT", object()),
+                getattr(parser, "ASSERT_NOT", object()),
+            }:
                 continue
             return chars, True
         return chars, wildcard
@@ -314,12 +330,8 @@ def _regex_pattern_is_dangerous(pattern: str) -> bool:
                     return True
                 first_sets = [first_chars(branch) for branch in branches]
                 for index, (left_chars, left_wildcard) in enumerate(first_sets):
-                    for right_chars, right_wildcard in first_sets[index + 1:]:
-                        if (
-                            left_wildcard
-                            or right_wildcard
-                            or left_chars.intersection(right_chars)
-                        ):
+                    for right_chars, right_wildcard in first_sets[index + 1 :]:
+                        if left_wildcard or right_wildcard or left_chars.intersection(right_chars):
                             return True
                 if any(has_overlapping_alternatives(branch) for branch in branches):
                     return True
@@ -343,8 +355,11 @@ def _regex_pattern_is_dangerous(pattern: str) -> bool:
         return False
 
     def nullable(op, arg):
-        if op in {parser.AT, getattr(parser, "ASSERT", object()),
-                  getattr(parser, "ASSERT_NOT", object())}:
+        if op in {
+            parser.AT,
+            getattr(parser, "ASSERT", object()),
+            getattr(parser, "ASSERT_NOT", object()),
+        }:
             return True
         if op in repeat_ops:
             return arg[0] == 0 or nullable_sequence(arg[2])
@@ -381,31 +396,26 @@ def _regex_pattern_is_dangerous(pattern: str) -> bool:
                 and not repeat_chars.intersection(delimiter_chars)
             )
 
-        return any(
-            is_disjoint_delimiter(op, arg) for op, arg in tokens[:repeat_index]
-        ) or any(
-            is_disjoint_delimiter(op, arg) for op, arg in tokens[repeat_index + 1:]
+        return any(is_disjoint_delimiter(op, arg) for op, arg in tokens[:repeat_index]) or any(
+            is_disjoint_delimiter(op, arg) for op, arg in tokens[repeat_index + 1 :]
         )
 
     def has_nested_repeat_without_required_separator(tokens):
         for index, (op, arg) in enumerate(tokens):
             if op in repeat_ops:
-                nested = arg[1] == unbounded or has_nested_repeat_without_required_separator(
-                    arg[2]
-                )
+                nested = arg[1] == unbounded or has_nested_repeat_without_required_separator(arg[2])
                 if (
                     nested
                     and not has_required_non_overlapping_delimiter(tokens, index)
                     and all(
-                        nullable(next_op, next_arg)
-                        for next_op, next_arg in tokens[index + 1:]
+                        nullable(next_op, next_arg) for next_op, next_arg in tokens[index + 1 :]
                     )
                 ):
                     return True
             elif op == parser.SUBPATTERN:
                 nested = has_nested_repeat_without_required_separator(arg[-1])
                 if nested and all(
-                    nullable(next_op, next_arg) for next_op, next_arg in tokens[index + 1:]
+                    nullable(next_op, next_arg) for next_op, next_arg in tokens[index + 1 :]
                 ):
                     return True
             elif op == parser.BRANCH:
@@ -413,33 +423,25 @@ def _regex_pattern_is_dangerous(pattern: str) -> bool:
                     has_nested_repeat_without_required_separator(branch) for branch in arg[1]
                 )
                 if nested and all(
-                    nullable(next_op, next_arg) for next_op, next_arg in tokens[index + 1:]
+                    nullable(next_op, next_arg) for next_op, next_arg in tokens[index + 1 :]
                 ):
                     return True
         return False
 
     def has_ambiguous_adjacent_repeats(tokens):
         for index, (op, arg) in enumerate(tokens):
-            if (
-                op not in repeat_ops
-                or arg[1] != unbounded
-                or not contains_unbounded_repeat(arg[2])
-            ):
+            if op not in repeat_ops or arg[1] != unbounded or not contains_unbounded_repeat(arg[2]):
                 continue
             # Adjacent bounded or optional quantifiers can be polynomial; this
             # check is limited to unbounded outer repetitions.
             left_chars, left_wildcard = first_chars(arg[2])
-            for next_op, next_arg in tokens[index + 1:]:
+            for next_op, next_arg in tokens[index + 1 :]:
                 if nullable(next_op, next_arg):
                     continue
                 if next_op not in repeat_ops:
                     break
                 right_chars, right_wildcard = first_chars(next_arg[2])
-                if (
-                    left_wildcard
-                    or right_wildcard
-                    or left_chars.intersection(right_chars)
-                ):
+                if left_wildcard or right_wildcard or left_chars.intersection(right_chars):
                     return True
                 break
         return False
@@ -452,10 +454,7 @@ def _regex_pattern_is_dangerous(pattern: str) -> bool:
                 maximum, child = arg[1], arg[2]
                 if maximum == unbounded and has_overlapping_alternatives(child):
                     return True
-                if (
-                    maximum == unbounded
-                    and has_nested_repeat_without_required_separator(child)
-                ):
+                if maximum == unbounded and has_nested_repeat_without_required_separator(child):
                     return True
                 if maximum > 1 and maximum != unbounded and contains_unbounded_repeat(child):
                     return True
@@ -492,8 +491,12 @@ def _regex_dos_findings(relative: str, language: str, content: str) -> list[Find
                     continue
                 if method not in {"compile", "search", "match", "fullmatch", "findall", "finditer"}:
                     continue
-                argument = node.args[0] if node.args else next(
-                    (kw.value for kw in node.keywords if kw.arg in {"pattern", "regex"}), None
+                argument = (
+                    node.args[0]
+                    if node.args
+                    else next(
+                        (kw.value for kw in node.keywords if kw.arg in {"pattern", "regex"}), None
+                    )
                 )
                 if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
                     if _regex_pattern_is_dangerous(argument.value):
@@ -612,7 +615,6 @@ def _regex_dos_findings(relative: str, language: str, content: str) -> list[Find
     return findings
 
 
-
 def _literal_regex_patterns(line: str, language: str) -> list[str]:
     if language in {"javascript", "typescript"}:
         calls = re.compile(r"\bnew\s+RegExp\s*\(")
@@ -643,12 +645,13 @@ def _literal_regex_patterns(line: str, language: str) -> list[str]:
         if end >= len(line):
             continue
         try:
-            value = ast.literal_eval(line[position:end + 1])
+            value = ast.literal_eval(line[position : end + 1])
         except (SyntaxError, ValueError):
             continue
         if isinstance(value, str):
             patterns.append(value)
     return patterns
+
 
 def _javascript_regex_literals(line: str) -> list[str]:
     """Extract regex literals in expression positions.
@@ -684,7 +687,7 @@ def _javascript_regex_literals(line: str) -> list[str]:
             flags_end += 1
         if flags_end < len(line) and (line[flags_end].isalnum() or line[flags_end] in "_$"):
             continue
-        patterns.append(line[start + 1:end])
+        patterns.append(line[start + 1 : end])
     return patterns
 
 
@@ -699,8 +702,17 @@ def _is_request_pattern(node: ast.AST) -> bool:
         )
     if isinstance(node, ast.Attribute):
         if node.attr.lower() in {
-            "query", "body", "params", "args", "form", "get", "post",
-            "json", "data", "values", "query_params",
+            "query",
+            "body",
+            "params",
+            "args",
+            "form",
+            "get",
+            "post",
+            "json",
+            "data",
+            "values",
+            "query_params",
         }:
             return isinstance(node.value, ast.Name) and node.value.id in {"request", "req"}
         return _is_request_pattern(node.value)
@@ -709,12 +721,21 @@ def _is_request_pattern(node: ast.AST) -> bool:
             isinstance(node.value, ast.Attribute)
             and isinstance(node.value.value, ast.Name)
             and node.value.value.id in {"request", "req"}
-            and node.value.attr.lower() in {
-                "args", "query", "form", "get", "post", "json", "data", "values",
+            and node.value.attr.lower()
+            in {
+                "args",
+                "query",
+                "form",
+                "get",
+                "post",
+                "json",
+                "data",
+                "values",
                 "query_params",
             }
         )
     return False
+
 
 def scan_path(target: str | Path, rules: list[LoadedRule] | None = None) -> ScanResult:
     path = Path(target).resolve()
@@ -754,8 +775,10 @@ def scan_path(target: str | Path, rules: list[LoadedRule] | None = None) -> Scan
         )
         for finding in dependency_findings:
             if finding.rule_id == "dependency-http-source" and any(
-                f.file == finding.file and f.line == finding.line
-                and f.rule_id == "composer-insecure-repository" for f in result.findings
+                f.file == finding.file
+                and f.line == finding.line
+                and f.rule_id == "composer-insecure-repository"
+                for f in result.findings
             ):
                 continue
             result.findings.append(finding)

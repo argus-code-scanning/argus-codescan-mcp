@@ -21,6 +21,7 @@ RULE_FILES = (
     "pii.yaml",
     "auth-jwt.yaml",
     "cookies.yaml",
+    "prototype-pollution.yaml",
     "java.yaml",
     "php.yaml",
     "laravel.yaml",
@@ -60,6 +61,9 @@ class LoadedRule:
     allow_inline_ignore: bool = True
     # Match across source lines while reporting the match's first line.
     multiline: bool = False
+    # When this matches anywhere in the file (e.g. a __proto__ key check), findings of the rule
+    # are reported with low confidence: shown, but not failing --fail-on by default.
+    guarded_by: re.Pattern[str] | None = None
 
 
 CONFIDENCE_LEVELS = ("high", "medium", "low")
@@ -113,6 +117,11 @@ def _parse_yaml_rules(data: Any, source: str = "") -> list[LoadedRule]:
                 ),
                 allow_inline_ignore=False if hostile else bool(item.get("inline_ignore", True)),
                 multiline=bool(item.get("multiline", False)),
+                guarded_by=(
+                    _compile_pattern(str(item["guarded_by"]), item.get("flags"))
+                    if item.get("guarded_by")
+                    else None
+                ),
             )
         )
     return out
