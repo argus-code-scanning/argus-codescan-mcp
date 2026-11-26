@@ -64,10 +64,12 @@ Free and open source (MIT). Created by Okiri Gabriel.
 
 ## Publish (after the release PR is merged)
 
+Pushing a `v*` tag publishes everything from CI: argus-languages, then argus-scan to PyPI (trusted publishing), argus-codescan to npm (with provenance), and the Docker image. Don't also run `uv publish` / `npm publish` by hand.
+
 ```bash
 git checkout main && git pull
-cd packages/languages && rm -rf dist && uv build && uv publish && cd ../..
-cd packages/python && rm -rf dist && uv build && uv publish && cd ../..
-cd packages/npm && npm ci && npm publish && cd ../..
+python3 scripts/versions.py show
 git tag v0.12.0 && git push origin v0.12.0
 ```
+
+Run these from the repo root. `versions.py show` must print the new versions before you tag: a tag on a commit without the bump starts the publish jobs on the old code.
