@@ -7,8 +7,16 @@
 - id: java-xxe
   title: Possible XXE — XML parser without secure features
   severity: high
-  pattern: '(DocumentBuilderFactory\.newInstance|SAXParserFactory\.newInstance|XMLInputFactory\.newInstance)'
+  pattern: '\b(?:DocumentBuilderFactory|SAXParserFactory|XMLInputFactory|TransformerFactory|SchemaFactory|SAXTransformerFactory)\.newInstance\s*\(|\bXMLReaderFactory\.createXMLReader\s*\(|\b(?:new\s+)?(?:SAXReader|SAXBuilder)\s*\('
   languages: [java, kotlin, scala]
+  # A file that turns off DTDs / external entities is configured; the remaining parsers in it
+  # are reported with low confidence.
+  guarded_by: 'disallow-doctype-decl|FEATURE_SECURE_PROCESSING|ACCESS_EXTERNAL_(?:DTD|SCHEMA|STYLESHEET)|external-general-entities|IS_SUPPORTING_EXTERNAL_ENTITIES|SUPPORT_DTD|setExpandEntityReferences\s*\(\s*false'
+  fix_guidance: >-
+    Turn off DTDs on every parser: factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+    (or XMLConstants.ACCESS_EXTERNAL_DTD / ACCESS_EXTERNAL_SCHEMA set to "" and
+    XMLInputFactory.SUPPORT_DTD false). Otherwise an XML upload can read local files or
+    make the server call internal URLs.
 
 - id: java-ldap-injection
   title: Possible LDAP injection — concatenated filter
@@ -34,3 +42,163 @@
   confidence: low
   pattern: '(logger\.(info|warn|error|debug)\s*\([^)]*\+.*request\.|log\.(info|warn|error)\s*\([^)]*\+)'
   languages: [java, kotlin]
+
+# --- code injection through expression languages and script engines ---------------------
+
+- id: java-spel-injection
+  title: Spring expression (SpEL) built from a variable — code injection risk
+  severity: high
+  pattern: '\.parseExpression\s*\(\s*(?!["''])[A-Za-z_$][\w$.]*(?:\s*\+|\s*\)|\s*,)'
+  languages: [java, kotlin]
+  guarded_by: 'SimpleEvaluationContext'
+  fix_guidance: >-
+    SpEL can call any Java method (T(java.lang.Runtime).getRuntime().exec(...)). Never parse
+    user input as an expression; if you must evaluate it, use SimpleEvaluationContext
+    .forReadOnlyDataBinding() instead of StandardEvaluationContext.
+
+- id: java-expression-language-injection
+  title: OGNL / MVEL / JEXL / EL expression evaluated from a variable
+  severity: high
+  pattern: '\b(?:Ognl\.(?:getValue|setValue|parseExpression)|MVEL\.(?:eval|compileExpression|executeExpression)|\w*[jJ]exl\w*\.createExpression|\w*\.createScript)\s*\(\s*(?!["''])[A-Za-z_$][\w$.]*\s*[,)+]|\bcreateValueExpression\s*\(\s*[\w.]+\s*,\s*(?!["''])[A-Za-z_$][\w$.]*\s*[,)+]|\bELProcessor\s*\(\s*\)\.eval\s*\(\s*(?!["''])[A-Za-z_$]'
+  languages: [java, kotlin]
+  confidence: medium
+  fix_guidance: >-
+    Expression languages run code. Map user input to a fixed set of allowed expressions or
+    properties instead of evaluating it.
+
+- id: java-script-engine-eval
+  title: Script engine evaluates a variable (Nashorn / GraalJS / Groovy)
+  severity: high
+  pattern: '\b(?:ScriptEngine\w*|engine|scriptEngine|groovyShell|GroovyShell\(\)|shell)\.(?:eval|evaluate|parse)\s*\(\s*(?!["''])[A-Za-z_$][\w$.]*\s*[,)+]'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    A script engine runs arbitrary code with the app's permissions. Don't evaluate input; if
+    scripting is a feature, sandbox it (GraalVM Context with allowAllAccess(false)) and allow
+    only known scripts.
+
+- id: java-unsafe-reflection
+  title: Class or method chosen from request input (unsafe reflection)
+  severity: moderate
+  pattern: '\b(?:Class\.forName|ClassLoader\.loadClass|\.getMethod|\.getDeclaredMethod)\s*\([^)]*(?:getParameter|getHeader|@RequestParam|request\.|params\.|body\.)'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Look the name up in a fixed map of allowed classes or handlers instead of loading
+    whatever the request names.
+
+# --- deserialization ---------------------------------------------------------------------
+
+- id: java-jackson-default-typing
+  title: Jackson polymorphic typing on — untrusted JSON can create any class
+  severity: high
+  pattern: '\b(?:enableDefaultTyping|activateDefaultTyping)\s*\(|JsonTypeInfo\.Id\.(?:CLASS|MINIMAL_CLASS)\b|LaissezFaireSubTypeValidator'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    With default typing, JSON names the class to create, which leads to remote code
+    execution through gadget classes. Use @JsonTypeInfo(use = Id.NAME) with @JsonSubTypes,
+    or a BasicPolymorphicTypeValidator that allows only your own packages.
+
+- id: java-xstream-unrestricted
+  title: XStream without an allow-list of types
+  severity: high
+  pattern: '\b(?:new\s+)?XStream\s*\(\s*(?:\)|new\s|[A-Z]\w*\()'
+  languages: [java, kotlin]
+  guarded_by: 'allowTypes(?:ByWildcard|ByRegExp|Hierarchy)?\s*\(|addPermission\s*\(|setupDefaultSecurity'
+  fix_guidance: >-
+    XStream deserializes any class by default. Call xstream.addPermission(NoTypePermission.NONE)
+    then allowTypes(...) for your own classes only.
+
+- id: java-snakeyaml-unsafe
+  title: SnakeYAML loads YAML with the default constructor (any class)
+  severity: moderate
+  pattern: '\b(?:new\s+)?Yaml\s*\(\s*(?:\)|(?:new\s+)?Constructor\s*\()'
+  languages: [java, kotlin]
+  guarded_by: 'SafeConstructor|LoaderOptions\(\)[\s\S]{0,200}setTagInspector'
+  confidence: medium
+  fix_guidance: >-
+    Before SnakeYAML 2.0, new Yaml() can instantiate any class named in the document. Use
+    new Yaml(new SafeConstructor(new LoaderOptions())) for untrusted YAML, and upgrade to 2.x.
+
+# --- crypto ------------------------------------------------------------------------------
+
+- id: java-cipher-weak-mode
+  title: Cipher without an authenticated mode (AES defaults to ECB) or a broken cipher
+  severity: moderate
+  pattern: 'Cipher\.getInstance\s*\(\s*"(?:AES|DES|DESede|RC2|RC4|ARCFOUR|Blowfish|AES/ECB/[^"]*|AES/CBC/NoPadding)"'
+  languages: [java, kotlin, scala]
+  fix_guidance: >-
+    Cipher.getInstance("AES") means AES/ECB, which leaks patterns. Use "AES/GCM/NoPadding"
+    with a fresh random 12-byte IV per message.
+
+- id: java-static-iv
+  title: Fixed IV or nonce for encryption
+  severity: moderate
+  pattern: '\b(?:new\s+)?(?:IvParameterSpec|GCMParameterSpec)\s*\((?:\s*\d+\s*,)?\s*(?:new\s+byte\s*\[\s*\d*\s*\]|"[^"]*"\.(?:toByteArray|getBytes)|byteArrayOf\s*\(|new\s+byte\s*\[\s*\]\s*\{)'
+  languages: [java, kotlin, scala]
+  fix_guidance: >-
+    Reusing an IV with the same key breaks CBC confidentiality and lets attackers forge GCM
+    messages. Generate a random IV per message with SecureRandom and send it with the
+    ciphertext.
+
+# --- Spring --------------------------------------------------------------------------------
+
+- id: spring-cors-any-origin
+  title: Spring CORS allows any origin
+  severity: moderate
+  pattern: '@CrossOrigin\s*(?:\(\s*\)|(?!\())|@CrossOrigin\s*\([^)]*(?:origins|value)\s*=\s*(?:\{\s*)?"\*"|\.allowedOrigins\s*\(\s*"\*"\s*\)|\.allowedOriginPatterns\s*\(\s*"\*"\s*\)|setAllowedOrigins\s*\([^)]*"\*"'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    List your own front-end origins (allowedOrigins("https://app.example.com")). @CrossOrigin
+    with no arguments allows every origin; with allowCredentials(true) any site can call
+    the API as the logged-in user.
+
+- id: spring-config-plaintext-secret
+  title: Password or secret in plain text in Spring configuration
+  severity: high
+  pattern: '^\s*(?:spring\.datasource\.password|spring\.mail\.password|spring\.rabbitmq\.password|spring\.data\.redis\.password|spring\.redis\.password|[\w.-]*(?:jwt|token|api|client)[\w.-]*\.?secret|[\w.-]*\.(?:password|secret|api-key|apikey))\s*[=:]\s*(?!\$\{|ENC\(|\{cipher\}|$)[^\s#]{4,}|^\s+(?:password|secret|api-key|apikey|client-secret|jwt-secret|secret-key)\s*:\s*(?!["'']?\$\{|ENC\(|\{cipher\}|$)[^\s#]{4,}'
+  flags: [m, i]
+  languages: [spring-config]
+  fix_guidance: >-
+    Read it from the environment (spring.datasource.password=${DB_PASSWORD}) or a secret
+    store (Vault, AWS Secrets Manager, Kubernetes secrets), and rotate the committed value.
+
+# --- files -------------------------------------------------------------------------------
+
+- id: java-zip-slip
+  title: Archive entry name used as a file path (Zip Slip)
+  severity: high
+  pattern: '\b(?:new\s+)?File\s*\([^)]*\b\w*[eE]ntry\.(?:getName|name)\b|\.resolve\s*\(\s*\w*[eE]ntry\.(?:getName\s*\(\s*\)|name)\s*\)'
+  languages: [java, kotlin, scala]
+  guarded_by: '(?:getCanonicalPath|toRealPath|normalize)\s*\(\s*\)[\s\S]{0,120}startsWith'
+  fix_guidance: >-
+    An entry named ../../etc/cron.d/x writes outside the target folder. Resolve and
+    normalize the path, then check dest.normalize().startsWith(targetDir) before writing.
+
+# --- Android (Java / Kotlin) -------------------------------------------------------------
+
+- id: android-webview-js-bridge
+  title: WebView exposes a Java object to JavaScript (addJavascriptInterface)
+  severity: moderate
+  pattern: '\.addJavascriptInterface\s*\('
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Any page loaded in the WebView can call the exposed methods. Load only your own HTTPS
+    content, annotate exposed methods with @JavascriptInterface and keep them minimal.
+
+- id: android-webview-file-access
+  title: WebView lets pages read local files
+  severity: moderate
+  pattern: '\.(?:setAllowFileAccessFromFileURLs|setAllowUniversalAccessFromFileURLs)\s*\(\s*true|\b(?:allowFileAccessFromFileURLs|allowUniversalAccessFromFileURLs)\s*=\s*true'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    With file URL access a page can read the app's private files. Keep these off and serve
+    local content through WebViewAssetLoader.
+
+- id: android-world-readable-file
+  title: File or preferences created world-readable / world-writable
+  severity: high
+  pattern: '\bMODE_WORLD_(?:READABLE|WRITEABLE)\b'
+  languages: [java, kotlin]
+  fix_guidance: >-
+    Other apps can read or change the file. Use MODE_PRIVATE, and a FileProvider to share
+    specific files.
+
