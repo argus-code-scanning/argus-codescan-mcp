@@ -1,0 +1,112 @@
+# Go: net/http, gorilla/mux, chi, gin, echo, fiber, database/sql, gorm.
+# Already elsewhere: go-sql-sprintf, go-insecure-tls (other.yaml), sh -c command injection
+# (common.yaml), JWT none / unverified (auth-jwt.yaml), pprof (exposed-endpoints.yaml).
+# Insecure randomness (math/rand) is #194, TLS verification is #195, open redirects #196.
+
+- id: go-sql-concat
+  title: SQL built with string concatenation — use placeholders
+  severity: high
+  pattern: '\.(?:Query|QueryRow|Exec|QueryContext|QueryRowContext|ExecContext|Prepare|PrepareContext|Get|Select|MustExec|Queryx|QueryRowx|NamedExec)\s*\(\s*(?:ctx\s*,\s*|context\.\w+\(\)\s*,\s*)?"[^"]*\b(?:SELECT|INSERT|UPDATE|DELETE|WHERE|ORDER\s+BY)\b[^"]*"\s*\+'
+  flags: [i]
+  languages: [go]
+  fix_guidance: >-
+    Use placeholders and pass values separately: db.Query("SELECT * FROM users WHERE id =
+    $1", id) (? for MySQL / SQLite). Column names can't be parameters: map them from a fixed
+    list.
+
+- id: go-gorm-raw-sql
+  title: GORM query built with fmt.Sprintf or concatenation
+  severity: high
+  pattern: '\.(?:Where|Or|Not|Raw|Exec|Order|Group|Having|Joins|Select|Pluck|Distinct)\s*\(\s*(?:fmt\.Sprintf\s*\(|"[^"]*"\s*\+\s*[A-Za-z_])'
+  languages: [go]
+  fix_guidance: >-
+    Pass values as arguments: db.Where("name = ?", name), db.Raw("... WHERE id = ?", id). For
+    ORDER BY, map the column from a fixed list (clause.OrderByColumn).
+
+- id: go-template-unescaped
+  title: html/template escaping bypassed with template.HTML / JS / URL
+  severity: moderate
+  pattern: '\btemplate\.(?:HTML|HTMLAttr|JS|JSStr|URL|CSS|Srcset)\s*\(\s*(?!["`])[A-Za-z_][\w.]*(?:\s*\(|\s*\)|\s*\+|\[)'
+  languages: [go]
+  fix_guidance: >-
+    These types tell html/template the value is already safe, so it is inserted as is.
+    Pass plain strings and let the template escape them; sanitize rich HTML with bluemonday
+    first if you must allow it.
+
+- id: go-path-from-request
+  title: File path built from request input (path traversal)
+  severity: moderate
+  pattern: '\b(?:filepath\.Join|path\.Join|os\.(?:Open|OpenFile|ReadFile|Create|Remove|RemoveAll|WriteFile|Stat|ReadDir)|http\.ServeFile|ioutil\.ReadFile|c\.File|c\.Attachment|c\.SendFile)\s*\([^)\n]*(?:\b(?:r|req|request)\.(?:URL\.Query\(\)\.Get|FormValue|PostFormValue|URL\.Path)\b|mux\.Vars\s*\(|chi\.URLParam\s*\(|\bc\.(?:Query|Param|Params|PostForm|DefaultQuery|QueryParam|FormValue)\s*\()'
+  languages: [go]
+  guarded_by: 'filepath\.IsLocal|os\.OpenRoot|\.OpenInRoot|securejoin\.|filepath\.Rel\s*\(|strings\.HasPrefix\s*\([^)]*filepath\.Clean|filepath\.Clean[\s\S]{0,160}strings\.HasPrefix'
+  fix_guidance: >-
+    A value like ../../etc/passwd escapes the folder. Use os.OpenRoot / root.Open (Go 1.24+),
+    or check filepath.IsLocal(name) before joining; http.FileServer(http.Dir(dir)) already
+    does this.
+
+- id: go-zip-slip
+  title: Archive entry name used as a file path (Zip Slip)
+  severity: high
+  pattern: '\b(?:filepath|path)\.Join\s*\([^)\n]*\b\w*(?:f|file|hdr|header|entry|zf)\w*\.Name\b'
+  languages: [go]
+  guarded_by: 'filepath\.IsLocal|strings\.HasPrefix\s*\([^)]*filepath\.Clean|filepath\.Clean[\s\S]{0,160}strings\.HasPrefix|os\.OpenRoot|securejoin\.'
+  fix_guidance: >-
+    Reject entries that leave the target: if !filepath.IsLocal(f.Name) { return
+    errBadPath } before joining (Go 1.20+), or extract with os.OpenRoot.
+
+- id: go-ssrf-request-url
+  title: Server fetches a URL taken from the request (SSRF)
+  severity: high
+  pattern: '\b(?:http\.(?:Get|Post|Head|PostForm)|(?:client|httpClient|\w*Client)\.(?:Get|Post|Head))\s*\(\s*(?:(?:r|req|request)\.(?:URL\.Query\(\)\.Get|FormValue|PostFormValue|Header\.Get)|c\.(?:Query|Param|PostForm|DefaultQuery|QueryParam|FormValue)\s*\(|mux\.Vars)|http\.NewRequest(?:WithContext)?\s*\([^)\n]*(?:(?:r|req|request)\.(?:URL\.Query\(\)\.Get|FormValue|PostFormValue)|\bc\.(?:Query|Param|PostForm|QueryParam)\s*\()'
+  languages: [go]
+  fix_guidance: >-
+    Attackers can make the server call internal services (cloud metadata at 169.254.169.254,
+    admin APIs). Allow only known hosts, and resolve the address and block private ranges
+    in the dialer's Control function.
+
+- id: go-cors-any-origin
+  title: CORS allows any origin
+  severity: moderate
+  pattern: '\bAllow(?:ed)?Origins\s*:\s*\[\]string\s*\{\s*"\*"\s*\}|\bAllowAllOrigins\s*:\s*true\b|\bAllowOrigins\s*:\s*"\*"|Header\(\)\.(?:Set|Add)\s*\(\s*"Access-Control-Allow-Origin"\s*,\s*"\*"\s*\)'
+  languages: [go]
+  fix_guidance: >-
+    List the front-end origins you serve. With "*" plus credentials (cookies, Authorization)
+    any site can call the API as the logged-in user.
+
+- id: go-jwt-hardcoded-key
+  title: JWT signed or verified with a key written in the code
+  severity: high
+  pattern: '\.SignedString\s*\(\s*\[\]byte\s*\(\s*"[^"]{1,}"\s*\)\s*\)|return\s+\[\]byte\s*\(\s*"[^"]{4,}"\s*\)\s*,\s*nil|\b(?:jwtKey|jwtSecret|secretKey|signingKey|hmacSecret|JWT_SECRET|jwtSigningKey)\s*(?:=|:=)\s*\[\]byte\s*\(\s*"[^"]{4,}"\s*\)'
+  languages: [go]
+  fix_guidance: >-
+    Anyone with the repository can mint valid tokens. Load the key at startup from the
+    environment or a secret manager, fail if it's missing, and rotate the committed one.
+
+- id: go-secret-env-fallback
+  title: Secret falls back to a hardcoded value when the env variable is missing
+  severity: high
+  pattern: '\b(?:getEnv|GetEnv|getenv|envOr\w*|EnvOr\w*|getEnvOrDefault|GetEnvDefault|lookupEnv\w*)\s*\(\s*"[A-Z0-9_]*(?:SECRET|KEY|TOKEN|PASSWORD|PASS)[A-Z0-9_]*"\s*,\s*"[^"]{4,}"\s*\)|os\.Getenv\s*\(\s*"[A-Z0-9_]*(?:SECRET|KEY|TOKEN|PASSWORD)[A-Z0-9_]*"\s*\)\s*\n\s*if\s+\w+\s*==\s*""\s*\{\s*\n\s*\w+\s*=\s*"[^"]{4,}"'
+  multiline: true
+  languages: [go]
+  fix_guidance: >-
+    A default secret means production silently runs with a key that's in the repository.
+    Fail at startup instead: if secret == "" { log.Fatal("JWT_SECRET must be set") }.
+
+- id: go-http-server-no-timeout
+  title: HTTP server without read timeouts (slow clients can exhaust it)
+  severity: low
+  pattern: '\bhttp\.ListenAndServe(?:TLS)?\s*\(|&http\.Server\s*\{'
+  languages: [go]
+  guarded_by: 'ReadHeaderTimeout|ReadTimeout|http\.TimeoutHandler'
+  fix_guidance: >-
+    http.ListenAndServe has no timeouts, so a client sending headers slowly (Slowloris)
+    holds a connection forever. Use &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout:
+    5 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 120 * time.Second}.
+
+- id: go-tls-old-version
+  title: Old TLS versions allowed (MinVersion below TLS 1.2)
+  severity: moderate
+  pattern: '\bMinVersion\s*:\s*tls\.Version(?:TLS10|TLS11|SSL30)\b'
+  languages: [go]
+  fix_guidance: >-
+    TLS 1.0 and 1.1 are deprecated and weak. Use MinVersion: tls.VersionTLS12 (or TLS13).
