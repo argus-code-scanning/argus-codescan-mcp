@@ -70,6 +70,7 @@ Homepage      = "https://github.com/argus-code-scanning/argus-codescan-mcp"
 Repository    = "https://github.com/argus-code-scanning/argus-codescan-mcp"
 Issues        = "https://github.com/argus-code-scanning/argus-codescan-mcp/issues"
 Documentation = "https://github.com/argus-code-scanning/argus-codescan-mcp/blob/main/README.md"
+Funding       = "https://buymeacoffee.com/gabeokiri"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/argus"]

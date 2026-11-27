@@ -38,6 +38,9 @@
     "color": "#E14848",
     "theme": "dark"
   },
+  "sponsor": {
+    "url": "https://buymeacoffee.com/gabeokiri"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/argus-code-scanning/argus-codescan-mcp.git"

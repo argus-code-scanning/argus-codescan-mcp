@@ -10,6 +10,7 @@ Argus orchestrates **20+ industry-standard tools** (Semgrep, Trivy, Gitleaks, tf
 [![npm CI](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-npm.yml/badge.svg)](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-npm.yml)
 [![Go CI](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-go.yml/badge.svg)](https://github.com/argus-code-scanning/argus-codescan-mcp/actions/workflows/ci-go.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support%20Argus-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/gabeokiri)
 
 **Install:** `pip install argus-scan` · `npm install -D argus-codescan` · [Docker](packages/docker/README.md) · [Launch kit](docs/launch/show-hn.md)
 
@@ -782,6 +783,10 @@ Argus is free and open source under the MIT license, built in the open with its 
 ### Credit
 
 If you use, fork or build on Argus, please credit it: keep the copyright notice and [LICENSE](LICENSE) (the MIT license requires this), and mention **Argus by Okiri Gabriel** with a link to this repository in your README, docs or about page. Third-party scanners and data Argus works with are listed in [NOTICE](NOTICE).
+
+### Support Argus
+
+Argus is free and always will be. If it saved you time or caught something before your users did, you can [buy me a coffee](https://buymeacoffee.com/gabeokiri). It helps keep the scanners, rules and fixes coming. Starring the repo and reporting false positives help just as much.
 
 ## License
 
