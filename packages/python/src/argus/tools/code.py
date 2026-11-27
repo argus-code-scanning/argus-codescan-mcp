@@ -21,12 +21,23 @@ _SEV_MAP = {
 }
 
 
-async def run_native_languages(target: str) -> ScanResult:
-    """Run built-in pattern scanner for Java, PHP, Terraform, Ansible, and all other languages."""
+async def run_native_languages(
+    target: str, rule_files: tuple[str, ...] | None = None
+) -> ScanResult:
+    """Run built-in pattern scanner for Java, PHP, Terraform, Ansible, and all other languages.
+
+    ``rule_files`` limits the scan to those bundled packs (e.g. ``("ansible.yaml",)``).
+    """
     result = ScanResult(tool="argus-languages", scan_type=ScanType.SAST, target=target)
 
     try:
-        native = _scan_directory(target)
+        if rule_files:
+            from argus_languages.rules_loader import load_rules_from_files
+            from argus_languages.scanner import scan_path
+
+            native = scan_path(target, rules=load_rules_from_files(rule_files))
+        else:
+            native = _scan_directory(target)
     except Exception as exc:
         logger.exception("argus-languages scan failed")
         result.errors.append(f"argus-languages error: {exc}")

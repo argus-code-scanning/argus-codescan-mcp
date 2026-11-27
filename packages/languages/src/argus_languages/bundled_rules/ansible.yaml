@@ -1,42 +1,153 @@
+# Ansible playbooks, roles, vars and inventories (files detected as Ansible YAML).
+# Line rules only; checks that need the whole task (no_log on tasks that handle secrets,
+# get_url without a checksum, unpinned Galaxy requirements) live in argus-scan
+# (argus/tools/ansible_checks.py). Both run in `argus scan ansible`, with no extra tools.
+
 - id: ansible-shell-command
-  title: Ansible shell/command module — prefer ansible.builtin.command
-  severity: moderate
+  title: shell/raw module — use command or a dedicated module unless you need a shell
+  severity: low
+  confidence: low
   pattern: 'ansible\.builtin\.(shell|raw):|^\s*(shell|raw):\s'
   flags: [m]
   languages: [ansible]
+  fix_guidance: >-
+    shell runs through /bin/sh, so pipes, globs and variables in the command are interpreted.
+    Use ansible.builtin.command (no shell) or a module (copy, file, apt, systemd…) when you
+    don't need shell features.
 
 - id: ansible-no-become-password
   title: Hardcoded become/sudo password
   severity: high
-  pattern: '(ansible_become_pass|ansible_sudo_pass|become_pass):\s*["''][^"'']+["'']'
+  pattern: '(ansible_become_pass(?:word)?|ansible_sudo_pass|become_pass(?:word)?)\s*[:=]\s*["'']?(?!\{\{|!vault|\$ANSIBLE_VAULT)[^"''\s{][^"''\n]*'
   languages: [ansible]
+  fix_guidance: >-
+    Store the become password with ansible-vault (ansible-vault encrypt_string) or pass it
+    with --ask-become-pass; never commit it in plain text.
 
 - id: ansible-ssl-verify-off
-  title: SSL certificate verification disabled
+  title: TLS certificate verification disabled
   severity: high
-  pattern: '(validate_certs:\s*false|verify:\s*false|insecure:\s*true)'
+  pattern: '\b(validate_certs|verify|verify_ssl|sslverify)\s*[:=]\s*(?:false|no|0|False|"?no"?)\b|\binsecure\s*:\s*(?:true|yes)\b'
   languages: [ansible]
+  fix_guidance: >-
+    Without certificate checks, anyone on the network path can serve the download or answer
+    the API call. Keep validate_certs on and add the internal CA to the target's trust store
+    (ca_path / client_cert) instead.
 
 - id: ansible-world-perms
-  title: File permissions too open (777 or 666)
+  title: File permissions too open (world-writable)
   severity: moderate
-  pattern: 'mode:\s*[''"]?(0777|666|0o777)'
+  pattern: '\bmode\s*[:=]\s*["'']?(?:0?[0-7][0-7][2367]|0o[0-7][0-7][2367]|[ugoa]*o[ugoa]*\+[rwx]*w|a\+[rwx]*w)\b'
   languages: [ansible]
+  fix_guidance: >-
+    Any local user can change a world-writable file. Use 0644 for files, 0755 for
+    directories and 0600 for secrets.
 
 - id: ansible-hardcoded-secret
-  title: Hardcoded password or token in playbook
+  title: Hardcoded password or token in a playbook or vars file
   severity: high
-  pattern: '(password|api_key|token|secret):\s*["''][^"'']{4,}["'']'
+  # Values that are templates ({{ vault_db_password }}), vault-encrypted (!vault) or lookups
+  # are the right way to do it and are not reported.
+  pattern: '\b[\w]*(?:password|passwd|api_key|apikey|token|secret|private_key|client_secret)\s*:\s*(?:["''](?!\s*\{\{)(?!!vault)[^"''\n]{4,}["'']|(?!\{\{|!vault|\$ANSIBLE_VAULT|null\b|~|true\b|false\b|yes\b|no\b|\||>)[^\s"''#{][^\n#]{3,})'
   languages: [ansible]
+  fix_guidance: >-
+    Move the value into an ansible-vault encrypted file (or encrypt_string it) and reference
+    it as {{ vault_db_password }}. Rotate the secret: it is in git history.
 
 - id: ansible-unquoted-var-shell
-  title: Unquoted Jinja variable in shell context
-  severity: moderate
-  pattern: '(shell|command):\s*[^\n]*\{\{[^}]+\}\}'
+  title: Jinja variable in a shell command without | quote
+  severity: low
+  # shell / raw only: command doesn't use a shell. A value that is only a variable is the
+  # user module's login shell (shell: "{{ nologin_path }}"), not a command.
+  pattern: '\b(?:shell|raw)\s*:(?!\s*["'']?\{\{[^}]*\}\}["'']?\s*$)[^\n]*\{\{(?![^}]*\|\s*quote\b)[^}]+\}\}'
   languages: [ansible]
+  fix_guidance: >-
+    A variable with spaces, ; or $( ) changes the command, which matters when it can come
+    from a host fact, a registered result or user input. Add the quote filter
+    ({{ path | quote }}), or use command with argv: so no shell parses it.
 
-- id: ansible-git-insecure
-  title: Git clone with accept_hostkey or force
+- id: ansible-git-accept-hostkey
+  title: git clone accepts any SSH host key (accept_hostkey)
   severity: moderate
-  pattern: '(accept_hostkey:\s*true|force:\s*true)'
+  pattern: '\baccept_hostkey\s*[:=]\s*(?:true|yes)\b'
   languages: [ansible]
+  fix_guidance: >-
+    accept_hostkey trusts whatever server answers. Add the host's key to known_hosts first
+    (ansible.builtin.known_hosts) and leave accept_hostkey off.
+
+- id: ansible-curl-pipe-shell
+  title: Remote script piped straight into a shell
+  severity: high
+  pattern: '\b(?:curl|wget)\b[^\n|]*\|\s*(?:sudo\s+)?(?:ba|z|da)?sh\b'
+  languages: [ansible]
+  fix_guidance: >-
+    Download with get_url (with checksum:), review or pin the script, then run it. Piping
+    to sh runs whatever the server sends, including a compromised version.
+
+- id: ansible-plain-http-download
+  title: Package, key or repository fetched over plain HTTP
+  severity: moderate
+  pattern: '\b(?:url|baseurl|repo|key|keyserver|mirrorlist|src)\s*[:=]\s*["'']?(?:deb\s+)?http://(?!localhost|127\.0\.0\.1|\[::1\])'
+  languages: [ansible]
+  fix_guidance: >-
+    Use https:// so the download can't be swapped in transit, and pin it with checksum: or a
+    signed repository key.
+
+- id: ansible-package-signature-off
+  title: Package signature checks turned off
+  severity: high
+  pattern: '\b(?:gpgcheck|repo_gpgcheck)\s*[:=]\s*(?:false|no|0)\b|\b(?:disable_gpg_check|allow_unauthenticated|skip_broken_signature)\s*[:=]\s*(?:true|yes|1)\b|--(?:nogpgcheck|allow-unauthenticated|force-yes)\b'
+  languages: [ansible]
+  fix_guidance: >-
+    Without signature checks a mirror or attacker can install any package. Keep gpgcheck on
+    and import the vendor's signing key (rpm_key / apt_key with a pinned fingerprint).
+
+- id: ansible-sudo-nopasswd-all
+  title: sudoers rule gives passwordless root for every command
+  severity: moderate
+  pattern: 'ALL\s*=\s*\(\s*ALL(?:\s*:\s*ALL)?\s*\)\s*NOPASSWD\s*:\s*ALL\b'
+  languages: [ansible]
+  fix_guidance: >-
+    Limit NOPASSWD to the commands the account needs
+    (deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart app), and validate the file
+    with validate: 'visudo -cf %s'.
+
+- id: ansible-ssh-weak-config
+  title: SSH allows root login or password logins
+  severity: moderate
+  pattern: '\b(?:PermitRootLogin\s+yes|PasswordAuthentication\s+yes|PermitEmptyPasswords\s+yes)\b'
+  flags: [i]
+  languages: [ansible]
+  fix_guidance: >-
+    Use PermitRootLogin no (or prohibit-password) and PasswordAuthentication no so only key
+    logins work, and keep the change behind validate: 'sshd -t -f %s'.
+
+- id: ansible-security-service-disabled
+  title: Firewall or SELinux turned off
+  severity: moderate
+  pattern: '\bselinux\s*:\s*(?:state=)?disabled\b|\bufw\s*:\s*state=disabled\b|(?:^\s*(?:-\s+)?(?:ansible\.(?:posix|builtin)\.)?selinux:[^\n]*\n(?:[^\n]*\n){0,4}?\s*state:\s*disabled\b|^\s*(?:-\s+)?(?:community\.general\.)?ufw:[^\n]*\n(?:[^\n]*\n){0,4}?\s*state:\s*disabled\b|name:\s*["'']?(?:firewalld|ufw|iptables|nftables|apparmor)["'']?\s*\n(?:[^\n]*\n){0,4}?\s*(?:state:\s*stopped|enabled:\s*(?:false|no))\b)'
+  flags: [m]
+  multiline: true
+  languages: [ansible]
+  fix_guidance: >-
+    Keep the firewall and SELinux/AppArmor on and open only the ports and contexts the
+    service needs (ansible.posix.firewalld port=…, seboolean, sefcontext).
+
+- id: ansible-container-privileged
+  title: Container runs privileged or with the host's network/PID namespace
+  severity: moderate
+  pattern: '\bprivileged\s*:\s*(?:true|yes)\b|\b(?:network_mode|pid_mode)\s*:\s*["'']?host\b'
+  languages: [ansible]
+  fix_guidance: >-
+    A privileged container can take over the host. Add only the capabilities it needs
+    (capabilities: [NET_BIND_SERVICE]) and keep the default namespaces.
+
+- id: ansible-db-user-any-host
+  title: Database user can log in from any host with full privileges
+  severity: moderate
+  pattern: '\bhost\s*:\s*["'']%["'']\s*\n(?:[^\n]*\n){0,4}?\s*priv\s*:\s*["'']?\*\.\*:ALL|\bpriv\s*:\s*["'']?\*\.\*:ALL[^\n]*\n(?:[^\n]*\n){0,4}?\s*host\s*:\s*["'']%["'']'
+  multiline: true
+  languages: [ansible]
+  fix_guidance: >-
+    Limit the user to the application hosts (host: 10.0.1.%) and to its own database
+    (priv: 'app.*:SELECT,INSERT,UPDATE,DELETE').

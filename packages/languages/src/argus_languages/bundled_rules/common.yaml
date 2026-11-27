@@ -76,7 +76,8 @@
 - id: deserialization
   title: Unsafe deserialization
   severity: high
-  pattern: '(pickle\.loads|yaml\.load\s*\(|unserialize\s*\(|ObjectInputStream|readObject\s*\()'
+  # yaml.load with an explicit SafeLoader / CSafeLoader / BaseLoader only builds plain data.
+  pattern: '(pickle\.loads|yaml\.load\s*\((?![^)\n]*\bLoader\s*=\s*(?:yaml\.)?C?(?:Safe|Base)Loader\b)|unserialize\s*\(|ObjectInputStream|readObject\s*\()'
   languages: [python, java, php, ruby, csharp, kotlin, scala, rust]
 
 - id: ssrf-fetch

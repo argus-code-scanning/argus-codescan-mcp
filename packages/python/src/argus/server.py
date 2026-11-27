@@ -24,9 +24,6 @@ from argus.models import AggregatedReport
 from argus.resources import RESOURCE_DEFINITIONS, read_resource_json
 from argus.tools.ansible import (
     run_all_ansible,
-    run_ansible_lint,
-    run_checkov_ansible,
-    run_kics_ansible,
 )
 from argus.tools.dast import run_all_dast, run_nikto, run_zap_baseline
 from argus.tools.fix import apply_finding_fix
@@ -343,8 +340,9 @@ async def list_tools() -> list[types.Tool]:
             description=(
                 "Run a security scan on Ansible playbooks, roles, and collections. "
                 "Detects hardcoded passwords, missing no_log on sensitive tasks, insecure shell usage, "
-                "risky file permissions, unvaulted secrets, and deprecated module usage. "
-                "Uses ansible-lint, KICS, and Checkov."
+                "risky file permissions, unvaulted secrets, TLS and package signatures turned "
+                "off, curl | sh, unpinned Galaxy roles. Built-in checks always run (nothing to "
+                "install); ansible-lint, KICS and Checkov are added when installed."
             ),
             inputSchema={
                 "type": "object",
@@ -357,7 +355,7 @@ async def list_tools() -> list[types.Tool]:
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["ansible-lint", "kics", "checkov"],
+                            "enum": ["builtin", "ansible-lint", "kics", "checkov"],
                         },
                         "description": "Specific tools to run (default: all available)",
                     },
@@ -1356,17 +1354,9 @@ async def _handle_scan_ansible(args: dict[str, Any]) -> list[types.TextContent]:
     timeout = int(args.get("timeout", 300))
     profile = args.get("ansible_lint_profile", "safety")
 
-    if tools:
-        tasks = []
-        if "ansible-lint" in tools:
-            tasks.append(run_ansible_lint(target, profile=profile, timeout=timeout))
-        if "kics" in tools:
-            tasks.append(run_kics_ansible(target, timeout=timeout))
-        if "checkov" in tools:
-            tasks.append(run_checkov_ansible(target, timeout=timeout))
-        results = collect_scan_results(await asyncio.gather(*tasks, return_exceptions=True))
-    else:
-        results = await run_all_ansible(target, timeout=timeout, ansible_lint_profile=profile)
+    results = await run_all_ansible(
+        target, timeout=timeout, tools=tools or None, ansible_lint_profile=profile
+    )
 
     report = AggregatedReport(target=target, results=list(results))
     return await _finish_scan(

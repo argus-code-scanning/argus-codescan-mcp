@@ -15,6 +15,7 @@ _TEST_DIRS = frozenset(
         "tests",
         "__tests__",
         "__mocks__",
+        "molecule",  # Ansible's test scenarios
         "spec",
         "specs",
         "fixtures",
