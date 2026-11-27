@@ -23,7 +23,7 @@ const SKIP_DIRS = new Set([
 
 const EXT_LANG: Record<string, string> = {
   ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
-  ".py": "python", ".java": "java", ".php": "php", ".go": "go", ".rb": "ruby",
+  ".py": "python", ".java": "java", ".php": "php", ".go": "go", ".rb": "ruby", ".rs": "rust",
   ".cs": "csharp", ".kt": "kotlin", ".kts": "kotlin", ".swift": "swift",
   ".jsp": "jsp", ".scala": "scala", ".pl": "perl",
   ".sh": "shell", ".bash": "shell", ".zsh": "shell",
@@ -577,10 +577,13 @@ function languageOf(name: string, full?: string): string | undefined {
 const CONFIG_LANGUAGES = new Set(["spring-config", "html", "vue", "sql"]);
 
 // Same default set as argus-scan: its cookie and PII-in-logs packs run in every code scan.
-const DEFAULT_RULES: Rule[] = [
-  ...RULES,
-  ...sharedRules("cookies", "pii", "prototype-pollution", "header-injection", "vibe"),
-];
+// The Java, Rust and Go packs are generated from argus-languages. Where npm still has an older
+// copy of a rule with the same id (java-xxe, spring-csrf-disabled…), the shared version wins.
+const SHARED_DEFAULT_RULES = sharedRules(
+  "cookies", "pii", "prototype-pollution", "header-injection", "vibe", "java", "rust", "go",
+);
+const SHARED_IDS = new Set(SHARED_DEFAULT_RULES.map((r) => r.id));
+const DEFAULT_RULES: Rule[] = [...RULES.filter((r) => !SHARED_IDS.has(r.id)), ...SHARED_DEFAULT_RULES];
 
 function walkFiles(dir: string, out: string[], depth = 0): void {
   if (depth > 14) return;

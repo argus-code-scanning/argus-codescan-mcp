@@ -16,6 +16,9 @@ on:
       - 'packages/languages/src/argus_languages/bundled_rules/prototype-pollution.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/header-injection.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/vibe.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/java.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/rust.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/go.yaml'
   pull_request:
     branches: [main, dev]
     paths:
@@ -30,6 +33,9 @@ on:
       - 'packages/languages/src/argus_languages/bundled_rules/prototype-pollution.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/header-injection.yaml'
       - 'packages/languages/src/argus_languages/bundled_rules/vibe.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/java.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/rust.yaml'
+      - 'packages/languages/src/argus_languages/bundled_rules/go.yaml'
 
 defaults:
   run:

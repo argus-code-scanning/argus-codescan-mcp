@@ -245,7 +245,16 @@ describe("Java / Kotlin / JSP / Spring config rules", () => {
   it("does not run generic code rules on Spring config files", async () => {
     await writeFile(join(root, "application.properties"), "spring.datasource.password=changeme1234\n");
     const result = await runNativeSast(root);
-    expect(result.findings).toEqual([]);
+    // Only the rule written for Spring config fires, not hardcoded-password & co.
+    expect(result.findings.map((f) => f.ruleId)).toEqual(["spring-config-plaintext-secret"]);
+  });
+
+  it("leaves env placeholders and encrypted values in Spring config alone", async () => {
+    await writeFile(
+      join(root, "application.properties"),
+      "spring.datasource.password=${DB_PASSWORD}\nspring.mail.password=ENC(abc123)\n",
+    );
+    expect((await runNativeSast(root)).findings).toEqual([]);
   });
 
   it("finds application-*.yml and bootstrap.properties", async () => {

@@ -381,7 +381,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -408,7 +410,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -435,7 +439,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -462,7 +468,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -489,7 +497,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -516,7 +526,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -543,7 +555,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -570,7 +584,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -597,7 +613,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -860,7 +878,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -907,7 +927,9 @@ export const SHARED_RULES: SharedRuleDef[] = [
       "python",
       "java",
       "kotlin",
+      "scala",
       "go",
+      "rust",
       "php",
       "ruby",
       "csharp",
@@ -1006,6 +1028,729 @@ export const SHARED_RULES: SharedRuleDef[] = [
     "confidence": "medium",
     "classification": "unset",
     "fixGuidance": "Supabase tables are reachable with the anon key that ships in your app. Keep RLS on (alter table ... enable row level security) and add policies for exactly who may read and write.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-sql-statement-concat",
+    "pack": "java",
+    "title": "Java SQL Statement built via string concatenation",
+    "severity": "high",
+    "source": "(Statement\\.execute\\s*\\(|createStatement\\s*\\(\\).*\\+|PreparedStatement.*\\+.*\\+)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin",
+      "scala"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-xxe",
+    "pack": "java",
+    "title": "Possible XXE — XML parser without secure features",
+    "severity": "high",
+    "source": "\\b(?:DocumentBuilderFactory|SAXParserFactory|XMLInputFactory|TransformerFactory|SchemaFactory|SAXTransformerFactory)\\.newInstance\\s*\\(|\\bXMLReaderFactory\\.createXMLReader\\s*\\(|\\b(?:new\\s+)?(?:SAXReader|SAXBuilder)\\s*\\(",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin",
+      "scala"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Turn off DTDs on every parser: factory.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true) (or XMLConstants.ACCESS_EXTERNAL_DTD / ACCESS_EXTERNAL_SCHEMA set to \"\" and XMLInputFactory.SUPPORT_DTD false). Otherwise an XML upload can read local files or make the server call internal URLs.",
+    "guardedBy": "disallow-doctype-decl|FEATURE_SECURE_PROCESSING|ACCESS_EXTERNAL_(?:DTD|SCHEMA|STYLESHEET)|external-general-entities|IS_SUPPORTING_EXTERNAL_ENTITIES|SUPPORT_DTD|setExpandEntityReferences\\s*\\(\\s*false",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-ldap-injection",
+    "pack": "java",
+    "title": "Possible LDAP injection — concatenated filter",
+    "severity": "high",
+    "source": "(search\\s*\\([^)]*\\+|DirContext\\.search\\s*\\([^)]*\\+)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-path-traversal",
+    "pack": "java",
+    "title": "Possible path traversal — user input in file path",
+    "severity": "moderate",
+    "source": "(Paths\\.get\\s*\\([^)]*\\+|Files\\.(read|write).*\\+)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin",
+      "scala"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "spring-csrf-disabled",
+    "pack": "java",
+    "title": "Spring CSRF protection disabled",
+    "severity": "moderate",
+    "source": "\\.csrf\\s*\\(\\s*\\)\\.disable\\s*\\(\\)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-log-injection",
+    "pack": "java",
+    "title": "Possible log injection — user input in log statement",
+    "severity": "low",
+    "source": "(logger\\.(info|warn|error|debug)\\s*\\([^)]*\\+.*request\\.|log\\.(info|warn|error)\\s*\\([^)]*\\+)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "low",
+    "classification": "unset",
+    "fixGuidance": "",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-spel-injection",
+    "pack": "java",
+    "title": "Spring expression (SpEL) built from a variable — code injection risk",
+    "severity": "high",
+    "source": "\\.parseExpression\\s*\\(\\s*(?![\"'])[A-Za-z_$][\\w$.]*(?:\\s*\\+|\\s*\\)|\\s*,)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "SpEL can call any Java method (T(java.lang.Runtime).getRuntime().exec(...)). Never parse user input as an expression; if you must evaluate it, use SimpleEvaluationContext .forReadOnlyDataBinding() instead of StandardEvaluationContext.",
+    "guardedBy": "SimpleEvaluationContext",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-expression-language-injection",
+    "pack": "java",
+    "title": "OGNL / MVEL / JEXL / EL expression evaluated from a variable",
+    "severity": "high",
+    "source": "\\b(?:Ognl\\.(?:getValue|setValue|parseExpression)|MVEL\\.(?:eval|compileExpression|executeExpression)|\\w*[jJ]exl\\w*\\.createExpression|\\w*\\.createScript)\\s*\\(\\s*(?![\"'])[A-Za-z_$][\\w$.]*\\s*[,)+]|\\bcreateValueExpression\\s*\\(\\s*[\\w.]+\\s*,\\s*(?![\"'])[A-Za-z_$][\\w$.]*\\s*[,)+]|\\bELProcessor\\s*\\(\\s*\\)\\.eval\\s*\\(\\s*(?![\"'])[A-Za-z_$]",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Expression languages run code. Map user input to a fixed set of allowed expressions or properties instead of evaluating it.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-script-engine-eval",
+    "pack": "java",
+    "title": "Script engine evaluates a variable (Nashorn / GraalJS / Groovy)",
+    "severity": "high",
+    "source": "\\b(?:ScriptEngine\\w*|engine|scriptEngine|groovyShell|GroovyShell\\(\\)|shell)\\.(?:eval|evaluate|parse)\\s*\\(\\s*(?![\"'])[A-Za-z_$][\\w$.]*\\s*[,)+]",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "A script engine runs arbitrary code with the app's permissions. Don't evaluate input; if scripting is a feature, sandbox it (GraalVM Context with allowAllAccess(false)) and allow only known scripts.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-unsafe-reflection",
+    "pack": "java",
+    "title": "Class or method chosen from request input (unsafe reflection)",
+    "severity": "moderate",
+    "source": "\\b(?:Class\\.forName|ClassLoader\\.loadClass|\\.getMethod|\\.getDeclaredMethod)\\s*\\([^)]*(?:getParameter|getHeader|@RequestParam|request\\.|params\\.|body\\.)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Look the name up in a fixed map of allowed classes or handlers instead of loading whatever the request names.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-jackson-default-typing",
+    "pack": "java",
+    "title": "Jackson polymorphic typing on — untrusted JSON can create any class",
+    "severity": "high",
+    "source": "\\b(?:enableDefaultTyping|activateDefaultTyping)\\s*\\(|JsonTypeInfo\\.Id\\.(?:CLASS|MINIMAL_CLASS)\\b|LaissezFaireSubTypeValidator",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "With default typing, JSON names the class to create, which leads to remote code execution through gadget classes. Use @JsonTypeInfo(use = Id.NAME) with @JsonSubTypes, or a BasicPolymorphicTypeValidator that allows only your own packages.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-xstream-unrestricted",
+    "pack": "java",
+    "title": "XStream without an allow-list of types",
+    "severity": "high",
+    "source": "\\b(?:new\\s+)?XStream\\s*\\(\\s*(?:\\)|new\\s|[A-Z]\\w*\\()",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "XStream deserializes any class by default. Call xstream.addPermission(NoTypePermission.NONE) then allowTypes(...) for your own classes only.",
+    "guardedBy": "allowTypes(?:ByWildcard|ByRegExp|Hierarchy)?\\s*\\(|addPermission\\s*\\(|setupDefaultSecurity",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-snakeyaml-unsafe",
+    "pack": "java",
+    "title": "SnakeYAML loads YAML with the default constructor (any class)",
+    "severity": "moderate",
+    "source": "\\b(?:new\\s+)?Yaml\\s*\\(\\s*(?:\\)|(?:new\\s+)?Constructor\\s*\\()",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Before SnakeYAML 2.0, new Yaml() can instantiate any class named in the document. Use new Yaml(new SafeConstructor(new LoaderOptions())) for untrusted YAML, and upgrade to 2.x.",
+    "guardedBy": "SafeConstructor|LoaderOptions\\(\\)[\\s\\S]{0,200}setTagInspector",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-cipher-weak-mode",
+    "pack": "java",
+    "title": "Cipher without an authenticated mode (AES defaults to ECB) or a broken cipher",
+    "severity": "moderate",
+    "source": "Cipher\\.getInstance\\s*\\(\\s*\"(?:AES|DES|DESede|RC2|RC4|ARCFOUR|Blowfish|AES/ECB/[^\"]*|AES/CBC/NoPadding)\"",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin",
+      "scala"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Cipher.getInstance(\"AES\") means AES/ECB, which leaks patterns. Use \"AES/GCM/NoPadding\" with a fresh random 12-byte IV per message.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-static-iv",
+    "pack": "java",
+    "title": "Fixed IV or nonce for encryption",
+    "severity": "moderate",
+    "source": "\\b(?:new\\s+)?(?:IvParameterSpec|GCMParameterSpec)\\s*\\((?:\\s*\\d+\\s*,)?\\s*(?:new\\s+byte\\s*\\[\\s*\\d*\\s*\\]|\"[^\"]*\"\\.(?:toByteArray|getBytes)|byteArrayOf\\s*\\(|new\\s+byte\\s*\\[\\s*\\]\\s*\\{)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin",
+      "scala"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Reusing an IV with the same key breaks CBC confidentiality and lets attackers forge GCM messages. Generate a random IV per message with SecureRandom and send it with the ciphertext.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "spring-cors-any-origin",
+    "pack": "java",
+    "title": "Spring CORS allows any origin",
+    "severity": "moderate",
+    "source": "@CrossOrigin\\s*(?:\\(\\s*\\)|(?!\\())|@CrossOrigin\\s*\\([^)]*(?:origins|value)\\s*=\\s*(?:\\{\\s*)?\"\\*\"|\\.allowedOrigins\\s*\\(\\s*\"\\*\"\\s*\\)|\\.allowedOriginPatterns\\s*\\(\\s*\"\\*\"\\s*\\)|setAllowedOrigins\\s*\\([^)]*\"\\*\"",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "List your own front-end origins (allowedOrigins(\"https://app.example.com\")). @CrossOrigin with no arguments allows every origin; with allowCredentials(true) any site can call the API as the logged-in user.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "spring-config-plaintext-secret",
+    "pack": "java",
+    "title": "Password or secret in plain text in Spring configuration",
+    "severity": "high",
+    "source": "^\\s*(?:spring\\.datasource\\.password|spring\\.mail\\.password|spring\\.rabbitmq\\.password|spring\\.data\\.redis\\.password|spring\\.redis\\.password|[\\w.-]*(?:jwt|token|api|client)[\\w.-]*\\.?secret|[\\w.-]*\\.(?:password|secret|api-key|apikey))\\s*[=:]\\s*(?!\\$\\{|ENC\\(|\\{cipher\\}|$)[^\\s#]{4,}|^\\s+(?:password|secret|api-key|apikey|client-secret|jwt-secret|secret-key)\\s*:\\s*(?![\"']?\\$\\{|ENC\\(|\\{cipher\\}|$)[^\\s#]{4,}",
+    "flags": "mi",
+    "languages": [
+      "spring-config"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Read it from the environment (spring.datasource.password=${DB_PASSWORD}) or a secret store (Vault, AWS Secrets Manager, Kubernetes secrets), and rotate the committed value.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "java-zip-slip",
+    "pack": "java",
+    "title": "Archive entry name used as a file path (Zip Slip)",
+    "severity": "high",
+    "source": "\\b(?:new\\s+)?File\\s*\\([^)]*\\b\\w*[eE]ntry\\.(?:getName|name)\\b|\\.resolve\\s*\\(\\s*\\w*[eE]ntry\\.(?:getName\\s*\\(\\s*\\)|name)\\s*\\)",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin",
+      "scala"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "An entry named ../../etc/cron.d/x writes outside the target folder. Resolve and normalize the path, then check dest.normalize().startsWith(targetDir) before writing.",
+    "guardedBy": "(?:getCanonicalPath|toRealPath|normalize)\\s*\\(\\s*\\)[\\s\\S]{0,120}startsWith",
+    "inlineIgnore": true
+  },
+  {
+    "id": "android-webview-js-bridge",
+    "pack": "java",
+    "title": "WebView exposes a Java object to JavaScript (addJavascriptInterface)",
+    "severity": "moderate",
+    "source": "\\.addJavascriptInterface\\s*\\(",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Any page loaded in the WebView can call the exposed methods. Load only your own HTTPS content, annotate exposed methods with @JavascriptInterface and keep them minimal.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "android-webview-file-access",
+    "pack": "java",
+    "title": "WebView lets pages read local files",
+    "severity": "moderate",
+    "source": "\\.(?:setAllowFileAccessFromFileURLs|setAllowUniversalAccessFromFileURLs)\\s*\\(\\s*true|\\b(?:allowFileAccessFromFileURLs|allowUniversalAccessFromFileURLs)\\s*=\\s*true",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "With file URL access a page can read the app's private files. Keep these off and serve local content through WebViewAssetLoader.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "android-world-readable-file",
+    "pack": "java",
+    "title": "File or preferences created world-readable / world-writable",
+    "severity": "high",
+    "source": "\\bMODE_WORLD_(?:READABLE|WRITEABLE)\\b",
+    "flags": "",
+    "languages": [
+      "java",
+      "kotlin"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Other apps can read or change the file. Use MODE_PRIVATE, and a FileProvider to share specific files.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-sql-format",
+    "pack": "rust",
+    "title": "SQL built with format! — use bind parameters",
+    "severity": "high",
+    "source": "\\b(?:sql_query|query|query_as|query_scalar|query_unchecked|execute|prepare|prepare_cached|batch_execute|simple_query|raw_sql|from_sql)\\s*(?:::<[^>]*>)?\\s*\\(\\s*&?\\s*format!\\s*\\(|format!\\s*\\(\\s*\"[^\"]*\\b(?:SELECT\\b[^\"]*\\bFROM|INSERT\\s+INTO|UPDATE\\s+\\w+\\s+SET|DELETE\\s+FROM)\\b[^\"]*\\{",
+    "flags": "i",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Pass values as bind parameters: sqlx::query(\"SELECT * FROM users WHERE id = $1\").bind(id), diesel's .filter(users::id.eq(id)), or rusqlite's params![id]. Never format! user input into SQL text.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-command-shell",
+    "pack": "rust",
+    "title": "Shell command built from a variable (sh -c / cmd /C)",
+    "severity": "high",
+    "source": "Command::new\\s*\\(\\s*\"(?:sh|bash|zsh|cmd|cmd\\.exe|powershell|pwsh)\"\\s*\\)[\\s\\S]{0,160}?\"(?:-c|/C|/c|-Command)\"\\s*[,)\\]][\\s\\S]{0,40}?(?:format!\\s*\\(|\\.arg\\s*\\(\\s*&?\\s*[a-z_][\\w.]*\\s*\\)|,?\\s*&?\\s*[a-z_][\\w.]*\\s*\\])",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": true,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Run the program directly with arguments, without a shell: Command::new(\"convert\").arg(&input).arg(&output). A shell parses ; | $( ) in the value.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-jwt-validation-off",
+    "pack": "rust",
+    "title": "JWT signature or expiry validation turned off",
+    "severity": "high",
+    "source": "\\binsecure_disable_signature_validation\\s*\\(|\\bdangerous_insecure_decode\\w*\\s*\\(|\\bvalidate_exp\\s*=\\s*false\\b|\\bvalidate_nbf\\s*=\\s*false\\b|\\brequired_spec_claims\\s*=\\s*HashSet::new\\s*\\(\\s*\\)",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Keep jsonwebtoken's default Validation (signature, exp and the algorithm you expect): decode::<Claims>(&token, &DecodingKey::from_secret(key), &Validation::new(Algorithm::HS256)).",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-secret-env-fallback",
+    "pack": "rust",
+    "title": "Secret falls back to a hardcoded value when the env variable is missing",
+    "severity": "high",
+    "source": "env::var\\s*\\(\\s*\"[A-Z0-9_]*(?:SECRET|KEY|TOKEN|PASSWORD|PASS)[A-Z0-9_]*\"\\s*\\)\\s*\\.unwrap_or(?:_else)?\\s*\\(\\s*(?:\\|[^|]*\\|\\s*)?(?:String::from\\s*\\(\\s*)?\"[^\"]{4,}\"",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "A default secret means production silently runs with a key that's in the repository. Fail at startup instead: env::var(\"JWT_SECRET\").expect(\"JWT_SECRET must be set\").",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-cors-permissive",
+    "pack": "rust",
+    "title": "CORS allows any origin",
+    "severity": "moderate",
+    "source": "\\bCorsLayer::(?:permissive|very_permissive)\\s*\\(|\\bCors::permissive\\s*\\(|\\.allow_any_origin\\s*\\(|AllowOrigin::any\\s*\\(|\\.allow_origin\\s*\\(\\s*(?:Any|\"\\*\")",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "List the front-end origins you serve (CorsLayer::new().allow_origin([\"https://app.example.com\".parse()?])), especially when cookies or Authorization headers are sent.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-path-from-input",
+    "pack": "rust",
+    "title": "File path built from request input (path traversal)",
+    "severity": "moderate",
+    "source": "\\b(?:Path::new|PathBuf::from|\\.join|\\.push)\\s*\\(\\s*&?\\s*(?:format!\\s*\\([^)]*\\b(?:path|file|name|filename)\\b|(?:path|file|name|filename|file_name|req_path)\\b(?:\\.\\d+|\\.0)?\\s*\\))|\\b(?:File::open|fs::read(?:_to_string)?|fs::remove_file|fs::write)\\s*\\(\\s*&?\\s*format!\\s*\\(\\s*\"[^\"]*\\{\\s*(?:path|file|name|filename)?\\s*\\}",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "low",
+    "classification": "unset",
+    "fixGuidance": "A name like ../../etc/passwd escapes the folder. Canonicalize the joined path and check it still starts_with the base directory, or serve files with tower_http::ServeDir / actix_files, which do that for you.",
+    "guardedBy": "canonicalize\\s*\\(\\s*\\)[\\s\\S]{0,200}starts_with|starts_with\\s*\\([\\s\\S]{0,80}canonicalize|ServeDir::new|NamedFile::open|\\.components\\s*\\(\\s*\\)[\\s\\S]{0,120}ParentDir",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-zip-slip",
+    "pack": "rust",
+    "title": "Archive entry name used as a file path (Zip Slip)",
+    "severity": "high",
+    "source": "\\.(?:join|push)\\s*\\(\\s*&?\\s*(?:\\w*(?:entry|file)\\w*\\.(?:name|path)\\s*\\(\\s*\\)|\\w*(?:entry|file)\\w*\\.mangled_name\\s*\\(\\s*\\)\\s*\\.\\s*to_str)",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Use the zip crate's file.enclosed_name() (returns None for ../ paths) or tar's entry.unpack_in(dir), which refuses paths outside the directory.",
+    "guardedBy": "enclosed_name\\s*\\(|sanitized_name\\s*\\(|starts_with\\s*\\(",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-unsafe-memory",
+    "pack": "rust",
+    "title": "Memory-unsafe operation (uninitialized memory or transmute)",
+    "severity": "moderate",
+    "source": "\\bmem::uninitialized\\s*(?:::<[^>]*>)?\\s*\\(|\\bmem::transmute\\s*(?:::<[^>]*>)?\\s*\\(|\\bfrom_raw_parts(?:_mut)?\\s*\\(",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "low",
+    "classification": "unset",
+    "fixGuidance": "These are undefined behaviour unless every invariant holds (mem::uninitialized always is). Prefer MaybeUninit, safe conversions (from_le_bytes, bytemuck::cast) and Vec::with_capacity + push; keep each unsafe block small with a SAFETY: comment.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "rust-tls-old-version",
+    "pack": "rust",
+    "title": "Old TLS versions allowed",
+    "severity": "moderate",
+    "source": "\\bmin_protocol_version\\s*\\(\\s*Some\\s*\\(\\s*(?:Protocol::)?(?:Tlsv10|Tlsv11|Sslv3)\\b|SslVersion::(?:TLS1|TLS1_1|SSL3)\\b|\\.set_min_proto_version\\s*\\(\\s*Some\\s*\\(\\s*SslVersion::(?:TLS1|TLS1_1|SSL3)\\b",
+    "flags": "",
+    "languages": [
+      "rust"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "TLS 1.0 and 1.1 are deprecated and weak. Require TLS 1.2 or later (rustls only supports 1.2+ by default).",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-sql-concat",
+    "pack": "go",
+    "title": "SQL built with string concatenation — use placeholders",
+    "severity": "high",
+    "source": "\\.(?:Query|QueryRow|Exec|QueryContext|QueryRowContext|ExecContext|Prepare|PrepareContext|Get|Select|MustExec|Queryx|QueryRowx|NamedExec)\\s*\\(\\s*(?:ctx\\s*,\\s*|context\\.\\w+\\(\\)\\s*,\\s*)?\"[^\"]*\\b(?:SELECT|INSERT|UPDATE|DELETE|WHERE|ORDER\\s+BY)\\b[^\"]*\"\\s*\\+",
+    "flags": "i",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Use placeholders and pass values separately: db.Query(\"SELECT * FROM users WHERE id = $1\", id) (? for MySQL / SQLite). Column names can't be parameters: map them from a fixed list.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-gorm-raw-sql",
+    "pack": "go",
+    "title": "GORM query built with fmt.Sprintf or concatenation",
+    "severity": "high",
+    "source": "\\.(?:Where|Or|Not|Raw|Exec|Order|Group|Having|Joins|Select|Pluck|Distinct)\\s*\\(\\s*(?:fmt\\.Sprintf\\s*\\(|\"[^\"]*\"\\s*\\+\\s*[A-Za-z_])",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Pass values as arguments: db.Where(\"name = ?\", name), db.Raw(\"... WHERE id = ?\", id). For ORDER BY, map the column from a fixed list (clause.OrderByColumn).",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-template-unescaped",
+    "pack": "go",
+    "title": "html/template escaping bypassed with template.HTML / JS / URL",
+    "severity": "moderate",
+    "source": "\\btemplate\\.(?:HTML|HTMLAttr|JS|JSStr|URL|CSS|Srcset)\\s*\\(\\s*(?![\"`])[A-Za-z_][\\w.]*(?:\\s*\\(|\\s*\\)|\\s*\\+|\\[)",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "These types tell html/template the value is already safe, so it is inserted as is. Pass plain strings and let the template escape them; sanitize rich HTML with bluemonday first if you must allow it.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-path-from-request",
+    "pack": "go",
+    "title": "File path built from request input (path traversal)",
+    "severity": "moderate",
+    "source": "\\b(?:filepath\\.Join|path\\.Join|os\\.(?:Open|OpenFile|ReadFile|Create|Remove|RemoveAll|WriteFile|Stat|ReadDir)|http\\.ServeFile|ioutil\\.ReadFile|c\\.File|c\\.Attachment|c\\.SendFile)\\s*\\([^)\\n]*(?:\\b(?:r|req|request)\\.(?:URL\\.Query\\(\\)\\.Get|FormValue|PostFormValue|URL\\.Path)\\b|mux\\.Vars\\s*\\(|chi\\.URLParam\\s*\\(|\\bc\\.(?:Query|Param|Params|PostForm|DefaultQuery|QueryParam|FormValue)\\s*\\()",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "A value like ../../etc/passwd escapes the folder. Use os.OpenRoot / root.Open (Go 1.24+), or check filepath.IsLocal(name) before joining; http.FileServer(http.Dir(dir)) already does this.",
+    "guardedBy": "filepath\\.IsLocal|os\\.OpenRoot|\\.OpenInRoot|securejoin\\.|filepath\\.Rel\\s*\\(|strings\\.HasPrefix\\s*\\([^)]*filepath\\.Clean|filepath\\.Clean[\\s\\S]{0,160}strings\\.HasPrefix",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-zip-slip",
+    "pack": "go",
+    "title": "Archive entry name used as a file path (Zip Slip)",
+    "severity": "high",
+    "source": "\\b(?:filepath|path)\\.Join\\s*\\([^)\\n]*\\b\\w*(?:f|file|hdr|header|entry|zf)\\w*\\.Name\\b",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Reject entries that leave the target: if !filepath.IsLocal(f.Name) { return errBadPath } before joining (Go 1.20+), or extract with os.OpenRoot.",
+    "guardedBy": "filepath\\.IsLocal|strings\\.HasPrefix\\s*\\([^)]*filepath\\.Clean|filepath\\.Clean[\\s\\S]{0,160}strings\\.HasPrefix|os\\.OpenRoot|securejoin\\.",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-ssrf-request-url",
+    "pack": "go",
+    "title": "Server fetches a URL taken from the request (SSRF)",
+    "severity": "high",
+    "source": "\\b(?:http\\.(?:Get|Post|Head|PostForm)|(?:client|httpClient|\\w*Client)\\.(?:Get|Post|Head))\\s*\\(\\s*(?:(?:r|req|request)\\.(?:URL\\.Query\\(\\)\\.Get|FormValue|PostFormValue|Header\\.Get)|c\\.(?:Query|Param|PostForm|DefaultQuery|QueryParam|FormValue)\\s*\\(|mux\\.Vars)|http\\.NewRequest(?:WithContext)?\\s*\\([^)\\n]*(?:(?:r|req|request)\\.(?:URL\\.Query\\(\\)\\.Get|FormValue|PostFormValue)|\\bc\\.(?:Query|Param|PostForm|QueryParam)\\s*\\()",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Attackers can make the server call internal services (cloud metadata at 169.254.169.254, admin APIs). Allow only known hosts, and resolve the address and block private ranges in the dialer's Control function.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-cors-any-origin",
+    "pack": "go",
+    "title": "CORS allows any origin",
+    "severity": "moderate",
+    "source": "\\bAllow(?:ed)?Origins\\s*:\\s*\\[\\]string\\s*\\{\\s*\"\\*\"\\s*\\}|\\bAllowAllOrigins\\s*:\\s*true\\b|\\bAllowOrigins\\s*:\\s*\"\\*\"|Header\\(\\)\\.(?:Set|Add)\\s*\\(\\s*\"Access-Control-Allow-Origin\"\\s*,\\s*\"\\*\"\\s*\\)",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "List the front-end origins you serve. With \"*\" plus credentials (cookies, Authorization) any site can call the API as the logged-in user.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-jwt-hardcoded-key",
+    "pack": "go",
+    "title": "JWT signed or verified with a key written in the code",
+    "severity": "high",
+    "source": "\\.SignedString\\s*\\(\\s*\\[\\]byte\\s*\\(\\s*\"[^\"]{1,}\"\\s*\\)\\s*\\)|return\\s+\\[\\]byte\\s*\\(\\s*\"[^\"]{4,}\"\\s*\\)\\s*,\\s*nil|\\b(?:jwtKey|jwtSecret|secretKey|signingKey|hmacSecret|JWT_SECRET|jwtSigningKey)\\s*(?:=|:=)\\s*\\[\\]byte\\s*\\(\\s*\"[^\"]{4,}\"\\s*\\)",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "Anyone with the repository can mint valid tokens. Load the key at startup from the environment or a secret manager, fail if it's missing, and rotate the committed one.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-secret-env-fallback",
+    "pack": "go",
+    "title": "Secret falls back to a hardcoded value when the env variable is missing",
+    "severity": "high",
+    "source": "\\b(?:getEnv|GetEnv|getenv|envOr\\w*|EnvOr\\w*|getEnvOrDefault|GetEnvDefault|lookupEnv\\w*)\\s*\\(\\s*\"[A-Z0-9_]*(?:SECRET|KEY|TOKEN|PASSWORD|PASS)[A-Z0-9_]*\"\\s*,\\s*\"[^\"]{4,}\"\\s*\\)|os\\.Getenv\\s*\\(\\s*\"[A-Z0-9_]*(?:SECRET|KEY|TOKEN|PASSWORD)[A-Z0-9_]*\"\\s*\\)\\s*\\n\\s*if\\s+\\w+\\s*==\\s*\"\"\\s*\\{\\s*\\n\\s*\\w+\\s*=\\s*\"[^\"]{4,}\"",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": true,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "A default secret means production silently runs with a key that's in the repository. Fail at startup instead: if secret == \"\" { log.Fatal(\"JWT_SECRET must be set\") }.",
+    "guardedBy": "",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-http-server-no-timeout",
+    "pack": "go",
+    "title": "HTTP server without read timeouts (slow clients can exhaust it)",
+    "severity": "low",
+    "source": "\\bhttp\\.ListenAndServe(?:TLS)?\\s*\\(|&http\\.Server\\s*\\{",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "http.ListenAndServe has no timeouts, so a client sending headers slowly (Slowloris) holds a connection forever. Use &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 120 * time.Second}.",
+    "guardedBy": "ReadHeaderTimeout|ReadTimeout|http\\.TimeoutHandler",
+    "inlineIgnore": true
+  },
+  {
+    "id": "go-tls-old-version",
+    "pack": "go",
+    "title": "Old TLS versions allowed (MinVersion below TLS 1.2)",
+    "severity": "moderate",
+    "source": "\\bMinVersion\\s*:\\s*tls\\.Version(?:TLS10|TLS11|SSL30)\\b",
+    "flags": "",
+    "languages": [
+      "go"
+    ],
+    "multiline": false,
+    "confidence": "medium",
+    "classification": "unset",
+    "fixGuidance": "TLS 1.0 and 1.1 are deprecated and weak. Use MinVersion: tls.VersionTLS12 (or TLS13).",
     "guardedBy": "",
     "inlineIgnore": true
   }
