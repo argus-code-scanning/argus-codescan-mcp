@@ -333,11 +333,18 @@ async def run_all_ansible(
 ) -> list[ScanResult]:
     """Run all available Ansible security scanners in parallel.
 
-    Tools: ansible-lint, kics-ansible, checkov-ansible
+    Built in (always, nothing to install): the argus-languages Ansible rules and the
+    task-level checks in ``ansible_checks``. Optional: ansible-lint, KICS, Checkov.
     """
-    selected = tools or ["ansible-lint", "kics", "checkov"]
+    from argus.tools.ansible_checks import run_ansible_checks
+    from argus.tools.code import run_native_languages
+
+    selected = tools or ["builtin", "ansible-lint", "kics", "checkov"]
 
     tasks: list = []
+    if "builtin" in selected or "argus" in selected or not tools:
+        tasks.append(run_native_languages(target, rule_files=("ansible.yaml",)))
+        tasks.append(run_ansible_checks(target))
     if "ansible-lint" in selected:
         tasks.append(run_ansible_lint(target, profile=ansible_lint_profile, timeout=timeout))
     if "kics" in selected:

@@ -73,7 +73,7 @@ Connect Cursor, VS Code, Claude Desktop, JetBrains, Windsurf, or any MCP-compati
 | **Secrets** | Gitleaks · detect-secrets · TruffleHog |
 | **IaC** | Checkov · Trivy config · Terrascan · KICS |
 | **Terraform** | tfsec · tflint · terraform validate · KICS · Checkov |
-| **Ansible** | ansible-lint · KICS · Checkov |
+| **Ansible** | Built in (nothing to install): secrets without `no_log`, plaintext secrets and become passwords, TLS and package signatures off, `curl \| sh`, plain-HTTP downloads, world-writable files, `NOPASSWD: ALL`, weak SSH config, firewall/SELinux off, privileged containers, unpinned Galaxy roles, `get_url` without checksum. Adds ansible-lint · KICS · Checkov when installed |
 | **Container** | Trivy image scan |
 | **AI/ML** | Built-in rules — unsafe model load, LLM API keys, prompt injection, Gradio share |
 | **Malware** | Built-in heuristics — crypto miners, reverse shells, BAT/PS1 droppers, web shells (not AV) |
@@ -237,7 +237,7 @@ Each finding names the code point and its column, for example `U+202E RIGHT-TO-L
 | `scan_secrets` | Leaked API keys, tokens, passwords |
 | `scan_iac` | Terraform, K8s, Dockerfile, Helm, Ansible misconfigs |
 | `scan_terraform` | Deep Terraform scan (tfsec, tflint, validate, KICS) |
-| `scan_ansible` | Ansible playbook & role security scan |
+| `scan_ansible` | Ansible playbook & role security scan: built-in checks, plus ansible-lint / KICS / Checkov when installed |
 | `scan_ml` | AI/ML & LLM pipeline security (model load, API keys, prompts) |
 | `scan_malware` | Malware / backdoor / crypto-miner / malicious BAT-PS1 heuristics |
 | `scan_pci` | PCI-DSS cardholder-data heuristics (CVV storage, PANs in logs, hardcoded card numbers with a Luhn check, http:// card data) |

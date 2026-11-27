@@ -10,7 +10,7 @@ import type { Finding, FindingContext, ScanResult, Severity } from "./types.js";
 
 const TEST_DIRS = new Set([
   "test", "tests", "__tests__", "__mocks__", "spec", "specs", "fixtures", "fixture",
-  "testdata", "test-data", "test_data", "e2e", "cypress",
+  "testdata", "test-data", "test_data", "e2e", "cypress", "molecule",
 ]);
 const DOCS_DIRS = new Set(["docs", "doc", "examples", "example", "samples", "sample", "demo", "demos"]);
 

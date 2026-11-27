@@ -392,8 +392,12 @@ async def run_all_iac(
     # Add Ansible-specific scanners only when Ansible layout/content is detected
     if _looks_like_ansible_project(target_path):
         from argus.tools.ansible import run_ansible_lint
+        from argus.tools.ansible_checks import run_ansible_checks
 
         tasks.append(run_ansible_lint(target, timeout=timeout))
+        # Built-in task checks (no_log, get_url checksum, unpinned Galaxy roles). The line
+        # rules already run in the SAST scan.
+        tasks.append(run_ansible_checks(target))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     return collect_scan_results(results, label="IaC scanner")
