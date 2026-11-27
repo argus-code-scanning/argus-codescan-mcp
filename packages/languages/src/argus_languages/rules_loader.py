@@ -34,6 +34,7 @@ RULE_FILES = (
     "dart.yaml",
     "flutter.yaml",
     "other.yaml",
+    "go.yaml",
     "github-actions.yaml",
     "exposed-endpoints.yaml",
     "ssti.yaml",
