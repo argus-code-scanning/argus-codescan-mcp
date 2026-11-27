@@ -24,6 +24,7 @@ RULE_FILES = (
     "vibe.yaml",
     "prototype-pollution.yaml",
     "java.yaml",
+    "rust.yaml",
     "php.yaml",
     "laravel.yaml",
     "access-control.yaml",
