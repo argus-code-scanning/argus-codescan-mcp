@@ -10,6 +10,9 @@ exclude_paths:
   - "**/fixtures/**"
   # The npm scanner's rule list: its regexes and titles describe the attacks, so they match themselves.
   - "packages/npm/src/scanners/native-sast.ts"
+  # The rule packs themselves: patterns, titles and fix advice describe the attacks, and
+  # ansible.yaml looks like a playbook (it mentions ansible.builtin), so they match themselves.
+  - "packages/languages/src/argus_languages/bundled_rules/**"
 
 suppressions:
   # Install instructions Argus prints for optional tools (Trivy, TruffleHog, tflint, tfsec).

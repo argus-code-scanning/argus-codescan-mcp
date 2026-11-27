@@ -9,7 +9,8 @@
 - ``ansible-galaxy-unpinned``: roles / collections in ``requirements.yml`` without a version,
   or pinned to a branch (main, master, HEAD).
 
-Line rules (hardcoded secrets, TLS off, curl | sh…) are in argus-languages ``ansible.yaml``.
+Line rules (hardcoded secrets, TLS off, remote scripts piped to a shell…) are in
+argus-languages ``ansible.yaml``.
 Files are parsed with a safe YAML loader, never run.
 """
 
@@ -131,7 +132,11 @@ def _load(path: Path) -> Any:
     if text.lstrip().startswith("$ANSIBLE_VAULT"):
         return None  # encrypted file: nothing to see, and that's the point
     try:
-        return yaml.load(text, Loader=_LineLoader)  # noqa: S506 - SafeLoader subclass
+        loader = _LineLoader(text)  # a SafeLoader: plain data only, no Python objects
+        try:
+            return loader.get_single_data()
+        finally:
+            loader.dispose()
     except yaml.YAMLError:
         return None
 
@@ -284,7 +289,7 @@ class _Checker:
 
         if short == "get_url" and isinstance(args, dict) and not args.get("checksum"):
             url = str(args.get("url", ""))
-            if url and not re.search(r"\.(?:asc|sig|sha256|sha512|md5)$", url):
+            if url and not re.search(r"\.(?:asc|sig|sha256|sha512)$", url):
                 self.findings.append(
                     _finding(
                         "ansible-get-url-no-checksum",
