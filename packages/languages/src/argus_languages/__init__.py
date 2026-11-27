@@ -12,4 +12,4 @@ __all__ = [
     "scan_path",
 ]
 
-__version__ = "0.10.1"
+__version__ = "0.11.0"
