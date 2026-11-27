@@ -22,6 +22,10 @@
     "claude"
   ],
   "homepage": "https://github.com/argus-code-scanning/argus-codescan-mcp",
+  "funding": {
+    "type": "buymeacoffee",
+    "url": "https://buymeacoffee.com/gabeokiri"
+  },
   "bugs": {
     "url": "https://github.com/argus-code-scanning/argus-codescan-mcp/issues"
   },

@@ -33,6 +33,7 @@ argus-languages = "argus_languages.cli:main"
 Homepage = "https://github.com/argus-code-scanning/argus-codescan-mcp"
 Repository = "https://github.com/argus-code-scanning/argus-codescan-mcp"
 Documentation = "https://github.com/argus-code-scanning/argus-codescan-mcp/tree/main/packages/languages"
+Funding = "https://buymeacoffee.com/gabeokiri"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/argus_languages"]
