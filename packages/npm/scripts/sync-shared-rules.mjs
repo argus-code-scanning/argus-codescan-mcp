@@ -24,6 +24,9 @@ export const PACKS = [
   "prototype-pollution",
   "header-injection",
   "vibe",
+  "java",
+  "rust",
+  "go",
 ];
 
 // YAML language names -> argus-native language names. Rules without `languages` run on
@@ -32,8 +35,9 @@ const LANGS = {
   python: "python", javascript: "javascript", typescript: "typescript", java: "java",
   kotlin: "kotlin", go: "go", php: "php", ruby: "ruby", csharp: "csharp",
   "spring-config": "spring-config", html: "html", vue: "vue", sql: "sql",
+  rust: "rust", scala: "scala",
 };
-const DEFAULT_LANGS = ["javascript", "typescript", "python", "java", "kotlin", "go", "php", "ruby", "csharp", "html", "vue"];
+const DEFAULT_LANGS = ["javascript", "typescript", "python", "java", "kotlin", "scala", "go", "rust", "php", "ruby", "csharp", "html", "vue"];
 const SEVERITY = { critical: "critical", high: "high", medium: "moderate", moderate: "moderate", low: "low", info: "info" };
 
 function checkSource(pack, id, source, flags) {

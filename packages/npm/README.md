@@ -105,7 +105,7 @@ npx argus-codescan scan sast ./src --fail-on high
 | **eslint-security** | Unsafe regex, child_process, eval, prototype issues in JS/JSX |
 | **opengrep** | Auto-downloads on first scan (Semgrep-compatible deep rules, no pip) |
 
-**File types:** `.js` `.jsx` `.ts` `.tsx` `.mjs` `.cjs`
+**File types:** `.js` `.jsx` `.ts` `.tsx` `.mjs` `.cjs`, plus `.py` `.java` `.kt` `.go` `.rs` `.php` `.rb` `.cs` and Spring config with the built-in rules (see [Java, Kotlin, Go, Rust…](#java-kotlin-go-rust-php-flutter-terraform-ansible))
 
 ---
 
@@ -264,9 +264,13 @@ The **npm package** is for direct CLI scanning in Node projects — no MCP requi
 
 ---
 
-## Java, PHP, Flutter, Terraform, Ansible?
+## Java, Kotlin, Go, Rust, PHP, Flutter, Terraform, Ansible?
 
-**Java / Kotlin** are covered here too: `scan sast` checks SQL built from strings, XXE, LDAP injection, path traversal, JJWT tokens parsed without a signature, Spring Security `permitAll()` on everything, `web.ignoring()`, CSRF disabled and `@PermitAll`, JSP web shells, and Spring Boot config (`application*.properties` / `*.yml`: Actuator exposing every endpoint, the H2 console enabled). These are the same rules as the Python package.
+**Java / Kotlin / Go / Rust** are covered here too, with the same rules (and rule ids) as the Python package, generated from its rule packs:
+
+- **Java / Kotlin:** SQL built from strings, XXE (low confidence when DTDs are turned off), SpEL / OGNL / MVEL / script-engine injection, Jackson default typing, XStream and SnakeYAML deserialization, `Cipher.getInstance("AES")` (ECB) and fixed IVs, Zip Slip, LDAP injection, path traversal, JJWT tokens parsed without a signature, Spring Security `permitAll()` on everything, `web.ignoring()`, CSRF disabled, `@PermitAll`, `@CrossOrigin` for any origin, JSP web shells, Android WebView bridges and file access, `MODE_WORLD_READABLE`, and Spring Boot config (`application*.properties` / `*.yml`: plaintext passwords and secrets, Actuator exposing every endpoint, the H2 console enabled).
+- **Go:** SQL built with `+` or `fmt.Sprintf` (database/sql, sqlx, GORM), `template.HTML` escaping bypass, path traversal and Zip Slip, SSRF from request input, CORS `*`, hardcoded JWT keys and secret fallbacks, servers without read timeouts, TLS below 1.2 (net/http, gin, echo, chi, gorilla/mux, fiber).
+- **Rust** (`.rs`): SQL built with `format!` (sqlx, diesel, postgres, rusqlite), `sh -c` with a variable, JWT validation turned off, secret env fallbacks, permissive CORS (axum, actix-web), path traversal, Zip Slip, `mem::uninitialized` / `transmute`, old TLS versions.
 
 For Maven/Gradle dependency CVEs, and for other languages, use the Python package:
 

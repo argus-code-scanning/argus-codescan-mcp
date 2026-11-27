@@ -8,6 +8,8 @@ exclude_paths:
   - "tests/**"
   - "**/tests/**"
   - "**/fixtures/**"
+  # Rules generated from the argus-languages packs for the npm engine: same reason as below.
+  - "packages/npm/src/scanners/shared-rules.generated.ts"
   # The npm scanner's rule list: its regexes and titles describe the attacks, so they match themselves.
   - "packages/npm/src/scanners/native-sast.ts"
 
