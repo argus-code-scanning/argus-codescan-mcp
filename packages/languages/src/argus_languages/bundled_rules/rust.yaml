@@ -1,0 +1,96 @@
+# Rust: web services (axum, actix-web, rocket, warp), CLIs and libraries.
+# Shared rules already cover hardcoded passwords, weak hashes (MD5 / SHA1) and dependency
+# CVEs (OSV on Cargo.lock). TLS verification (danger_accept_invalid_certs) is #195 and
+# insecure randomness is #194.
+
+- id: rust-sql-format
+  title: SQL built with format! — use bind parameters
+  severity: high
+  pattern: '\b(?:sql_query|query|query_as|query_scalar|query_unchecked|execute|prepare|prepare_cached|batch_execute|simple_query|raw_sql|from_sql)\s*(?:::<[^>]*>)?\s*\(\s*&?\s*format!\s*\(|format!\s*\(\s*"[^"]*\b(?:SELECT\b[^"]*\bFROM|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b[^"]*\{'
+  flags: [i]
+  languages: [rust]
+  fix_guidance: >-
+    Pass values as bind parameters: sqlx::query("SELECT * FROM users WHERE id = $1").bind(id),
+    diesel's .filter(users::id.eq(id)), or rusqlite's params![id]. Never format! user input
+    into SQL text.
+
+- id: rust-command-shell
+  title: Shell command built from a variable (sh -c / cmd /C)
+  severity: high
+  pattern: 'Command::new\s*\(\s*"(?:sh|bash|zsh|cmd|cmd\.exe|powershell|pwsh)"\s*\)[\s\S]{0,160}?"(?:-c|/C|/c|-Command)"\s*[,)\]][\s\S]{0,40}?(?:format!\s*\(|\.arg\s*\(\s*&?\s*[a-z_][\w.]*\s*\)|,?\s*&?\s*[a-z_][\w.]*\s*\])'
+  multiline: true
+  languages: [rust]
+  fix_guidance: >-
+    Run the program directly with arguments, without a shell:
+    Command::new("convert").arg(&input).arg(&output). A shell parses ; | $( ) in the value.
+
+- id: rust-jwt-validation-off
+  title: JWT signature or expiry validation turned off
+  severity: high
+  pattern: '\binsecure_disable_signature_validation\s*\(|\bdangerous_insecure_decode\w*\s*\(|\bvalidate_exp\s*=\s*false\b|\bvalidate_nbf\s*=\s*false\b|\brequired_spec_claims\s*=\s*HashSet::new\s*\(\s*\)'
+  languages: [rust]
+  fix_guidance: >-
+    Keep jsonwebtoken's default Validation (signature, exp and the algorithm you expect):
+    decode::<Claims>(&token, &DecodingKey::from_secret(key), &Validation::new(Algorithm::HS256)).
+
+- id: rust-secret-env-fallback
+  title: Secret falls back to a hardcoded value when the env variable is missing
+  severity: high
+  pattern: 'env::var\s*\(\s*"[A-Z0-9_]*(?:SECRET|KEY|TOKEN|PASSWORD|PASS)[A-Z0-9_]*"\s*\)\s*\.unwrap_or(?:_else)?\s*\(\s*(?:\|[^|]*\|\s*)?(?:String::from\s*\(\s*)?"[^"]{4,}"'
+  languages: [rust]
+  fix_guidance: >-
+    A default secret means production silently runs with a key that's in the repository.
+    Fail at startup instead: env::var("JWT_SECRET").expect("JWT_SECRET must be set").
+
+- id: rust-cors-permissive
+  title: CORS allows any origin
+  severity: moderate
+  pattern: '\bCorsLayer::(?:permissive|very_permissive)\s*\(|\bCors::permissive\s*\(|\.allow_any_origin\s*\(|AllowOrigin::any\s*\(|\.allow_origin\s*\(\s*(?:Any|"\*")'
+  languages: [rust]
+  fix_guidance: >-
+    List the front-end origins you serve
+    (CorsLayer::new().allow_origin(["https://app.example.com".parse()?])), especially when
+    cookies or Authorization headers are sent.
+
+- id: rust-path-from-input
+  title: File path built from request input (path traversal)
+  severity: moderate
+  confidence: low
+  pattern: '\b(?:Path::new|PathBuf::from|\.join|\.push)\s*\(\s*&?\s*(?:format!\s*\([^)]*\b(?:path|file|name|filename)\b|(?:path|file|name|filename|file_name|req_path)\b(?:\.\d+|\.0)?\s*\))|\b(?:File::open|fs::read(?:_to_string)?|fs::remove_file|fs::write)\s*\(\s*&?\s*format!\s*\(\s*"[^"]*\{\s*(?:path|file|name|filename)?\s*\}'
+  languages: [rust]
+  guarded_by: 'canonicalize\s*\(\s*\)[\s\S]{0,200}starts_with|starts_with\s*\([\s\S]{0,80}canonicalize|ServeDir::new|NamedFile::open|\.components\s*\(\s*\)[\s\S]{0,120}ParentDir'
+  fix_guidance: >-
+    A name like ../../etc/passwd escapes the folder. Canonicalize the joined path and check
+    it still starts_with the base directory, or serve files with tower_http::ServeDir /
+    actix_files, which do that for you.
+
+- id: rust-zip-slip
+  title: Archive entry name used as a file path (Zip Slip)
+  severity: high
+  pattern: '\.(?:join|push)\s*\(\s*&?\s*(?:\w*(?:entry|file)\w*\.(?:name|path)\s*\(\s*\)|\w*(?:entry|file)\w*\.mangled_name\s*\(\s*\)\s*\.\s*to_str)'
+  languages: [rust]
+  guarded_by: 'enclosed_name\s*\(|sanitized_name\s*\(|starts_with\s*\('
+  fix_guidance: >-
+    Use the zip crate's file.enclosed_name() (returns None for ../ paths) or tar's
+    entry.unpack_in(dir), which refuses paths outside the directory.
+
+- id: rust-unsafe-memory
+  title: Memory-unsafe operation (uninitialized memory or transmute)
+  severity: moderate
+  confidence: low
+  pattern: '\bmem::uninitialized\s*(?:::<[^>]*>)?\s*\(|\bmem::transmute\s*(?:::<[^>]*>)?\s*\(|\bfrom_raw_parts(?:_mut)?\s*\('
+  languages: [rust]
+  fix_guidance: >-
+    These are undefined behaviour unless every invariant holds (mem::uninitialized always
+    is). Prefer MaybeUninit, safe conversions (from_le_bytes, bytemuck::cast) and
+    Vec::with_capacity + push; keep each unsafe block small with a SAFETY: comment.
+  # Vec::set_len is left out: File::set_len (safe truncation) looks the same.
+
+- id: rust-tls-old-version
+  title: Old TLS versions allowed
+  severity: moderate
+  pattern: '\bmin_protocol_version\s*\(\s*Some\s*\(\s*(?:Protocol::)?(?:Tlsv10|Tlsv11|Sslv3)\b|SslVersion::(?:TLS1|TLS1_1|SSL3)\b|\.set_min_proto_version\s*\(\s*Some\s*\(\s*SslVersion::(?:TLS1|TLS1_1|SSL3)\b'
+  languages: [rust]
+  fix_guidance: >-
+    TLS 1.0 and 1.1 are deprecated and weak. Require TLS 1.2 or later (rustls only supports
+    1.2+ by default).
