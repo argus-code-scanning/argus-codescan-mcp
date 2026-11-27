@@ -65,10 +65,12 @@ RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/
     | sh -s -- -b /usr/local/bin
 
 # ── Gitleaks (multi-arch) ────────────────────────────────────────────────────
+# Pin version: api.github.com /releases/latest is often rate-limited in CI,
+# which yields an empty tag and a 404 tarball (gzip: unexpected end of file).
 
-RUN GITLEAKS_VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
-      | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/') \
-    && case "${TARGETARCH}" in \
+ARG GITLEAKS_VERSION=8.30.1
+
+RUN case "${TARGETARCH}" in \
          amd64) GITLEAKS_ARCH=x64 ;; \
          arm64) GITLEAKS_ARCH=arm64 ;; \
          *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -83,10 +85,11 @@ RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main
     | sh -s -- -b /usr/local/bin
 
 # ── Terrascan (multi-arch) ───────────────────────────────────────────────────
+# Pinned for the same GitHub API rate-limit reason as Gitleaks.
 
-RUN TERRASCAN_VERSION=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest \
-      | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/') \
-    && case "${TARGETARCH}" in \
+ARG TERRASCAN_VERSION=1.19.9
+
+RUN case "${TARGETARCH}" in \
          amd64) TERRASCAN_ARCH=x86_64 ;; \
          arm64) TERRASCAN_ARCH=arm64 ;; \
          *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -97,9 +100,9 @@ RUN TERRASCAN_VERSION=$(curl -s https://api.github.com/repos/tenable/terrascan/r
 
 # ── tfsec (multi-arch) ───────────────────────────────────────────────────────
 
-RUN TFSEC_VERSION=$(curl -s https://api.github.com/repos/aquasecurity/tfsec/releases/latest \
-      | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/') \
-    && case "${TARGETARCH}" in \
+ARG TFSEC_VERSION=1.28.14
+
+RUN case "${TARGETARCH}" in \
          amd64) TFSEC_ARCH=amd64 ;; \
          arm64) TFSEC_ARCH=arm64 ;; \
          *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -110,9 +113,9 @@ RUN TFSEC_VERSION=$(curl -s https://api.github.com/repos/aquasecurity/tfsec/rele
 
 # ── tflint (multi-arch) ──────────────────────────────────────────────────────
 
-RUN TFLINT_VERSION=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest \
-      | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/') \
-    && case "${TARGETARCH}" in \
+ARG TFLINT_VERSION=0.66.0
+
+RUN case "${TARGETARCH}" in \
          amd64) TFLINT_ARCH=amd64 ;; \
          arm64) TFLINT_ARCH=arm64 ;; \
          *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -140,9 +143,9 @@ RUN case "${TARGETARCH}" in \
 
 # ── Terraform (multi-arch) ───────────────────────────────────────────────────
 
-RUN TF_VERSION=$(curl -s https://api.github.com/repos/hashicorp/terraform/releases/latest \
-      | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/') \
-    && case "${TARGETARCH}" in \
+ARG TF_VERSION=1.17.2
+
+RUN case "${TARGETARCH}" in \
          amd64) TF_ARCH=amd64 ;; \
          arm64) TF_ARCH=arm64 ;; \
          *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
