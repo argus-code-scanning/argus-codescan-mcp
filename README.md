@@ -510,6 +510,7 @@ Pick the package that matches your project:
 | **React / Next.js / Node** | `npm install -D argus-codescan` | `npx argus-codescan scan all .` |
 | **Java, PHP, Flutter, Terraform, Ansible** | `pip install argus-languages` | `argus-languages scan /path/to/project` |
 | **Full suite (MCP, DAST, IaC tools)** | `pip install argus-scan` | `argus scan all /path/to/project` |
+| **macOS / Linux with Homebrew** | `brew install argus-code-scanning/tap/argus-scan` | `argus scan all /path/to/project` |
 
 ### React / Node (npm) — no Python required
 

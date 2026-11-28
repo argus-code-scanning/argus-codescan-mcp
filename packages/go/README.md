@@ -6,8 +6,10 @@ A single-binary Go CLI that locates and spawns the argus-scan Python MCP server.
 
 ### Homebrew (macOS/Linux)
 ```bash
-brew install GabrielOkiri/tap/argus
+brew install argus-code-scanning/tap/argus-scan
 ```
+
+Homebrew installs the full argus-scan CLI and MCP server (it brings its own Python), which is what this launcher starts anyway. Use the Go binary when you want a single file to drop into a container or CI image.
 
 ### Go install
 ```bash

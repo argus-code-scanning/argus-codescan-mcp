@@ -897,6 +897,16 @@ async def _dispatch_scan(
     return None
 
 
+# Built-in scans that read files. DAST takes a URL, container an image name, and plugin scans
+# decide for themselves.
+_PATH_SCANS = frozenset(
+    {
+        "sast", "code", "ml", "malware", "threats", "privacy", "pii", "pci", "vibe",
+        "sca", "secrets", "iac", "terraform", "ansible", "all",
+    }
+)  # fmt: skip
+
+
 async def _run_scan(args: argparse.Namespace) -> int:
     from argus.cloud_upload import ScanTimer, is_cloud_upload_enabled, upload_scan_report
     from argus.compare import compare_reports, report_from_new_findings_only
@@ -948,6 +958,10 @@ async def _run_scan(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     else:
+        # A path that doesn't exist must not come back as a clean scan ("100/100, looks good").
+        if scan_type in _PATH_SCANS and not Path(args.target).exists():
+            print(f"Target not found: {args.target}", file=sys.stderr)
+            return 2
         paths = [args.target]
         report_target = args.target
         print(f"Running {scan_type.upper()} scan on: {args.target}", file=sys.stderr)

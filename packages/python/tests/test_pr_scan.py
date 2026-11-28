@@ -272,3 +272,18 @@ def test_paths_file_scan_applies_argus_yml(tmp_path: Path, monkeypatch) -> None:
     data = json.loads(report.read_text(encoding="utf-8"))
     files = {f["file"] for r in data["results"] for f in r["findings"]}
     assert files == {"src/app/real.py"}
+
+
+def test_scan_of_a_missing_path_fails_instead_of_passing(tmp_path: Path, capsys) -> None:
+    """A typo in the path used to print "100/100, looks good to launch" and exit 0."""
+    missing = str(tmp_path / "no-such-folder")
+    for scan_type in ("vibe", "sast", "secrets", "all"):
+        assert main(["scan", scan_type, missing]) == 2
+        assert "Target not found" in capsys.readouterr().err
+
+
+def test_url_and_image_scans_are_not_path_checked(monkeypatch) -> None:
+    from argus import cli
+
+    assert "dast" not in cli._PATH_SCANS
+    assert "container" not in cli._PATH_SCANS
